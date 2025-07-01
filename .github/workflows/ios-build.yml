@@ -34,6 +34,11 @@ jobs:
       with:
         xcode-version: '15.0'
         
+    - name: Install CocoaPods dependencies
+      run: |
+        cd ios/App
+        pod install
+        
     - name: Import signing certificate
       run: |
         # Create temporary keychain
