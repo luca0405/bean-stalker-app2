@@ -229,6 +229,7 @@ Changelog:
   - Changed iOS project code signing from Automatic to Manual to properly use provisioning profiles
   - Fixed YAML syntax errors in workflow and simplified export options configuration
   - Added CocoaPods installation step to resolve "no such module 'Capacitor'" Swift compilation error
+  - Fixed iOS architecture compatibility: Updated Podfile to use arm64 for Release builds instead of x86_64
 ```
 
 ## User Preferences
