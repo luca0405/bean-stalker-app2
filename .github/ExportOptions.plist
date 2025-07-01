@@ -14,5 +14,10 @@
     <false/>
     <key>teamID</key>
     <string>YOUR_TEAM_ID</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.beanstalker.member</key>
+        <string>Beanstalker Membership App</string>
+    </dict>
 </dict>
 </plist>
