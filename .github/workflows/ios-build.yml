@@ -24,7 +24,7 @@ jobs:
       run: npm ci
       
     - name: Build web app
-      run: vite build
+      run: npx vite build
       
     - name: Setup Capacitor
       run: npx cap sync ios

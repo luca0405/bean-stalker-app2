@@ -32,7 +32,7 @@ jobs:
         
     - name: Build web app
       run: |
-        vite build
+        npx vite build
         echo "Web build completed"
         ls -la dist/public/ || echo "dist/public folder not found"
         ls -la dist/public/index.html || echo "index.html not found"
