@@ -54,10 +54,19 @@ jobs:
       run: |
         echo "${{ secrets.IOS_PROVISIONING_PROFILE }}" | base64 --decode > profile.mobileprovision
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-        cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+        
+        # Get the UUID from the provisioning profile
+        PROFILE_UUID=$(grep -A1 -a 'UUID' profile.mobileprovision | grep string | sed 's|.*<string>\(.*\)</string>.*|\1|')
+        echo "Profile UUID: $PROFILE_UUID"
+        
+        # Copy with UUID as filename
+        cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
         
         # List installed profiles for debugging
         ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+        
+        # Set the provisioning profile UUID for the build
+        echo "PROVISIONING_PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
         
     - name: Build iOS app
       run: |
@@ -68,18 +77,49 @@ jobs:
           -configuration Release \
           -archivePath App.xcarchive \
           -allowProvisioningUpdates \
-          CODE_SIGN_STYLE=Manual \
           DEVELOPMENT_TEAM="${{ secrets.TEAM_ID }}" \
+          CODE_SIGN_IDENTITY="iPhone Distribution" \
+          PROVISIONING_PROFILE_SPECIFIER="$PROVISIONING_PROFILE_UUID" \
           OTHER_CODE_SIGN_FLAGS="--keychain build.keychain"
           
     - name: Export IPA
       run: |
         cd ios/App
+        
+        # Update ExportOptions.plist with actual team ID and provisioning profile
+        sed -i '' "s/YOUR_TEAM_ID/${{ secrets.TEAM_ID }}/g" ../../.github/ExportOptions.plist
+        
+        # Add provisioning profile specifier to export options
+        cat > export_options_temp.plist << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+    <key>destination</key>
+    <string>upload</string>
+    <key>compileBitcode</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <true/>
+    <key>uploadBitcode</key>
+    <false/>
+    <key>teamID</key>
+    <string>${{ secrets.TEAM_ID }}</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.beanstalker.member</key>
+        <string>$PROVISIONING_PROFILE_UUID</string>
+    </dict>
+</dict>
+</plist>
+EOF
+        
         xcodebuild -exportArchive \
           -archivePath App.xcarchive \
           -exportPath Export \
-          -exportOptionsPlist ../../.github/ExportOptions.plist \
-          OTHER_CODE_SIGN_FLAGS="--keychain build.keychain"
+          -exportOptionsPlist export_options_temp.plist
           
     - name: Upload to TestFlight
       run: |
