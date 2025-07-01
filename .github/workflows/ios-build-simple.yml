@@ -32,9 +32,10 @@ jobs:
         
     - name: Build web app
       run: |
-        npm run build
+        vite build
         echo "Web build completed"
-        ls -la dist/ || echo "Dist folder not found"
+        ls -la dist/public/ || echo "dist/public folder not found"
+        ls -la dist/public/index.html || echo "index.html not found"
         
     - name: Setup Capacitor
       run: |
