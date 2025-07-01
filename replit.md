@@ -225,6 +225,7 @@ Changelog:
   - Resolved iOS code signing conflicts by using dedicated build action for certificate management
   - Fixed bundle ID mismatch: Updated iOS project from com.beanstalker.app to com.beanstalker.member
   - Enhanced certificate import process with explicit keychain management and debugging output
+  - Implemented dynamic provisioning profile UUID extraction and proper export configuration
 ```
 
 ## User Preferences
