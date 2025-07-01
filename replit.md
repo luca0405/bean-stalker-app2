@@ -222,6 +222,7 @@ Changelog:
   - Configured proper Xcode setup and certificate management for iOS builds
   - Fixed Capacitor web directory configuration to resolve build failures
   - Corrected GitHub Actions to use proper Vite build command for mobile builds
+  - Resolved iOS code signing conflicts by using dedicated build action for certificate management
 ```
 
 ## User Preferences
