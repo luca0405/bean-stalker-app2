@@ -228,6 +228,7 @@ Changelog:
   - Implemented dynamic provisioning profile UUID extraction and proper export configuration
   - Changed iOS project code signing from Automatic to Manual to properly use provisioning profiles
   - Fixed YAML syntax errors in workflow and simplified export options configuration
+  - Added CocoaPods installation step to resolve "no such module 'Capacitor'" Swift compilation error
 ```
 
 ## User Preferences
