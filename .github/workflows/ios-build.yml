@@ -41,11 +41,17 @@ jobs:
     - name: Install CocoaPods dependencies
       run: |
         cd ios/App
-        # Clean pod cache and reinstall with automatic signing for dependencies
+        # Complete clean rebuild of Pod configurations
         pod cache clean --all
         rm -rf Pods
         rm -f Podfile.lock
         pod install --repo-update
+        
+        # Force remove any provisioning profile references from Pods project
+        if [ -f "Pods/Pods.xcodeproj/project.pbxproj" ]; then
+          sed -i '' '/PROVISIONING_PROFILE/d' Pods/Pods.xcodeproj/project.pbxproj
+          sed -i '' '/3e5a5ece-8f82-46a0-bfaf-33bf272601ca/d' Pods/Pods.xcodeproj/project.pbxproj
+        fi
         
     - name: Verify iOS project settings
       run: |
