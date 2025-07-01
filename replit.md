@@ -230,6 +230,7 @@ Changelog:
   - Fixed YAML syntax errors in workflow and simplified export options configuration
   - Added CocoaPods installation step to resolve "no such module 'Capacitor'" Swift compilation error
   - Fixed iOS architecture compatibility: Updated Podfile to use arm64 for Release builds instead of x86_64
+  - Resolved CocoaPods code signing conflict: Pod targets now use automatic signing while App target uses manual
 ```
 
 ## User Preferences
