@@ -231,6 +231,7 @@ Changelog:
   - Added CocoaPods installation step to resolve "no such module 'Capacitor'" Swift compilation error
   - Fixed iOS architecture compatibility: Updated Podfile to use arm64 for Release builds instead of x86_64
   - Resolved CocoaPods code signing conflict: Pod targets now use automatic signing while App target uses manual
+  - Applied aggressive code signing isolation: Completely disabled signing for frameworks and automated cleanup
 ```
 
 ## User Preferences
