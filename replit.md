@@ -227,6 +227,7 @@ Changelog:
   - Enhanced certificate import process with explicit keychain management and debugging output
   - Implemented dynamic provisioning profile UUID extraction and proper export configuration
   - Changed iOS project code signing from Automatic to Manual to properly use provisioning profiles
+  - Fixed YAML syntax errors in workflow and simplified export options configuration
 ```
 
 ## User Preferences
