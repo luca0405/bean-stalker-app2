@@ -220,6 +220,8 @@ Changelog:
   - Created comprehensive setup documentation for Apple Developer certificates and provisioning
   - Updated workflow to use official Apple GitHub Actions for improved reliability
   - Configured proper Xcode setup and certificate management for iOS builds
+  - Fixed Capacitor web directory configuration to resolve build failures
+  - Corrected GitHub Actions to use proper Vite build command for mobile builds
 ```
 
 ## User Preferences
