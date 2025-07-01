@@ -232,7 +232,7 @@ Changelog:
   - Fixed iOS architecture compatibility: Updated Podfile to use arm64 for Release builds instead of x86_64
   - Resolved CocoaPods code signing conflict: Pod targets now use automatic signing while App target uses manual
   - Applied aggressive code signing isolation: Completely disabled signing for frameworks and automated cleanup
-  - Switched to automatic signing during build phase, manual signing only at export to eliminate provisioning conflicts
+  - Simplified iOS build to use minimal configuration overrides and rely on project settings to avoid conflicts
 ```
 
 ## User Preferences
