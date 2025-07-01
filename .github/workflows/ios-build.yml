@@ -111,17 +111,14 @@ jobs:
       run: |
         cd ios/App
         
-        # Build with automatic signing for everything during archive phase
+        # Simple build using workspace with minimal overrides
         xcodebuild clean archive \
           -workspace App.xcworkspace \
           -scheme App \
           -configuration Release \
-          -archivePath App.xcarchive \
           -destination 'generic/platform=iOS' \
-          -allowProvisioningUpdates \
-          CODE_SIGN_STYLE=Automatic \
-          DEVELOPMENT_TEAM="${{ secrets.TEAM_ID }}" \
-          OTHER_CODE_SIGN_FLAGS="--keychain build.keychain"
+          -archivePath App.xcarchive \
+          DEVELOPMENT_TEAM="${{ secrets.TEAM_ID }}"
           
     - name: Update Export Options
       run: |
