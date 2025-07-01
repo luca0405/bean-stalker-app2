@@ -41,11 +41,19 @@ jobs:
     - name: Install CocoaPods dependencies
       run: |
         cd ios/App
-        # Clean pod cache and reinstall for proper arm64 architecture
+        # Clean pod cache and reinstall with automatic signing for dependencies
         pod cache clean --all
         rm -rf Pods
-        rm Podfile.lock
-        pod install
+        rm -f Podfile.lock
+        pod install --repo-update
+        
+    - name: Verify iOS project settings
+      run: |
+        cd ios/App
+        echo "=== Checking main App target signing ==="
+        xcodebuild -project App.xcodeproj -target App -showBuildSettings | grep -E "(CODE_SIGN|PROVISIONING)"
+        echo "=== Checking Pods project signing ==="
+        xcodebuild -project Pods/Pods.xcodeproj -showBuildSettings | grep -E "(CODE_SIGN|PROVISIONING)" | head -10
         
     - name: Import signing certificate
       run: |
