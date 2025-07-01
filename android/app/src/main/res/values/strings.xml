@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bean Stalker</string>
+    <string name="title_activity_main">Bean Stalker</string>
+    <string name="package_name">com.beanstalker.app</string>
+    <string name="custom_url_scheme">com.beanstalker.app</string>
+</resources>
