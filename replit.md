@@ -218,6 +218,8 @@ Changelog:
   - Configured bundle ID as com.beanstalker.member to match App Store Connect setup
   - Eliminated local Xcode compilation issues with cloud-based builds
   - Created comprehensive setup documentation for Apple Developer certificates and provisioning
+  - Updated workflow to use official Apple GitHub Actions for improved reliability
+  - Configured proper Xcode setup and certificate management for iOS builds
 ```
 
 ## User Preferences
