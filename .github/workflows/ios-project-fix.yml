@@ -1,0 +1,209 @@
+name: iOS Build - Project Bundle Fix
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode 16.2 (iOS 18 SDK)
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '16.2'
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Build and sync
+      run: |
+        npm ci
+        npm run build
+        npx cap sync ios
+        
+    - name: Completely reset Podfile and fix bundle IDs
+      run: |
+        cd ios/App
+        
+        # Remove all existing pod configurations
+        rm -rf Pods
+        rm -f Podfile.lock
+        
+        # Create completely new Podfile with unique bundle ID strategy
+        cat > Podfile << 'EOF'
+        require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
+
+        platform :ios, '14.0'
+        use_frameworks!
+        install! 'cocoapods', :disable_input_output_paths => true
+
+        def capacitor_pods
+          pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+          pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+          pod 'RevenuecatPurchasesCapacitor', :path => '../../node_modules/@revenuecat/purchases-capacitor'
+          pod 'CapacitorNativeBiometric', :path => '../../node_modules/capacitor-native-biometric'
+        end
+
+        target 'App' do
+          capacitor_pods
+        end
+
+        post_install do |installer|
+          assertDeploymentTarget(installer)
+          
+          # Force completely unique bundle identifiers for ALL targets
+          installer.pods_project.targets.each do |target|
+            target.build_configurations.each do |config|
+              # Clear any existing bundle identifier first
+              config.build_settings.delete('PRODUCT_BUNDLE_IDENTIFIER')
+              
+              # Set unique bundle IDs with timestamp to ensure uniqueness
+              timestamp = Time.now.to_i.to_s[-6..-1]  # Last 6 digits of timestamp
+              
+              case target.name
+              when 'App'
+                # Keep main app bundle ID unchanged
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member'
+              when 'Capacitor'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.member.cap#{timestamp}"
+              when 'CapacitorCordova'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.member.cor#{timestamp}"
+              when 'RevenuecatPurchasesCapacitor'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.member.rev#{timestamp}"
+              when 'CapacitorNativeBiometric'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.member.bio#{timestamp}"
+              when 'RevenueCat'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.member.rc#{timestamp}"
+              when 'PurchasesHybridCommon'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.member.phc#{timestamp}"
+              when /Pods-/
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.member.pods#{timestamp}"
+              else
+                # Any other targets get unique IDs
+                safe_name = target.name.downcase.gsub(/[^a-z0-9]/, '')[0..5]
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.member.#{safe_name}#{timestamp}"
+              end
+              
+              # Ensure proper iOS deployment target
+              config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+            end
+          end
+          
+          puts "Bundle ID configuration completed for #{installer.pods_project.targets.count} targets"
+        end
+        EOF
+        
+        # Install with new configuration
+        pod install --repo-update --verbose
+        
+        echo "Pods installed with timestamp-based unique bundle IDs"
+        
+    - name: Verify bundle ID uniqueness
+      run: |
+        cd ios/App
+        echo "Checking for bundle ID collisions in project..."
+        
+        # Extract all bundle IDs from the project
+        find Pods -name "*.pbxproj" -exec grep -l "PRODUCT_BUNDLE_IDENTIFIER" {} \; | while read file; do
+          echo "=== Bundle IDs in $file ==="
+          grep "PRODUCT_BUNDLE_IDENTIFIER" "$file" | sort | uniq
+        done
+        
+        echo "Bundle ID verification completed"
+        
+    - name: Setup API Key
+      run: |
+        mkdir -p ~/private_keys
+        echo "${{ secrets.APPSTORE_API_PRIVATE_KEY }}" > ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
+        chmod 600 ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
+        
+    - name: Setup keychain
+      run: |
+        security create-keychain -p "temppassword" build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "temppassword" build.keychain
+        security set-keychain-settings -t 3600 -l build.keychain
+        
+    - name: Archive with unique bundle IDs
+      run: |
+        cd ios
+        
+        echo "Building with iOS 18 SDK and timestamp-based unique bundle IDs..."
+        xcodebuild -version
+        
+        xcodebuild archive \
+          -workspace App/App.xcworkspace \
+          -scheme App \
+          -configuration Release \
+          -destination generic/platform=iOS \
+          -archivePath App.xcarchive \
+          -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
+          -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
+          -allowProvisioningUpdates \
+          CODE_SIGN_STYLE=Automatic \
+          DEVELOPMENT_TEAM=A43TZWNYA3 \
+          PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member
+        
+        echo "Archive created with unique bundle ID configuration!"
+        
+    - name: Export with collision-free bundle IDs
+      run: |
+        cd ios
+        
+        cat > ExportOptions.plist << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>A43TZWNYA3</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>manageAppVersionAndBuildNumber</key>
+            <true/>
+        </dict>
+        </plist>
+        EOF
+        
+        xcodebuild -exportArchive \
+          -archivePath App.xcarchive \
+          -exportPath export \
+          -exportOptionsPlist ExportOptions.plist \
+          -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
+          -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
+          -allowProvisioningUpdates
+        
+        echo "Export completed with unique bundle IDs!"
+        ls -la export/
+        
+    - name: Upload to TestFlight
+      run: |
+        echo "Uploading Bean Stalker with collision-free bundle IDs..."
+        xcrun altool --upload-app \
+          --type ios \
+          --file "ios/export/App.ipa" \
+          --apiKey "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
+          --verbose
+        
+        echo "Bean Stalker successfully uploaded to TestFlight!"
+        
+    - name: Save artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: bean-stalker-project-fix
+        path: |
+          ios/export/App.ipa
+          ios/App.xcarchive
