@@ -61,14 +61,22 @@ jobs:
       run: |
         echo "${{ secrets.IOS_PROVISIONING_PROFILE }}" | base64 --decode > ~/profile.mobileprovision
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-        cp ~/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-        # Get the actual profile name from the file
+        # Get UUID and name from profile
+        PROFILE_UUID=$(grep -A1 '<key>UUID</key>' ~/profile.mobileprovision | grep '<string>' | sed 's/<[^>]*>//g' | xargs)
         PROFILE_NAME=$(grep -A1 '<key>Name</key>' ~/profile.mobileprovision | grep '<string>' | sed 's/<[^>]*>//g' | xargs)
+        # Install with UUID as filename
+        cp ~/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
         echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
+        echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
+        echo "Installed profile: $PROFILE_NAME with UUID: $PROFILE_UUID"
         
     - name: Build iOS Archive
       working-directory: ios/App
       run: |
+        # Set provisioning profile in project
+        sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' App.xcodeproj/project.pbxproj
+        sed -i '' "s/DEVELOPMENT_TEAM = A43TZWNYA3;/DEVELOPMENT_TEAM = A43TZWNYA3;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/g" App.xcodeproj/project.pbxproj
+        
         xcodebuild archive \
           -workspace App.xcworkspace \
           -scheme App \
