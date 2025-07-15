@@ -16,10 +16,9 @@
     <false/>
     <key>teamID</key>
     <string>A43TZWNYA3</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>com.beanstalker.member</key>
-        <string>Bean Stalker Distribution</string>
-    </dict>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>iPhone Distribution</string>
 </dict>
 </plist>

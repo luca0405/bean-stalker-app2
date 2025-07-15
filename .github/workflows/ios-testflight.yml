@@ -57,14 +57,14 @@ jobs:
         p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT }}
         p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
         
-    - name: Import Provisioning Profile
-      uses: apple-actions/download-provisioning-profiles@v3
-      with:
-        bundle-id: com.beanstalker.member
-        profile-type: IOS_APP_STORE
-        issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-        api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
-        api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+    - name: Install Provisioning Profile
+      run: |
+        echo "${{ secrets.IOS_PROVISIONING_PROFILE }}" | base64 --decode > ~/profile.mobileprovision
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        cp ~/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+        # Get the actual profile name from the file
+        PROFILE_NAME=$(grep -A1 '<key>Name</key>' ~/profile.mobileprovision | grep '<string>' | sed 's/<[^>]*>//g' | xargs)
+        echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
         
     - name: Build iOS Archive
       working-directory: ios/App
@@ -75,10 +75,10 @@ jobs:
           -destination "generic/platform=iOS" \
           -archivePath build.xcarchive \
           -configuration Release \
-          CODE_SIGN_STYLE=Automatic \
+          CODE_SIGN_STYLE=Manual \
           DEVELOPMENT_TEAM=A43TZWNYA3 \
           PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
-          -allowProvisioningUpdates
+          PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME"
           
     - name: Export IPA
       working-directory: ios/App
