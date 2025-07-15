@@ -368,6 +368,13 @@ Changelog:
   - Fixed iOS project code signing from Automatic to Manual for proper provisioning profile handling
   - Enhanced GitHub Actions workflow with dynamic provisioning profile UUID detection
   - Bean Stalker iOS app now configured for both Xcode Cloud and GitHub Actions TestFlight distribution
+- July 15, 2025. Fixed CocoaPods provisioning profile inheritance issue
+  - Resolved critical build error where CocoaPods targets were inheriting provisioning profile settings
+  - Changed iOS project back to automatic code signing to prevent CocoaPods conflicts
+  - Enhanced GitHub Actions workflow with proper provisioning profile installation and debugging
+  - Fixed "Capacitor does not support provisioning profiles" error affecting all Pod targets
+  - Streamlined build process using automatic signing with allowProvisioningUpdates flag
+  - GitHub Actions workflow now properly handles provisioning profiles without affecting CocoaPods dependencies
 ```
 
 ## User Preferences

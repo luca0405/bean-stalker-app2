@@ -92,12 +92,8 @@ jobs:
         echo "Using Profile Name: $PROFILE_NAME"
         echo "Using Profile UUID: $PROFILE_UUID"
         
-        # Set up manual signing with proper provisioning profile
-        sed -i '' "s/PROVISIONING_PROFILE_SPECIFIER = \"\";/PROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/g" App.xcodeproj/project.pbxproj
-        
-        # Debug: Show project settings
-        echo "=== Project settings after modification ==="
-        grep -A3 -B3 "PROVISIONING_PROFILE_SPECIFIER" App.xcodeproj/project.pbxproj
+        # Use automatic signing with installed provisioning profile
+        # This prevents CocoaPods from inheriting manual signing settings
         
         xcodebuild archive \
           -workspace App.xcworkspace \
@@ -105,10 +101,8 @@ jobs:
           -destination "generic/platform=iOS" \
           -archivePath build.xcarchive \
           -configuration Release \
-          CODE_SIGN_IDENTITY="iPhone Distribution" \
-          CODE_SIGN_STYLE=Manual \
-          DEVELOPMENT_TEAM=A43TZWNYA3 \
-          PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME"
+          -allowProvisioningUpdates \
+          DEVELOPMENT_TEAM=A43TZWNYA3
           
     - name: Export IPA
       working-directory: ios/App
