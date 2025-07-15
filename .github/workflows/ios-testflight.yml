@@ -61,11 +61,22 @@ jobs:
       run: |
         echo "${{ secrets.IOS_PROVISIONING_PROFILE }}" | base64 --decode > ~/profile.mobileprovision
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        
+        # Debug: Check profile content
+        echo "=== Profile content check ==="
+        security cms -D -i ~/profile.mobileprovision | grep -A5 "application-identifier" || echo "Failed to read profile"
+        
         # Get UUID and name from profile
-        PROFILE_UUID=$(grep -A1 '<key>UUID</key>' ~/profile.mobileprovision | grep '<string>' | sed 's/<[^>]*>//g' | xargs)
-        PROFILE_NAME=$(grep -A1 '<key>Name</key>' ~/profile.mobileprovision | grep '<string>' | sed 's/<[^>]*>//g' | xargs)
+        PROFILE_UUID=$(security cms -D -i ~/profile.mobileprovision | grep -A1 '<key>UUID</key>' | grep '<string>' | sed 's/<[^>]*>//g' | xargs)
+        PROFILE_NAME=$(security cms -D -i ~/profile.mobileprovision | grep -A1 '<key>Name</key>' | grep '<string>' | sed 's/<[^>]*>//g' | xargs)
+        
         # Install with UUID as filename
         cp ~/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
+        
+        # Verify installation
+        echo "=== Installed profiles ==="
+        ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+        
         echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
         echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
         echo "Installed profile: $PROFILE_NAME with UUID: $PROFILE_UUID"
@@ -73,9 +84,16 @@ jobs:
     - name: Build iOS Archive
       working-directory: ios/App
       run: |
-        # Set provisioning profile in project
-        sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' App.xcodeproj/project.pbxproj
-        sed -i '' "s/DEVELOPMENT_TEAM = A43TZWNYA3;/DEVELOPMENT_TEAM = A43TZWNYA3;\n\t\t\t\tPROVISIONING_PROFILE_SPECIFIER = \"$PROFILE_NAME\";/g" App.xcodeproj/project.pbxproj
+        # Debug: Show available profiles
+        echo "=== Available provisioning profiles ==="
+        ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+        
+        # Debug: Show what we're trying to use
+        echo "Using Profile Name: $PROFILE_NAME"
+        echo "Using Profile UUID: $PROFILE_UUID"
+        
+        # Try automatic signing instead of manual
+        sed -i '' "s/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g" App.xcodeproj/project.pbxproj
         
         xcodebuild archive \
           -workspace App.xcworkspace \
@@ -83,10 +101,8 @@ jobs:
           -destination "generic/platform=iOS" \
           -archivePath build.xcarchive \
           -configuration Release \
-          CODE_SIGN_STYLE=Manual \
-          DEVELOPMENT_TEAM=A43TZWNYA3 \
-          PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
-          PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME"
+          -allowProvisioningUpdates \
+          DEVELOPMENT_TEAM=A43TZWNYA3
           
     - name: Export IPA
       working-directory: ios/App
