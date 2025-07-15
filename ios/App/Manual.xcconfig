@@ -1,5 +1,3 @@
-// Manual code signing configuration for CI/CD
-CODE_SIGN_STYLE = Manual
-CODE_SIGN_IDENTITY = iPhone Distribution
+// Automatic signing configuration for CI/CD
 DEVELOPMENT_TEAM = A43TZWNYA3
 PRODUCT_BUNDLE_IDENTIFIER = com.beanstalker.member

@@ -89,18 +89,19 @@ jobs:
         echo "Using Profile UUID: $PROFILE_UUID"
         echo "Using Certificate: $CERT_NAME"
         
-        # Build with explicit manual signing
+        # Keep everything automatic but override signing at build time
+        # This prevents Pods from inheriting manual signing settings
+        
         xcodebuild clean archive \
           -workspace App.xcworkspace \
           -scheme App \
           -destination "generic/platform=iOS" \
           -archivePath build.xcarchive \
           -configuration Release \
-          CODE_SIGN_STYLE=Manual \
-          CODE_SIGN_IDENTITY="$CERT_NAME" \
+          -allowProvisioningUpdates \
+          -allowProvisioningDeviceRegistration \
           DEVELOPMENT_TEAM=A43TZWNYA3 \
-          PROVISIONING_PROFILE="$PROFILE_UUID" \
-          -xcconfig Manual.xcconfig
+          PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member
           
     - name: Export IPA
       working-directory: ios/App
