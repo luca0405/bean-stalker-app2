@@ -1,4 +1,4 @@
-name: iOS Build - Bundle ID Fixed
+name: iOS Build - Final Bundle ID Fix
 on:
   workflow_dispatch:
 
@@ -28,16 +28,69 @@ jobs:
     - name: Sync Capacitor
       run: npx cap sync ios
       
-    - name: Reinstall pods with bundle ID fixes
+    - name: Fix bundle ID collisions comprehensively
       run: |
         cd ios/App
-        echo "Reinstalling CocoaPods with bundle ID collision fixes..."
+        echo "Fixing all bundle ID collisions..."
         
-        # Clean existing pods
+        # Clean existing pods completely
         rm -rf Pods
         rm -f Podfile.lock
         
-        # Install with the updated Podfile that has bundle ID fixes
+        # Update Podfile with comprehensive bundle ID fixes
+        cat > Podfile << 'EOF'
+        require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
+
+        platform :ios, '14.0'
+        use_frameworks!
+
+        install! 'cocoapods', :disable_input_output_paths => true
+
+        def capacitor_pods
+          pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+          pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+          pod 'RevenuecatPurchasesCapacitor', :path => '../../node_modules/@revenuecat/purchases-capacitor'
+          pod 'CapacitorNativeBiometric', :path => '../../node_modules/capacitor-native-biometric'
+        end
+
+        target 'App' do
+          capacitor_pods
+        end
+
+        post_install do |installer|
+          assertDeploymentTarget(installer)
+          
+          # Fix all bundle identifier collisions
+          installer.pods_project.targets.each do |target|
+            target.build_configurations.each do |config|
+              # Ensure no pods use the main app's bundle ID
+              config.build_settings.delete('PRODUCT_BUNDLE_IDENTIFIER')
+              
+              # Set unique bundle IDs based on target names
+              case target.name
+              when 'Capacitor'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.capacitor-framework'
+              when 'CapacitorCordova'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.cordova-framework'
+              when 'RevenuecatPurchasesCapacitor'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.revenuecat-framework'
+              when 'CapacitorNativeBiometric'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.biometric-framework'
+              when 'Pods-App'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.pods-target'
+              else
+                # For any other pods, create unique identifiers
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.member.#{target.name.downcase.gsub(/[^a-z0-9]/, '-')}"
+              end
+              
+              # Ensure frameworks don't conflict
+              config.build_settings['DEFINES_MODULE'] = 'NO' if target.name != 'App'
+            end
+          end
+        end
+        EOF
+        
+        # Install pods with fixed bundle IDs
         pod install --repo-update
         
         echo "CocoaPods installed with unique bundle identifiers!"
@@ -56,21 +109,21 @@ jobs:
         security unlock-keychain -p "temppassword" build.keychain
         security set-keychain-settings -t 3600 -l build.keychain
         
-    - name: Build with iOS 18 SDK and fixed bundle IDs
+    - name: Build with comprehensive bundle ID fixes
       run: |
         cd ios
         
-        echo "Building with Xcode 16.2, iOS 18 SDK, and fixed bundle identifiers..."
+        echo "Building with comprehensive bundle ID collision fixes..."
         echo "Current Xcode version:"
         xcodebuild -version
         
-        # Clean project first
+        # Clean project completely
         xcodebuild clean \
           -workspace App/App.xcworkspace \
           -scheme App \
           -configuration Release
         
-        # Build with fixed bundle IDs and iOS 18 SDK
+        # Build with strict bundle ID control
         xcodebuild \
           -workspace App/App.xcworkspace \
           -scheme App \
@@ -88,12 +141,15 @@ jobs:
           DEVELOPMENT_TEAM=A43TZWNYA3 \
           PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
           IPHONEOS_DEPLOYMENT_TARGET=14.0 \
+          ONLY_ACTIVE_ARCH=NO \
+          ARCHS="arm64" \
+          "OTHER_CODE_SIGN_FLAGS=--generate-entitlement-der" \
           archive
           
-        echo "Archive created successfully with iOS 18 SDK and fixed bundle IDs!"
+        echo "Archive created successfully with fixed bundle IDs!"
         ls -la App.xcarchive/
         
-    - name: Export for App Store with collision resolution
+    - name: Export with strict bundle ID validation
       run: |
         cd ios
         
@@ -118,6 +174,10 @@ jobs:
             <true/>
             <key>stripSwiftSymbols</key>
             <true/>
+            <key>compileBitcode</key>
+            <false/>
+            <key>thinning</key>
+            <string>&lt;none&gt;</string>
         </dict>
         </plist>
         EOF
@@ -132,12 +192,12 @@ jobs:
           -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
           -allowProvisioningUpdates
           
-        echo "Export completed with iOS 18 SDK and fixed bundle IDs!"
+        echo "Export completed with bundle ID collision fixes!"
         ls -la export/
         
-    - name: Validate app with bundle ID fixes
+    - name: Final validation check
       run: |
-        echo "Validating Bean Stalker app with bundle ID collision fixes..."
+        echo "Final validation of Bean Stalker app..."
         xcrun altool \
           --validate-app \
           --type ios \
@@ -148,7 +208,7 @@ jobs:
         
     - name: Upload to TestFlight
       run: |
-        echo "Uploading Bean Stalker to TestFlight with iOS 18 SDK and fixed bundle IDs..."
+        echo "Uploading Bean Stalker to TestFlight with all fixes applied..."
         xcrun altool \
           --upload-app \
           --type ios \
@@ -162,7 +222,7 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: bean-stalker-ios-bundle-fixed
+        name: bean-stalker-ios-final-success
         path: |
           ios/export/App.ipa
           ios/App.xcarchive
