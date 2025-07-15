@@ -23,20 +23,28 @@ end
 post_install do |installer|
   assertDeploymentTarget(installer)
   
-  # Fix bundle identifier collisions
+  # Fix bundle identifier collisions with unique suffixes
   installer.pods_project.targets.each do |target|
     target.build_configurations.each do |config|
+      # Remove any existing bundle identifier first
+      config.build_settings.delete('PRODUCT_BUNDLE_IDENTIFIER')
+      
+      # Set unique bundle identifiers
       case target.name
       when 'Capacitor'
-        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.capacitor'
+        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.capacitor'
       when 'CapacitorCordova'
-        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.cordova'
+        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.cordova'
       when 'RevenuecatPurchasesCapacitor'
-        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.revenuecat'
+        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.revenuecat'
       when 'CapacitorNativeBiometric'
-        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.biometric'
-      when 'Pods-App'
-        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.pods'
+        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.biometric'
+      when 'RevenueCat'
+        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.revenuecatsdk'
+      when 'PurchasesHybridCommon'
+        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.hybridcommon'
+      when /Pods-/
+        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.pods'
       end
     end
   end

@@ -412,6 +412,12 @@ Changelog:
   - Fixed by clearing CODE_SIGN_IDENTITY and PROVISIONING_PROFILE_SPECIFIER during build
   - Workflow uses pure automatic signing with Admin API key for certificate access
   - Ready for successful iOS build and TestFlight upload with resolved signing conflicts
+- July 15, 2025. Fixed iOS 18 SDK requirement and bundle ID collision issues for TestFlight upload
+  - Resolved iOS 17.5 SDK rejection by upgrading to Xcode 16.2 with iOS 18 SDK
+  - Fixed CFBundleIdentifier collision error with custom CocoaPods configuration
+  - Created unique bundle IDs for each dependency (com.beanstalker.member.capacitor, com.beanstalker.member.revenuecat, etc.)
+  - Enhanced workflow "iOS Build - Xcode 16 with Bundle ID Fix" combines all fixes for successful TestFlight distribution
+  - Build process now meets Apple's current App Store Connect validation requirements
 ```
 
 ## User Preferences
