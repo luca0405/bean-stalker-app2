@@ -34,6 +34,10 @@ CERTIFICATES_P12: Base64 encoded .p12 certificate file
 CERTIFICATES_PASSWORD: Password for the .p12 file
 ```
 
+### Current Status: Missing Required Secrets ⚠️
+
+Your GitHub Actions build failed because the required secrets are not configured. You need to add these 5 secrets to proceed.
+
 ### How to Get These Values
 
 #### App Store Connect API (Required)
