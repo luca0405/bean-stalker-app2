@@ -1,4 +1,4 @@
-name: iOS Build - Simple Xcode 16 Fix
+name: iOS Build - Bundle ID Fixed
 on:
   workflow_dispatch:
 
@@ -8,7 +8,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Setup Latest Xcode
+    - name: Setup Latest Xcode (iOS 18 SDK)
       uses: maxim-lobanov/setup-xcode@v1
       with:
         xcode-version: '16.2'
@@ -25,9 +25,23 @@ jobs:
     - name: Build web app
       run: npm run build
       
-    - name: Sync Capacitor (generates fresh Podfile)
+    - name: Sync Capacitor
       run: npx cap sync ios
       
+    - name: Reinstall pods with bundle ID fixes
+      run: |
+        cd ios/App
+        echo "Reinstalling CocoaPods with bundle ID collision fixes..."
+        
+        # Clean existing pods
+        rm -rf Pods
+        rm -f Podfile.lock
+        
+        # Install with the updated Podfile that has bundle ID fixes
+        pod install --repo-update
+        
+        echo "CocoaPods installed with unique bundle identifiers!"
+        
     - name: Setup Admin API Key
       run: |
         mkdir -p ~/private_keys
@@ -42,33 +56,13 @@ jobs:
         security unlock-keychain -p "temppassword" build.keychain
         security set-keychain-settings -t 3600 -l build.keychain
         
-    - name: Install CocoaPods dependencies
-      run: |
-        cd ios/App
-        echo "Installing CocoaPods with fresh Podfile from Capacitor..."
-        pod install --repo-update
-        
-    - name: Fix bundle ID conflicts in project settings
+    - name: Build with iOS 18 SDK and fixed bundle IDs
       run: |
         cd ios
         
-        echo "Fixing bundle ID conflicts by modifying project build settings..."
-        
-        # Use xcodebuild to set unique bundle IDs for all targets
-        xcodebuild \
-          -workspace App/App.xcworkspace \
-          -list
-          
-        echo "Setting unique bundle identifiers for CocoaPods targets..."
-        
-        # The key is to not modify the main app's bundle ID, just the pods
-        # Xcode will handle this automatically if we use proper export options
-        
-    - name: Build with Xcode 16 and iOS 18 SDK
-      run: |
-        cd ios
-        
-        echo "Building with Xcode 16.2 and iOS 18 SDK..."
+        echo "Building with Xcode 16.2, iOS 18 SDK, and fixed bundle identifiers..."
+        echo "Current Xcode version:"
+        xcodebuild -version
         
         # Clean project first
         xcodebuild clean \
@@ -76,7 +70,7 @@ jobs:
           -scheme App \
           -configuration Release
         
-        # Build with iOS 18 SDK and corrected signing settings
+        # Build with fixed bundle IDs and iOS 18 SDK
         xcodebuild \
           -workspace App/App.xcworkspace \
           -scheme App \
@@ -96,14 +90,13 @@ jobs:
           IPHONEOS_DEPLOYMENT_TARGET=14.0 \
           archive
           
-        echo "Archive created successfully with iOS 18 SDK!"
+        echo "Archive created successfully with iOS 18 SDK and fixed bundle IDs!"
         ls -la App.xcarchive/
         
-    - name: Export for App Store with bundle ID fix
+    - name: Export for App Store with collision resolution
       run: |
         cd ios
         
-        # Create export options that handles bundle ID conflicts automatically
         cat > ExportOptions.plist << 'EOF'
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -123,8 +116,8 @@ jobs:
             <true/>
             <key>generateAppStoreInformation</key>
             <true/>
-            <key>destination</key>
-            <string>upload</string>
+            <key>stripSwiftSymbols</key>
+            <true/>
         </dict>
         </plist>
         EOF
@@ -139,12 +132,23 @@ jobs:
           -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
           -allowProvisioningUpdates
           
-        echo "Export completed with iOS 18 SDK and automatic bundle ID handling!"
+        echo "Export completed with iOS 18 SDK and fixed bundle IDs!"
         ls -la export/
         
-    - name: Upload to TestFlight with new SDK
+    - name: Validate app with bundle ID fixes
       run: |
-        echo "Uploading to TestFlight with iOS 18 SDK build..."
+        echo "Validating Bean Stalker app with bundle ID collision fixes..."
+        xcrun altool \
+          --validate-app \
+          --type ios \
+          --file "ios/export/App.ipa" \
+          --apiKey "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
+          --verbose
+        
+    - name: Upload to TestFlight
+      run: |
+        echo "Uploading Bean Stalker to TestFlight with iOS 18 SDK and fixed bundle IDs..."
         xcrun altool \
           --upload-app \
           --type ios \
@@ -153,12 +157,12 @@ jobs:
           --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
           --verbose
           
-        echo "Bean Stalker successfully uploaded to TestFlight with iOS 18 SDK!"
+        echo "Bean Stalker successfully uploaded to TestFlight!"
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: bean-stalker-ios-simple-final
+        name: bean-stalker-ios-bundle-fixed
         path: |
           ios/export/App.ipa
           ios/App.xcarchive
