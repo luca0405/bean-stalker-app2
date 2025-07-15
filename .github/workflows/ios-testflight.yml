@@ -75,9 +75,10 @@ jobs:
           -destination "generic/platform=iOS" \
           -archivePath build.xcarchive \
           -configuration Release \
-          CODE_SIGN_STYLE=Manual \
+          CODE_SIGN_STYLE=Automatic \
           DEVELOPMENT_TEAM=A43TZWNYA3 \
-          PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member
+          PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
+          -allowProvisioningUpdates
           
     - name: Export IPA
       working-directory: ios/App

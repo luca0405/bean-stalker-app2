@@ -362,6 +362,8 @@ Changelog:
   - Created streamlined 3-step build process with enhanced error recovery
   - Added GitHub Actions workflow for even faster builds (15-25 minutes)
   - GitHub Actions provides better control, debugging, and cost efficiency
+  - Fixed bundle ID mismatch confirming persistent bundle ID issue
+  - Archive build failed due to provisioning profile mismatch confirming persistent bundle ID issue
   - Bean Stalker iOS app now configured for both Xcode Cloud and GitHub Actions TestFlight distribution
 ```
 
