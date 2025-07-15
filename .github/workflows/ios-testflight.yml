@@ -1,4 +1,4 @@
-name: iOS TestFlight with Fastlane
+name: iOS TestFlight (Fastlane)
 
 on:
   push:
@@ -31,89 +31,87 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '3.1'
-        bundler-cache: true
-        working-directory: ios/App
+        ruby-version: '3.2'
         
-    - name: Create Fastlane Gemfile
-      working-directory: ios/App
+    - name: Install Fastlane
       run: |
-        cat > Gemfile << EOF
-        source "https://rubygems.org"
-        gem "fastlane"
-        EOF
-        bundle install
+        gem install fastlane
+        
+    - name: Create Keychain and Install Certificates
+      run: |
+        # Create temporary keychain
+        security create-keychain -p temp_password temp_keychain
+        security default-keychain -s temp_keychain
+        security unlock-keychain -p temp_password temp_keychain
+        security set-keychain-settings -t 3600 -l temp_keychain
+        
+        # Install distribution certificate
+        echo "${{ secrets.IOS_DISTRIBUTION_CERT }}" | base64 --decode > dist_cert.p12
+        security import dist_cert.p12 -k temp_keychain -P "${{ secrets.IOS_CERT_PASSWORD }}" -T /usr/bin/codesign
+        security set-key-partition-list -S apple-tool:,apple: -s -k temp_password temp_keychain
+        
+        # Install provisioning profile
+        echo "${{ secrets.IOS_PROVISIONING_PROFILE }}" | base64 --decode > profile.mobileprovision
+        mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+        PROFILE_UUID=$(security cms -D -i profile.mobileprovision -o /dev/stdout | plutil -extract UUID raw -)
+        cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
+        
+        # Get profile name
+        PROFILE_NAME=$(security cms -D -i profile.mobileprovision -o /dev/stdout | plutil -extract Name raw -)
+        echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
         
     - name: Create Fastlane Configuration
       working-directory: ios/App
       run: |
         mkdir -p fastlane
-        
         cat > fastlane/Fastfile << 'EOF'
         default_platform(:ios)
-
+        
         platform :ios do
           desc "Build and upload to TestFlight"
-          lane :testflight do
-            # Import certificate
-            import_certificate(
-              certificate_path: "dist_cert.p12",
-              certificate_password: ENV["IOS_CERT_PASSWORD"],
-              keychain_name: "login.keychain",
-              keychain_password: ""
+          lane :deploy do
+            update_project_team(
+              path: "App.xcodeproj",
+              teamid: "A43TZWNYA3"
             )
             
-            # Install provisioning profile
-            install_provisioning_profile(path: "profile.mobileprovision")
-            
-            # Update project settings
-            update_project_provisioning(
-              xcodeproj: "App.xcodeproj",
-              target_filter: "App",
-              profile: "profile.mobileprovision",
-              build_configuration: "Release"
-            )
-            
-            # Build archive
             build_app(
               workspace: "App.xcworkspace",
               scheme: "App",
               configuration: "Release",
               export_method: "app-store",
               export_options: {
-                teamID: "A43TZWNYA3",
                 method: "app-store",
-                uploadBitcode: false,
-                uploadSymbols: true,
-                compileBitcode: false
+                teamID: "A43TZWNYA3",
+                signingStyle: "automatic",
+                provisioningProfiles: {
+                  "com.beanstalker.member" => ENV["PROFILE_NAME"]
+                }
               }
             )
             
-            # Upload to TestFlight
             upload_to_testflight(
-              api_key_path: "AuthKey.p8",
+              api_key_path: "api_key.json",
               skip_waiting_for_build_processing: true
             )
           end
         end
         EOF
         
-    - name: Setup Certificates and Profiles
+    - name: Create App Store Connect API Key
       working-directory: ios/App
       run: |
-        # Decode certificate
-        echo "${{ secrets.IOS_DISTRIBUTION_CERT }}" | base64 --decode > dist_cert.p12
-        
-        # Decode provisioning profile
-        echo "${{ secrets.IOS_PROVISIONING_PROFILE }}" | base64 --decode > profile.mobileprovision
-        
-        # Create API key file
-        echo "${{ secrets.APPSTORE_PRIVATE_KEY }}" > AuthKey.p8
+        cat > api_key.json << EOF
+        {
+          "key_id": "${{ secrets.APPSTORE_KEY_ID }}",
+          "issuer_id": "${{ secrets.APPSTORE_ISSUER_ID }}",
+          "key": "${{ secrets.APPSTORE_PRIVATE_KEY }}",
+          "duration": 1200,
+          "in_house": false
+        }
+        EOF
         
     - name: Run Fastlane
       working-directory: ios/App
-      env:
-        IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
-        FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.APPSTORE_PRIVATE_KEY }}
-        FASTLANE_SESSION: ${{ secrets.FASTLANE_SESSION }}
-      run: bundle exec fastlane testflight
+      run: |
+        fastlane deploy
