@@ -52,19 +52,21 @@ jobs:
         pod install --silent || pod install --verbose
         
     - name: Import Code Signing Certificates
+      if: ${{ secrets.IOS_DISTRIBUTION_CERT != '' }}
       uses: apple-actions/import-codesign-certs@v3
       with:
-        p12-file-base64: ${{ secrets.CERTIFICATES_P12 }}
-        p12-password: ${{ secrets.CERTIFICATES_PASSWORD }}
+        p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT }}
+        p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
         
     - name: Import Provisioning Profile
+      if: ${{ secrets.APPSTORE_ISSUER_ID != '' }}
       uses: apple-actions/download-provisioning-profiles@v3
       with:
         bundle-id: com.beanstalker.member
         profile-type: IOS_APP_STORE
         issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-        api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
-        api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+        api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+        api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
         
     - name: Build iOS Archive
       working-directory: ios/App
@@ -93,8 +95,8 @@ jobs:
       with:
         app-path: ios/App/build/App.ipa
         issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
-        api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
-        api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+        api-key-id: ${{ secrets.APPSTORE_KEY_ID }}
+        api-private-key: ${{ secrets.APPSTORE_PRIVATE_KEY }}
         
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4
