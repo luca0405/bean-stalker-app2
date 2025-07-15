@@ -57,52 +57,50 @@ jobs:
         p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT }}
         p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
         
-    - name: Install Provisioning Profile
+    - name: Install Provisioning Profile and Certificate
       run: |
+        # Install provisioning profile with proper parsing
         echo "${{ secrets.IOS_PROVISIONING_PROFILE }}" | base64 --decode > ~/profile.mobileprovision
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         
-        # Debug: Check profile content
-        echo "=== Profile content check ==="
-        security cms -D -i ~/profile.mobileprovision | grep -A5 "application-identifier" || echo "Failed to read profile"
+        # Extract profile to readable plist format  
+        security cms -D -i ~/profile.mobileprovision -o ~/profile.plist
+        PROFILE_UUID=$(plutil -extract UUID raw ~/profile.plist)
+        PROFILE_NAME=$(plutil -extract Name raw ~/profile.plist)
         
-        # Get UUID and name from profile
-        PROFILE_UUID=$(security cms -D -i ~/profile.mobileprovision | grep -A1 '<key>UUID</key>' | grep '<string>' | sed 's/<[^>]*>//g' | xargs)
-        PROFILE_NAME=$(security cms -D -i ~/profile.mobileprovision | grep -A1 '<key>Name</key>' | grep '<string>' | sed 's/<[^>]*>//g' | xargs)
-        
-        # Install with UUID as filename
+        # Install with proper UUID filename
         cp ~/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$PROFILE_UUID.mobileprovision
         
-        # Verify installation
-        echo "=== Installed profiles ==="
-        ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+        # Find the distribution certificate
+        CERT_NAME=$(security find-identity -v -p codesigning | grep "iPhone Distribution" | head -1 | sed 's/.*) //' | sed 's/ ".*//')
         
-        echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
+        echo "Profile Name: $PROFILE_NAME"
+        echo "Profile UUID: $PROFILE_UUID" 
+        echo "Certificate: $CERT_NAME"
+        
         echo "PROFILE_UUID=$PROFILE_UUID" >> $GITHUB_ENV
-        echo "Installed profile: $PROFILE_NAME with UUID: $PROFILE_UUID"
+        echo "PROFILE_NAME=$PROFILE_NAME" >> $GITHUB_ENV
+        echo "CERT_NAME=$CERT_NAME" >> $GITHUB_ENV
         
     - name: Build iOS Archive
       working-directory: ios/App
       run: |
-        # Debug: Show available profiles
-        echo "=== Available provisioning profiles ==="
-        ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
-        
-        # Debug: Show what we're trying to use
-        echo "Using Profile Name: $PROFILE_NAME"
+        # Debug info
         echo "Using Profile UUID: $PROFILE_UUID"
+        echo "Using Certificate: $CERT_NAME"
         
-        # Use automatic signing with installed provisioning profile
-        # This prevents CocoaPods from inheriting manual signing settings
-        
-        xcodebuild archive \
+        # Build with explicit manual signing
+        xcodebuild clean archive \
           -workspace App.xcworkspace \
           -scheme App \
           -destination "generic/platform=iOS" \
           -archivePath build.xcarchive \
           -configuration Release \
-          -allowProvisioningUpdates \
-          DEVELOPMENT_TEAM=A43TZWNYA3
+          CODE_SIGN_STYLE=Manual \
+          CODE_SIGN_IDENTITY="$CERT_NAME" \
+          DEVELOPMENT_TEAM=A43TZWNYA3 \
+          PROVISIONING_PROFILE="$PROFILE_UUID" \
+          -xcconfig Manual.xcconfig
           
     - name: Export IPA
       working-directory: ios/App
