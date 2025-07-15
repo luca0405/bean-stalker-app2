@@ -394,6 +394,24 @@ Changelog:
   - Created ios-use-existing-certs.yml workflow to properly download existing certificates via App Store Connect API
   - Workflow uses automatic provisioning with -allowProvisioningUpdates to access user's existing certificates
   - Fixed certificate access rather than certificate creation - certificates exist but need proper API download
+- July 15, 2025. Identified App Store Connect API permission issue preventing certificate access
+  - Error: "Cloud signing permission error" - API key lacks permissions for cloud-managed distribution certificates
+  - Root cause: App Store Connect API key needs "Certificates, Identifiers & Profiles" read/write permissions
+  - Created ios-manual-cert.yml workflow with fallback certificate creation for immediate testing
+  - Created comprehensive guide for updating API key permissions in App Store Connect
+  - Manual certificate workflow provides development build while API permissions are resolved
+- July 15, 2025. Fixed App Store Connect API permissions with new Admin key
+  - User created "GitHub Actions iOS Build Admin" key (YQ2F5M8WPT) with Admin access
+  - Updated GitHub secrets APPSTORE_API_PRIVATE_KEY and APPSTORE_API_KEY_ID to use new Admin key
+  - Admin access provides certificate management and provisioning profile permissions
+  - Created ios-admin-test.yml workflow to test new Admin key for complete iOS build and TestFlight upload
+  - Ready for full iOS app deployment with proper certificate access and TestFlight distribution
+- July 15, 2025. Fixed iOS signing configuration conflict preventing build completion
+  - Identified signing conflict: automatic signing enabled but manual "iPhone Distribution" identity specified
+  - Created ios-fixed-signing.yml workflow that overrides project settings with correct signing parameters
+  - Fixed by clearing CODE_SIGN_IDENTITY and PROVISIONING_PROFILE_SPECIFIER during build
+  - Workflow uses pure automatic signing with Admin API key for certificate access
+  - Ready for successful iOS build and TestFlight upload with resolved signing conflicts
 ```
 
 ## User Preferences

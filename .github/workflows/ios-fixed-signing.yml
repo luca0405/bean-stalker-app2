@@ -1,4 +1,4 @@
-name: iOS Build - Admin Key Test
+name: iOS Build - Fixed Signing Configuration
 on:
   workflow_dispatch:
 
@@ -29,9 +29,6 @@ jobs:
         echo "${{ secrets.APPSTORE_API_PRIVATE_KEY }}" > ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
         chmod 600 ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
         
-        echo "Using Admin API key: ${{ secrets.APPSTORE_API_KEY_ID }}"
-        echo "Issuer ID: ${{ secrets.APPSTORE_ISSUER_ID }}"
-        
     - name: Setup keychain
       run: |
         security create-keychain -p "temppassword" build.keychain
@@ -40,12 +37,19 @@ jobs:
         security unlock-keychain -p "temppassword" build.keychain
         security set-keychain-settings -t 3600 -l build.keychain
         
-    - name: Build and archive with Admin key
+    - name: Fix signing configuration and build
       run: |
         cd ios
         
-        echo "Building with Admin API key - should have certificate access..."
+        echo "Fixing signing configuration to resolve automatic/manual conflict..."
         
+        # Clean project first
+        xcodebuild clean \
+          -workspace App/App.xcworkspace \
+          -scheme App \
+          -configuration Release
+        
+        # Build with corrected signing settings
         xcodebuild \
           -workspace App/App.xcworkspace \
           -scheme App \
@@ -58,16 +62,18 @@ jobs:
           -allowProvisioningUpdates \
           -allowProvisioningDeviceRegistration \
           CODE_SIGN_STYLE=Automatic \
+          CODE_SIGN_IDENTITY="" \
+          PROVISIONING_PROFILE_SPECIFIER="" \
           DEVELOPMENT_TEAM=A43TZWNYA3 \
           PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
           archive
           
-        echo "Archive created successfully with Admin key!"
+        echo "Archive created successfully!"
         ls -la App.xcarchive/
         
-    - name: Verify certificates were downloaded
+    - name: Verify certificates
       run: |
-        echo "Certificates downloaded with Admin access:"
+        echo "Certificates used:"
         security find-identity -v -p codesigning
         
     - name: Export for App Store
@@ -95,7 +101,6 @@ jobs:
         </plist>
         EOF
         
-        echo "Exporting for App Store with Admin certificate access..."
         xcodebuild \
           -exportArchive \
           -archivePath App.xcarchive \
@@ -111,7 +116,7 @@ jobs:
         
     - name: Upload to TestFlight
       run: |
-        echo "Uploading Bean Stalker to TestFlight..."
+        echo "Uploading to TestFlight..."
         xcrun altool \
           --upload-app \
           --type ios \
@@ -120,10 +125,9 @@ jobs:
           --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
           --verbose
           
-        echo "Successfully uploaded Bean Stalker to TestFlight!"
-        echo "Check App Store Connect for processing status."
+        echo "Bean Stalker successfully uploaded to TestFlight!"
         
-    - name: Upload build artifacts
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: bean-stalker-ios-final

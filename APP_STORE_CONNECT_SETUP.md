@@ -1,117 +1,47 @@
-# App Store Connect - IAP Product Setup Guide
+# App Store Connect API Key Setup Issue
 
-## Step-by-Step: Creating com.beanstalker.member as Non-Consumable
+## Problem Identified
+Your current GitHub Secrets use the "GitHub Actions iOS Build" key (TYXHD3B57H) which only has **"App Manager"** access. This doesn't include certificate management permissions.
 
-### Prerequisites
-- Active Apple Developer Account ($99/year)
-- App created in App Store Connect
-- Bundle ID: `com.beanstalker.app` (or your configured bundle ID)
+## Your Available Keys:
+- ✅ **TestFlight** (8G8SZCTK49) - **Admin access** - Can manage certificates
+- ❌ **GitHub Actions iOS Build** (TYXHD3B57H) - **App Manager** - Cannot manage certificates  
+- ✅ **RevenueCat** (LSSFSPRGV8) - **Admin access** - Can manage certificates
 
-### Step 1: Access App Store Connect
-1. Go to https://appstoreconnect.apple.com
-2. Sign in with your Apple Developer credentials
-3. Click **"My Apps"**
+## Immediate Solution
+I've created a workflow that uses your **TestFlight Admin key** (8G8SZCTK49) instead of the GitHub Actions key.
 
-### Step 2: Navigate to Your App
-1. Find and click **"Bean Stalker"** (or your app name)
-2. In the left sidebar, click **"Features"**
-3. Click **"In-App Purchases"**
+## Option 1: Update GitHub Secrets (Recommended)
+If your current `APPSTORE_API_PRIVATE_KEY` secret contains the TestFlight Admin key:
+1. **Run "iOS Build - Using TestFlight Admin Key"** workflow
+2. This will use the TestFlight key ID (8G8SZCTK49) with Admin permissions
 
-### Step 3: Create New In-App Purchase
-1. Click the **"+"** button (Create New)
-2. Select **"Non-Consumable"** from the dropdown
-3. Click **"Create"**
+## Option 2: Create New GitHub Secret for TestFlight Key
+If your secrets contain the GitHub Actions key instead:
+1. Download the **TestFlight** key (.p8 file) from App Store Connect
+2. Add new GitHub secret: `TESTFLIGHT_API_PRIVATE_KEY`
+3. Update the workflow to use this new secret
 
-### Step 4: Configure Product Details
-Fill in the following information:
+## Option 3: Create New Admin API Key
+If you want to keep using the GitHub Actions approach:
+1. **App Store Connect** → **Users and Access** → **Integrations**
+2. Click **"+"** to create new key
+3. **Name**: "GitHub Actions iOS Build Admin"
+4. **Access**: **Admin** (not App Manager)
+5. Download the .p8 file
+6. Replace your current `APPSTORE_API_PRIVATE_KEY` with this new key
 
-**Product ID:**
-```
-com.beanstalker.member
-```
+## Why App Manager Doesn't Work
+**App Manager** access only allows:
+- App metadata management
+- TestFlight uploads (after signing)
 
-**Reference Name:**
-```
-Bean Stalker Premium Membership
-```
+**Admin** access includes:
+- Certificate management
+- Provisioning profile access
+- Code signing permissions
 
-**Cleared for Sale:** ✅ (Toggle ON)
+The "cloud signing permission error" happens because App Manager keys cannot download certificates for code signing.
 
-### Step 5: Pricing and Availability
-1. Click **"Price Schedule"** or **"Pricing"**
-2. Set **Base Country/Region**: Australia
-3. Set **Price**: AUD $69.00
-   - This should automatically select Tier 42
-4. Click **"Next"** or **"Save"**
-
-### Step 6: App Store Information
-Add localized information for **English (Australia)**:
-
-**Display Name:**
-```
-Premium Membership
-```
-
-**Description:**
-```
-Unlock full access to Bean Stalker's premium coffee ordering experience. Enjoy exclusive features, priority support, and access to special menu items with your premium membership.
-```
-
-### Step 7: Review Information
-**For App Review (Internal Notes):**
-```
-Premium membership unlocks enhanced features in the Bean Stalker coffee ordering app. Users gain access to exclusive menu items, priority ordering, and premium customer support. This is a one-time purchase that provides ongoing premium access.
-```
-
-### Step 8: Submit for Review
-1. Click **"Save"** on all sections
-2. Click **"Submit for Review"**
-3. Wait for Apple approval (typically 24-48 hours)
-
-## Important Notes
-
-### Non-Consumable vs Subscription
-- **Non-Consumable**: One-time purchase, permanent access
-- **Auto-Renewable Subscription**: Recurring billing
-
-Since you want AUD $69 for permanent premium access, **Non-Consumable** is correct.
-
-### Product Status
-- **Created**: Product exists but not live
-- **Ready to Submit**: All info complete, needs review
-- **Waiting for Review**: Submitted to Apple
-- **Approved**: Ready for use in app
-- **Rejected**: Needs changes before resubmission
-
-### Testing Requirements
-- Product must be **"Approved"** before sandbox testing works
-- Sandbox testing requires separate Apple ID
-- Production testing requires TestFlight or App Store release
-
-## Troubleshooting
-
-### Common Issues
-1. **"Product ID already exists"**: Choose different identifier
-2. **"Pricing not available"**: Select Australia as base country first
-3. **"Missing screenshot"**: Not required for IAP, only apps
-4. **"Review rejected"**: Check review notes for specific issues
-
-### Review Requirements
-- Clear product description
-- Appropriate pricing for content
-- Product name matches functionality
-- No misleading information
-
-## After Approval
-1. Product status changes to **"Approved"**
-2. Copy your RevenueCat API key to Replit environment
-3. Test purchase flow with sandbox Apple ID
-4. Verify RevenueCat receives transaction data
-
-## Next Steps After IAP Setup
-1. Configure RevenueCat dashboard
-2. Add `VITE_REVENUECAT_API_KEY` to environment
-3. Test purchase flow in development
-4. Prepare for TestFlight testing
-
-The app code is already configured for your `com.beanstalker.member` identifier and will work immediately once the product is approved.
+## Next Steps
+Try the **"iOS Build - Using TestFlight Admin Key"** workflow first. If your current secret contains the TestFlight key, this should work immediately.
