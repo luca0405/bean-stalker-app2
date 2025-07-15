@@ -1,6 +1,10 @@
-name: iOS Build - Automatic Signing Only
+name: iOS Build - Using TestFlight Admin Key
 on:
   workflow_dispatch:
+
+env:
+  # Use the TestFlight key (8G8SZCTK49) which has Admin access instead of GitHub Actions key
+  TESTFLIGHT_API_KEY_ID: "8G8SZCTK49"
 
 jobs:
   build:
@@ -17,58 +21,34 @@ jobs:
     - name: Install dependencies
       run: npm ci
       
-    - name: Build web app  
+    - name: Build web app
       run: npm run build
       
     - name: Sync Capacitor
       run: npx cap sync ios
       
-    - name: Setup App Store Connect API
+    - name: Setup TestFlight Admin API Key
       run: |
         mkdir -p ~/private_keys
-        echo "${{ secrets.APPSTORE_API_PRIVATE_KEY }}" > ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
-        chmod 600 ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
+        # Use the APPSTORE_API_PRIVATE_KEY secret but with TestFlight key ID
+        echo "${{ secrets.APPSTORE_API_PRIVATE_KEY }}" > ~/private_keys/AuthKey_${TESTFLIGHT_API_KEY_ID}.p8
+        chmod 600 ~/private_keys/AuthKey_${TESTFLIGHT_API_KEY_ID}.p8
         
-    - name: Clean any previous provisioning profile assignments
+        echo "Using TestFlight Admin key: ${TESTFLIGHT_API_KEY_ID}"
+        
+    - name: Setup keychain
+      run: |
+        security create-keychain -p "temppassword" build.keychain
+        security list-keychains -s build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "temppassword" build.keychain
+        security set-keychain-settings -t 3600 -l build.keychain
+        
+    - name: Build with Admin API key access
       run: |
         cd ios
         
-        echo "Cleaning project to remove any cached provisioning profile assignments..."
-        xcodebuild clean \
-          -workspace App/App.xcworkspace \
-          -scheme App \
-          -configuration Release
-          
-        # Remove any cached provisioning profiles
-        rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*
-        
-    - name: Force automatic signing for all targets
-      run: |
-        cd ios/App
-        
-        echo "Setting automatic signing for ALL targets in project..."
-        
-        # Use xcodebuild to set automatic signing for all targets
-        xcodebuild \
-          -workspace App.xcworkspace \
-          -scheme App \
-          -configuration Release \
-          -destination generic/platform=iOS \
-          CODE_SIGN_STYLE=Automatic \
-          CODE_SIGN_IDENTITY="" \
-          PROVISIONING_PROFILE="" \
-          PROVISIONING_PROFILE_SPECIFIER="" \
-          DEVELOPMENT_TEAM=A43TZWNYA3 \
-          PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
-          build
-          
-        echo "Build test completed - now proceeding with archive..."
-        
-    - name: Archive with automatic signing
-      run: |
-        cd ios
-        
-        echo "Creating archive with automatic signing for all targets..."
+        echo "Building with TestFlight Admin API key for certificate access..."
         
         xcodebuild \
           -workspace App/App.xcworkspace \
@@ -77,24 +57,21 @@ jobs:
           -destination generic/platform=iOS \
           -archivePath App.xcarchive \
           -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
-          -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
-          -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
+          -authenticationKeyID "${TESTFLIGHT_API_KEY_ID}" \
+          -authenticationKeyPath ~/private_keys/AuthKey_${TESTFLIGHT_API_KEY_ID}.p8 \
           -allowProvisioningUpdates \
           -allowProvisioningDeviceRegistration \
           CODE_SIGN_STYLE=Automatic \
-          CODE_SIGN_IDENTITY="" \
-          PROVISIONING_PROFILE="" \
-          PROVISIONING_PROFILE_SPECIFIER="" \
           DEVELOPMENT_TEAM=A43TZWNYA3 \
           PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
           archive
           
-        echo "Archive created successfully!"
+        echo "Archive completed with Admin key!"
         ls -la App.xcarchive/
         
-    - name: Show certificates that were used
+    - name: Show downloaded certificates
       run: |
-        echo "Certificates used during build:"
+        echo "Certificates downloaded with Admin access:"
         security find-identity -v -p codesigning
         
     - name: Export for App Store
@@ -122,37 +99,37 @@ jobs:
         </plist>
         EOF
         
-        echo "Exporting for App Store..."
+        echo "Exporting with Admin certificate access..."
         xcodebuild \
           -exportArchive \
           -archivePath App.xcarchive \
           -exportPath export \
           -exportOptionsPlist ExportOptions.plist \
           -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
-          -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
-          -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
+          -authenticationKeyID "${TESTFLIGHT_API_KEY_ID}" \
+          -authenticationKeyPath ~/private_keys/AuthKey_${TESTFLIGHT_API_KEY_ID}.p8 \
           -allowProvisioningUpdates
           
         echo "Export completed!"
         ls -la export/
         
-    - name: Upload to TestFlight
+    - name: Upload to TestFlight with Admin key
       run: |
-        echo "Uploading to TestFlight..."
+        echo "Uploading to TestFlight with Admin access..."
         xcrun altool \
           --upload-app \
           --type ios \
           --file "ios/export/App.ipa" \
-          --apiKey "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          --apiKey "${TESTFLIGHT_API_KEY_ID}" \
           --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
           --verbose
           
-        echo "Successfully uploaded Bean Stalker to TestFlight!"
+        echo "Successfully uploaded Bean Stalker to TestFlight with Admin key!"
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: bean-stalker-ios-app-store
+        name: bean-stalker-testflight-admin
         path: |
           ios/export/App.ipa
           ios/App.xcarchive
