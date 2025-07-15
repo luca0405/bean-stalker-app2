@@ -75,6 +75,12 @@ jobs:
               teamid: "A43TZWNYA3"
             )
             
+            update_code_signing_settings(
+              use_automatic_signing: true,
+              path: "App.xcodeproj",
+              team_id: "A43TZWNYA3"
+            )
+            
             build_app(
               workspace: "App.xcworkspace",
               scheme: "App",
@@ -83,11 +89,9 @@ jobs:
               export_options: {
                 method: "app-store",
                 teamID: "A43TZWNYA3",
-                signingStyle: "automatic",
-                provisioningProfiles: {
-                  "com.beanstalker.member" => ENV["PROFILE_NAME"]
-                }
-              }
+                signingStyle: "automatic"
+              },
+              xcargs: "-allowProvisioningUpdates"
             )
             
             upload_to_testflight(
