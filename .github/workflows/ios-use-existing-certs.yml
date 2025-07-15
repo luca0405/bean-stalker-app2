@@ -1,0 +1,136 @@
+name: iOS Build - Use Existing Certificates
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build web app
+      run: npm run build
+      
+    - name: Sync Capacitor
+      run: npx cap sync ios
+      
+    - name: Setup App Store Connect API
+      run: |
+        mkdir -p ~/private_keys
+        echo "${{ secrets.APPSTORE_API_PRIVATE_KEY }}" > ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
+        chmod 600 ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
+        ls -la ~/private_keys/
+        
+    - name: Download existing certificates via API
+      run: |
+        echo "Downloading your existing iOS Distribution certificate..."
+        
+        # Create temporary keychain
+        security create-keychain -p "" build.keychain
+        security list-keychains -s build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "" build.keychain
+        security set-keychain-settings build.keychain
+        
+        echo "Keychain created and configured"
+        
+    - name: Build using automatic provisioning (downloads your certificates)
+      run: |
+        cd ios
+        
+        echo "Building with automatic provisioning - this will download your existing certificates..."
+        
+        xcodebuild \
+          -workspace App/App.xcworkspace \
+          -scheme App \
+          -configuration Release \
+          -destination generic/platform=iOS \
+          -archivePath App.xcarchive \
+          -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
+          -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
+          -allowProvisioningUpdates \
+          CODE_SIGN_STYLE=Automatic \
+          DEVELOPMENT_TEAM=A43TZWNYA3 \
+          PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
+          archive
+          
+        echo "Archive completed successfully!"
+        
+    - name: Verify certificates were downloaded
+      run: |
+        echo "Checking what certificates are now available:"
+        security find-identity -v -p codesigning
+        
+        echo "Keychain contents:"
+        security list-keychains
+        
+    - name: Export for App Store
+      run: |
+        cd ios
+        
+        cat > ExportOptions.plist << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>A43TZWNYA3</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key>
+            <true/>
+        </dict>
+        </plist>
+        EOF
+        
+        echo "Exporting for App Store..."
+        xcodebuild \
+          -exportArchive \
+          -archivePath App.xcarchive \
+          -exportPath export \
+          -exportOptionsPlist ExportOptions.plist \
+          -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
+          -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
+          -allowProvisioningUpdates
+          
+        echo "Export completed!"
+        ls -la export/
+        
+    - name: Upload to TestFlight
+      run: |
+        echo "Uploading to TestFlight..."
+        xcrun altool \
+          --upload-app \
+          --type ios \
+          --file "ios/export/App.ipa" \
+          --apiKey "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
+          --verbose
+          
+        echo "Successfully uploaded to TestFlight!"
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: ios-app-store-final
+        path: |
+          ios/export/App.ipa
+          ios/App.xcarchive
