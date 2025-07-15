@@ -1,0 +1,208 @@
+name: iOS Build - Xcode 16 with Bundle ID Fix
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode 16
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '16.0'
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build web app
+      run: npm run build
+      
+    - name: Sync Capacitor
+      run: npx cap sync ios
+      
+    - name: Fix CocoaPods bundle ID conflicts
+      run: |
+        cd ios
+        echo "Fixing bundle ID conflicts in CocoaPods..."
+        
+        # Update CocoaPods configuration to avoid bundle ID conflicts
+        cat > App/Podfile << 'EOF'
+        require_relative '../../node_modules/@capacitor/ios/scripts/pods_helpers'
+
+        platform :ios, '14.0'
+        use_frameworks!
+
+        # workaround to avoid Xcode caching of Pods that requires
+        # Product -> Clean Build Folder after new Cordova plugins installed
+        # Requires CocoaPods 1.6 or newer
+        install! 'cocoapods', :disable_input_output_paths => true
+
+        def capacitor_pods
+          pod 'Capacitor', :path => '../../node_modules/@capacitor/ios'
+          pod 'CapacitorCordova', :path => '../../node_modules/@capacitor/ios'
+          pod 'CapacitorCommunityNativeBiometric', :path => '../../node_modules/capacitor-native-biometric'
+          pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
+          pod 'CapacitorHaptics', :path => '../../node_modules/@capacitor/haptics'
+          pod 'CapacitorKeyboard', :path => '../../node_modules/@capacitor/keyboard'
+          pod 'CapacitorStatusBar', :path => '../../node_modules/@capacitor/status-bar'
+          pod 'RevenueCat', :path => '../../node_modules/@revenuecat/purchases-capacitor'
+        end
+
+        target 'App' do
+          capacitor_pods
+          # Add your Pods here
+        end
+
+        post_install do |installer|
+          assertDeploymentTarget(installer)
+          
+          # Fix bundle identifiers to avoid conflicts
+          installer.pods_project.targets.each do |target|
+            target.build_configurations.each do |config|
+              # Set unique bundle identifiers for each pod
+              case target.name
+              when 'Capacitor'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.capacitor'
+              when 'CapacitorCordova'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.cordova'
+              when 'CapacitorCommunityNativeBiometric'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.biometric'
+              when 'CapacitorApp'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.app'
+              when 'CapacitorHaptics'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.haptics'
+              when 'CapacitorKeyboard'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.keyboard'
+              when 'CapacitorStatusBar'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.statusbar'
+              when 'RevenueCat'
+                config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.member.revenuecat'
+              end
+              
+              # Ensure iOS 18 SDK compatibility
+              config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+            end
+          end
+        end
+        EOF
+        
+        # Clean and reinstall pods with fixed bundle IDs
+        rm -rf Pods
+        rm -f Podfile.lock
+        pod install --repo-update
+        
+    - name: Setup Admin API Key
+      run: |
+        mkdir -p ~/private_keys
+        echo "${{ secrets.APPSTORE_API_PRIVATE_KEY }}" > ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
+        chmod 600 ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
+        
+    - name: Setup keychain
+      run: |
+        security create-keychain -p "temppassword" build.keychain
+        security list-keychains -s build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "temppassword" build.keychain
+        security set-keychain-settings -t 3600 -l build.keychain
+        
+    - name: Build with Xcode 16 and fixed bundle IDs
+      run: |
+        cd ios
+        
+        echo "Building with Xcode 16 and iOS 18 SDK..."
+        
+        # Clean project first
+        xcodebuild clean \
+          -workspace App/App.xcworkspace \
+          -scheme App \
+          -configuration Release
+        
+        # Build with iOS 18 SDK and corrected signing settings
+        xcodebuild \
+          -workspace App/App.xcworkspace \
+          -scheme App \
+          -configuration Release \
+          -destination generic/platform=iOS \
+          -archivePath App.xcarchive \
+          -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
+          -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
+          -allowProvisioningUpdates \
+          -allowProvisioningDeviceRegistration \
+          CODE_SIGN_STYLE=Automatic \
+          CODE_SIGN_IDENTITY="" \
+          PROVISIONING_PROFILE_SPECIFIER="" \
+          DEVELOPMENT_TEAM=A43TZWNYA3 \
+          PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
+          IPHONEOS_DEPLOYMENT_TARGET=14.0 \
+          archive
+          
+        echo "Archive created successfully with iOS 18 SDK!"
+        ls -la App.xcarchive/
+        
+    - name: Export for App Store
+      run: |
+        cd ios
+        
+        cat > ExportOptions.plist << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>A43TZWNYA3</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>manageAppVersionAndBuildNumber</key>
+            <true/>
+        </dict>
+        </plist>
+        EOF
+        
+        xcodebuild \
+          -exportArchive \
+          -archivePath App.xcarchive \
+          -exportPath export \
+          -exportOptionsPlist ExportOptions.plist \
+          -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
+          -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
+          -allowProvisioningUpdates
+          
+        echo "Export completed with iOS 18 SDK!"
+        ls -la export/
+        
+    - name: Upload to TestFlight
+      run: |
+        echo "Uploading to TestFlight with iOS 18 SDK build..."
+        xcrun altool \
+          --upload-app \
+          --type ios \
+          --file "ios/export/App.ipa" \
+          --apiKey "${{ secrets.APPSTORE_API_KEY_ID }}" \
+          --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
+          --verbose
+          
+        echo "Bean Stalker successfully uploaded to TestFlight!"
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: bean-stalker-ios-xcode16-final
+        path: |
+          ios/export/App.ipa
+          ios/App.xcarchive
