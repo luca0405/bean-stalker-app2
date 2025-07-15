@@ -1,4 +1,4 @@
-name: iOS Build - Use Existing Certificates
+name: iOS Build - Automatic Signing Only
 on:
   workflow_dispatch:
 
@@ -17,7 +17,7 @@ jobs:
     - name: Install dependencies
       run: npm ci
       
-    - name: Build web app
+    - name: Build web app  
       run: npm run build
       
     - name: Sync Capacitor
@@ -28,26 +28,47 @@ jobs:
         mkdir -p ~/private_keys
         echo "${{ secrets.APPSTORE_API_PRIVATE_KEY }}" > ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
         chmod 600 ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8
-        ls -la ~/private_keys/
         
-    - name: Download existing certificates via API
-      run: |
-        echo "Downloading your existing iOS Distribution certificate..."
-        
-        # Create temporary keychain
-        security create-keychain -p "" build.keychain
-        security list-keychains -s build.keychain
-        security default-keychain -s build.keychain
-        security unlock-keychain -p "" build.keychain
-        security set-keychain-settings build.keychain
-        
-        echo "Keychain created and configured"
-        
-    - name: Build using automatic provisioning (downloads your certificates)
+    - name: Clean any previous provisioning profile assignments
       run: |
         cd ios
         
-        echo "Building with automatic provisioning - this will download your existing certificates..."
+        echo "Cleaning project to remove any cached provisioning profile assignments..."
+        xcodebuild clean \
+          -workspace App/App.xcworkspace \
+          -scheme App \
+          -configuration Release
+          
+        # Remove any cached provisioning profiles
+        rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*
+        
+    - name: Force automatic signing for all targets
+      run: |
+        cd ios/App
+        
+        echo "Setting automatic signing for ALL targets in project..."
+        
+        # Use xcodebuild to set automatic signing for all targets
+        xcodebuild \
+          -workspace App.xcworkspace \
+          -scheme App \
+          -configuration Release \
+          -destination generic/platform=iOS \
+          CODE_SIGN_STYLE=Automatic \
+          CODE_SIGN_IDENTITY="" \
+          PROVISIONING_PROFILE="" \
+          PROVISIONING_PROFILE_SPECIFIER="" \
+          DEVELOPMENT_TEAM=A43TZWNYA3 \
+          PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
+          build
+          
+        echo "Build test completed - now proceeding with archive..."
+        
+    - name: Archive with automatic signing
+      run: |
+        cd ios
+        
+        echo "Creating archive with automatic signing for all targets..."
         
         xcodebuild \
           -workspace App/App.xcworkspace \
@@ -59,20 +80,22 @@ jobs:
           -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
           -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
           -allowProvisioningUpdates \
+          -allowProvisioningDeviceRegistration \
           CODE_SIGN_STYLE=Automatic \
+          CODE_SIGN_IDENTITY="" \
+          PROVISIONING_PROFILE="" \
+          PROVISIONING_PROFILE_SPECIFIER="" \
           DEVELOPMENT_TEAM=A43TZWNYA3 \
           PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member \
           archive
           
-        echo "Archive completed successfully!"
+        echo "Archive created successfully!"
+        ls -la App.xcarchive/
         
-    - name: Verify certificates were downloaded
+    - name: Show certificates that were used
       run: |
-        echo "Checking what certificates are now available:"
+        echo "Certificates used during build:"
         security find-identity -v -p codesigning
-        
-        echo "Keychain contents:"
-        security list-keychains
         
     - name: Export for App Store
       run: |
@@ -124,13 +147,12 @@ jobs:
           --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
           --verbose
           
-        echo "Successfully uploaded to TestFlight!"
+        echo "Successfully uploaded Bean Stalker to TestFlight!"
         
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
-      if: always()
       with:
-        name: ios-app-store-final
+        name: bean-stalker-ios-app-store
         path: |
           ios/export/App.ipa
           ios/App.xcarchive

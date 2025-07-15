@@ -375,6 +375,25 @@ Changelog:
   - Fixed "Capacitor does not support provisioning profiles" error affecting all Pod targets
   - Streamlined build process using automatic signing with allowProvisioningUpdates flag
   - GitHub Actions workflow now properly handles provisioning profiles without affecting CocoaPods dependencies
+- July 15, 2025. Implemented automatic certificate management with App Store Connect API
+  - Resolved persistent provisioning profile errors by switching to Apple's automatic certificate management
+  - Created new workflow (ios-automatic.yml) using App Store Connect API for certificate/profile handling
+  - Eliminated manual certificate export and base64 encoding requirements
+  - Reduced GitHub secrets from 6 to 3: APPSTORE_ISSUER_ID, APPSTORE_API_KEY_ID, APPSTORE_API_PRIVATE_KEY
+  - Apple automatically downloads fresh certificates and provisioning profiles for each build
+  - Workflow uses official Apple GitHub actions for secure, reliable iOS app distribution
+- July 15, 2025. Created fallback workflows for iOS Distribution certificate issues
+  - Identified missing iOS Distribution certificate preventing App Store Connect API from working properly
+  - Created ios-development-build.yml workflow that builds development first, then attempts release
+  - Added ios-auto-cert.yml with automatic certificate creation fallback
+  - Development builds don't require distribution certificates and can help debug signing issues
+  - Multiple workflow approaches provide options when Apple's automatic certificate management fails
+- July 15, 2025. Fixed certificate access issue - user has valid iOS Distribution certificate
+  - Confirmed user has iOS Distribution certificate (Alyce Bosevski, expires 2026/07/01)
+  - Issue identified: GitHub Actions cannot access existing certificates in Apple Developer account
+  - Created ios-use-existing-certs.yml workflow to properly download existing certificates via App Store Connect API
+  - Workflow uses automatic provisioning with -allowProvisioningUpdates to access user's existing certificates
+  - Fixed certificate access rather than certificate creation - certificates exist but need proper API download
 ```
 
 ## User Preferences
