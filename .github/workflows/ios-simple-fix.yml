@@ -67,14 +67,20 @@ jobs:
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
         <dict>
-            <key>destination</key>
-            <string>upload</string>
             <key>method</key>
             <string>app-store</string>
             <key>teamID</key>
             <string>A43TZWNYA3</string>
             <key>signingStyle</key>
             <string>automatic</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>manageAppVersionAndBuildNumber</key>
+            <true/>
+            <key>stripSwiftSymbols</key>
+            <true/>
         </dict>
         </plist>
         EOF
@@ -86,7 +92,8 @@ jobs:
           -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
           -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
           -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
-          -allowProvisioningUpdates
+          -allowProvisioningUpdates \
+          -allowProvisioningDeviceRegistration
         
     - name: Upload to TestFlight
       run: |
