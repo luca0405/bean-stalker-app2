@@ -1,0 +1,18 @@
+UPLOAD FAILED with 2 errors.
+=============
+2025-07-15 06:57:10.523 DEBUG: [ContentDelivery.Uploader] Log file path: /Users/runner/Library/Logs/ContentDelivery/com.apple.itunes.altool/com.apple.itunes.altool_Upload_2025-07-15_06-56-37_787.txt
+2025-07-15 06:57:10.524 *** Error: Error uploading 'ios/export/App.ipa'.
+2025-07-15 06:57:10.524 *** Error: Validation failed SDK version issue. This app was built with the iOS 17.5 SDK. All iOS and iPadOS apps must be built with the iOS 18 SDK or later, included in Xcode 16 or later, in order to be uploaded to App Store Connect or submitted for distribution. (ID: 11da5cbe-d1a9-4197-be41-42dfe4dc5260) (409)
+ {
+    NSLocalizedDescription = "Validation failed";
+    NSLocalizedFailureReason = "SDK version issue. This app was built with the iOS 17.5 SDK. All iOS and iPadOS apps must be built with the iOS 18 SDK or later, included in Xcode 16 or later, in order to be uploaded to App Store Connect or submitted for distribution. (ID: 11da5cbe-d1a9-4197-be41-42dfe4dc5260)";
+    NSUnderlyingError = "Error Domain=IrisAPI Code=-19241 \"Validation failed\" UserInfo={status=409, detail=SDK version issue. This app was built with the iOS 17.5 SDK. All iOS and iPadOS apps must be built with the iOS 18 SDK or later, included in Xcode 16 or later, in order to be uploaded to App Store Connect or submitted for distribution., id=11da5cbe-d1a9-4197-be41-42dfe4dc5260, code=STATE_ERROR.VALIDATION_ERROR, title=Validation failed, NSLocalizedFailureReason=SDK version issue. This app was built with the iOS 17.5 SDK. All iOS and iPadOS apps must be built with the iOS 18 SDK or later, included in Xcode 16 or later, in order to be uploaded to App Store Connect or submitted for distribution., NSLocalizedDescription=Validation failed}";
+    "iris-code" = "STATE_ERROR.VALIDATION_ERROR";
+}
+2025-07-15 06:57:10.524 *** Error: Validation failed CFBundleIdentifier Collision. There is more than one bundle with the CFBundleIdentifier value 'com.beanstalker.member' under the iOS application 'App.app'. (ID: 7cdd8cfa-c827-4889-9a1a-48b0ea548af0) (409)
+ {
+    NSLocalizedDescription = "Validation failed";
+    NSLocalizedFailureReason = "CFBundleIdentifier Collision. There is more than one bundle with the CFBundleIdentifier value 'com.beanstalker.member' under the iOS application 'App.app'. (ID: 7cdd8cfa-c827-4889-9a1a-48b0ea548af0)";
+    NSUnderlyingError = "Error Domain=IrisAPI Code=-19241 \"Validation failed\" UserInfo={status=409, detail=CFBundleIdentifier Collision. There is more than one bundle with the CFBundleIdentifier value 'com.beanstalker.member' under the iOS application 'App.app'., id=7cdd8cfa-c827-4889-9a1a-48b0ea548af0, code=STATE_ERROR.VALIDATION_ERROR, title=Validation failed, NSLocalizedFailureReason=CFBundleIdentifier Collision. There is more than one bundle with the CFBundleIdentifier value 'com.beanstalker.member' under the iOS application 'App.app'., NSLocalizedDescription=Validation failed}";
+    "iris-code" = "STATE_ERROR.VALIDATION_ERROR";
+}
