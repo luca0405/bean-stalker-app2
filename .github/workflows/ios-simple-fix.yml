@@ -52,7 +52,10 @@ jobs:
           -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
           -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
           -allowProvisioningUpdates \
+          -allowProvisioningDeviceRegistration \
           CODE_SIGN_STYLE=Automatic \
+          CODE_SIGN_IDENTITY="" \
+          PROVISIONING_PROFILE_SPECIFIER="" \
           DEVELOPMENT_TEAM=A43TZWNYA3 \
           PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member
         
