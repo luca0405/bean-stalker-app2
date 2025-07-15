@@ -52,14 +52,12 @@ jobs:
         pod install --silent || pod install --verbose
         
     - name: Import Code Signing Certificates
-      if: ${{ secrets.IOS_DISTRIBUTION_CERT != '' }}
       uses: apple-actions/import-codesign-certs@v3
       with:
         p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT }}
         p12-password: ${{ secrets.IOS_CERT_PASSWORD }}
         
     - name: Import Provisioning Profile
-      if: ${{ secrets.APPSTORE_ISSUER_ID != '' }}
       uses: apple-actions/download-provisioning-profiles@v3
       with:
         bundle-id: com.beanstalker.member
