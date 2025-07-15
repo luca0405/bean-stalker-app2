@@ -4,13 +4,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Build outputs
+# Production builds
 dist/
 build/
-.next/
-out/
 
-# Environment variables and secrets
+# Environment variables
 .env
 .env.local
 .env.development.local
@@ -20,28 +18,18 @@ out/
 # Database
 *.db
 *.sqlite
-*.sqlite3
 
 # Logs
-logs/
+logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
 
 # Runtime data
-pids/
+pids
 *.pid
 *.seed
-*.pid.lock
 
 # Coverage directory used by tools like istanbul
 coverage/
-*.lcov
-
-# nyc test coverage
-.nyc_output
 
 # Dependency directories
 jspm_packages/
@@ -58,36 +46,10 @@ jspm_packages/
 # Yarn Integrity file
 .yarn-integrity
 
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
+# dotenv environment variables file
+.env
 
-# Next.js build output
-.next
-
-# Nuxt.js build / generate output
-.nuxt
-
-# Gatsby files
-.cache/
-public
-
-# Vuepress build output
-.vuepress/dist
-
-# Serverless directories
-.serverless/
-
-# FuseBox cache
-.fusebox/
-
-# DynamoDB Local files
-.dynamodb/
-
-# TernJS port file
-.tern-port
-
-# IDE files
+# IDE
 .vscode/
 .idea/
 *.swp
@@ -103,34 +65,56 @@ public
 ehthumbs.db
 Thumbs.db
 
-# Custom build files
-server/public
-vite.config.ts.*
-*.tar.gz
+# Capacitor
+.capacitor/
+android/app/build/
+android/app/src/main/assets/public/
+android/app/src/main/res/values/
 
-# Uploads directory (user uploaded files)
-uploads/
+# iOS
+ios/App/public/
+ios/App/App/config.xml
+ios/App/App/Info.plist
+ios/build/
+*.ipa
+
+# Xcode
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+DerivedData/
+
+# CocoaPods
+ios/App/Pods/
+ios/App/Podfile.lock
 
 # Temporary files
 tmp/
 temp/
 
-# Cache directories
-.cache/
-.replit/
+# Uploads
+uploads/
 
-# Admin and test files
-admin_cookies.txt
+# Test files
+test-*.js
+*-test.js
+
+# Replit specific
+.replit
+replit.nix
+
+# Project specific
 cookies.txt
-*.cookies.txt
+admin_cookies.txt
+production_cookies.txt
 
-# Demo and test scripts
+# Generated icons
+generated-icon.png
+
+# Demo scripts
 demo-*.js
 test-*.js
 create-*.js
 send-*.js
+sync-*.js
 update-*.js
-
-# Lock files (optional - some teams prefer to commit these)
-# package-lock.json
-# yarn.lock

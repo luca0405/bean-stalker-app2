@@ -11,8 +11,6 @@ interface CartContextType {
   calculateSubtotal: () => number;
   calculateTax: () => number;
   calculateTotal: () => number;
-  isCartOpen: boolean;
-  setIsCartOpen: (open: boolean) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -72,7 +70,6 @@ const loadCartFromStorage = (): CartItem[] => {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const { toast } = useToast();
 
   // Load cart from localStorage on mount
@@ -260,8 +257,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         calculateSubtotal,
         calculateTax,
         calculateTotal,
-        isCartOpen,
-        setIsCartOpen,
       }}
     >
       {children}

@@ -131,6 +131,9 @@ export default function AuthPage() {
   useEffect(() => {
     // If user is already logged in, redirect to appropriate page
     if (user) {
+      // Scroll to top before navigation
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
       // If user is admin, redirect to admin page with orders tab
       if (user.isAdmin) {
         navigate("/admin");

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bean Stalker - Emergency Master Login</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            width: 160px;
+            height: auto;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            color: #124430;
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        
+        p {
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        h2 {
+            color: #124430;
+            font-size: 1.3rem;
+            margin-top: 0;
+        }
+        
+        .button-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .button {
+            background-color: #124430;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            text-align: center;
+            flex-grow: 1;
+            flex-basis: calc(50% - 5px);
+            text-decoration: none;
+            font-weight: 500;
+            min-width: 150px;
+        }
+        
+        .button:hover {
+            background-color: #0d3526;
+        }
+        
+        .button.secondary {
+            background-color: #4d855d;
+        }
+        
+        .button.secondary:hover {
+            background-color: #3d6a4a;
+        }
+        
+        .button.tertiary {
+            background-color: #777;
+        }
+        
+        .button.tertiary:hover {
+            background-color: #555;
+        }
+        
+        .manual-form {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        label {
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        
+        input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .info-text {
+            background-color: #fffaf0;
+            border: 1px solid #ffeeba;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 600px) {
+            .button {
+                flex-basis: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="/images/bean-stalker-logo.png" alt="Bean Stalker Logo" class="logo">
+        <h1>Emergency Master Login</h1>
+        <p>Use this page to bypass any authentication issues</p>
+    </header>
+    
+    <div class="container">
+        <div class="section">
+            <h2>1. Direct Login</h2>
+            <p>Log in directly with one of these pre-configured accounts:</p>
+            
+            <div class="button-container">
+                <form id="adminLoginForm" action="/direct-login" method="post" target="_top">
+                    <input type="hidden" name="username" value="bs_admin">
+                    <input type="hidden" name="password" value="BS2025@@">
+                    <input type="hidden" name="destination" value="/admin">
+                    <button type="submit" class="button">Login as Admin</button>
+                </form>
+                
+                <form id="userLoginForm" action="/direct-login" method="post" target="_top">
+                    <input type="hidden" name="username" value="sash">
+                    <input type="hidden" name="password" value="password">
+                    <input type="hidden" name="destination" value="/">
+                    <button type="submit" class="button secondary">Login as Regular User</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>2. Alternative Approaches</h2>
+            <p>If the above methods don't work, try these alternatives:</p>
+            
+            <div class="button-container">
+                <form action="/direct-login" method="post" target="_top">
+                    <input type="hidden" name="username" value="ninz">
+                    <input type="hidden" name="password" value="password">
+                    <input type="hidden" name="destination" value="/">
+                    <button type="submit" class="button secondary">Try Alternate User</button>
+                </form>
+                
+                <a href="/create-temp-user" class="button tertiary">Create & Login as Temp User</a>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>3. Manual Login</h2>
+            <p>If you know other credentials, you can enter them here:</p>
+            
+            <form id="manualLoginForm" class="manual-form" action="/direct-login" method="post" target="_top">
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <input type="hidden" name="destination" value="/">
+                <button type="submit" class="button">Login</button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="result"></div>
+</body>
+</html>

@@ -179,7 +179,7 @@ export default function AuthPageMobile() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-green-900 to-slate-900 flex flex-col">
       {/* Header Section */}
-      <div className="relative text-center pt-12 pb-8">
+      <div className="relative text-center pt-12 pb-8 pt-safe">
         {/* Background pattern */}
         <div className="absolute inset-0 opacity-10">
           <img 

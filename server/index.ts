@@ -98,6 +98,13 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 5000;
+  
+  // Debug: Log Square environment variables on startup to verify production config
+  console.log(`🔧 Square Config on Startup:`);
+  console.log(`   Location ID: ${process.env.SQUARE_LOCATION_ID || 'NOT_SET'}`);
+  console.log(`   App ID: ${process.env.SQUARE_APPLICATION_ID || 'NOT_SET'}`);
+  console.log(`   Access Token: ${process.env.SQUARE_ACCESS_TOKEN ? 'SET' : 'NOT_SET'}`);
+  
   server.listen({
     port,
     host: "0.0.0.0",

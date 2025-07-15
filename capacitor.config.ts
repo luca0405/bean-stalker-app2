@@ -3,25 +3,19 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.beanstalker.member',
   appName: 'Bean Stalker',
-  webDir: 'dist/public',
+  webDir: 'dist',
   server: {
-    androidScheme: 'https'
+    url: 'https://member.beanstalker.com.au',
+    cleartext: true
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 3000,
+      launchShowDuration: 1000,
       launchAutoHide: true,
-      backgroundColor: "#fffbeb",
-      androidSplashResourceName: "splash",
-      androidScaleType: "CENTER_CROP",
-      showSpinner: true,
-      androidSpinnerStyle: "large",
-      iosSpinnerStyle: "small",
-      spinnerColor: "#999999",
+      backgroundColor: "#1B3C2A",
+      showSpinner: false,
       splashFullScreen: true,
       splashImmersive: true,
-      layoutName: "launch_screen",
-      useDialog: true,
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],

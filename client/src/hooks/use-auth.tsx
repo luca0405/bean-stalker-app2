@@ -49,9 +49,11 @@ export const AuthContext = createContext<AuthContextType>({
   isLogoutPending: false,
   loginMutation: {
     mutate: () => {},
+    mutateAsync: async () => ({}),
     isPending: false,
   },
   registerMutation: {
+    mutate: () => {},
     mutateAsync: async () => ({}),
     isPending: false,
   },
@@ -78,10 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (userData) => {
       queryClient.setQueryData(["/api/user"], userData);
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${userData.username}!`,
-      });
+      // Scroll to top after successful login
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     onError: (error: Error) => {
       let title = "Sign In Failed";

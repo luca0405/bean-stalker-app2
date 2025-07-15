@@ -1,0 +1,88 @@
+version: 1
+
+# Optimized Xcode Cloud Configuration for Bean Stalker iOS
+workflows:
+  # Efficient TestFlight Build Workflow
+  bean-stalker-testflight:
+    name: "Bean Stalker TestFlight (Optimized)"
+    description: "High-performance build for TestFlight distribution"
+    
+    # Trigger conditions
+    branch_patterns:
+      - "main"
+      - "master"
+    
+    # Build environment - Latest stable versions
+    environment:
+      xcode: "15.4"
+      macos: "14.5"
+      node: "20"
+    
+    # Optimized build steps
+    steps:
+      # Step 1: Fast web application build
+      - name: "Build Web App"
+        script: |
+          set -e
+          echo "🚀 Building Bean Stalker web app..."
+          
+          # Fast dependency installation
+          npm ci --prefer-offline --no-audit --silent
+          
+          # Optimized production build
+          NODE_ENV=production npm run build
+          
+          # Quick Capacitor sync
+          npx cap sync ios --no-open
+          
+          echo "✅ Web build complete"
+      
+      # Step 2: Efficient iOS dependencies
+      - name: "Install iOS Dependencies"
+        script: |
+          set -e
+          echo "📱 Setting up iOS dependencies..."
+          cd ios/App
+          
+          # Clean installation
+          rm -rf Pods/ Podfile.lock .symlinks/
+          
+          # Install CocoaPods with proper PATH
+          gem install cocoapods --no-document --quiet
+          export PATH="$HOME/.gem/ruby/3.1.0/bin:/usr/local/bin:$PATH"
+          
+          # Verify installation
+          pod --version || exit 1
+          
+          # Fast pod install
+          pod install --silent || pod install --verbose
+          
+          # Verify xcconfig files
+          ls -la "Pods/Target Support Files/Pods-App/" || exit 1
+          
+          echo "✅ iOS dependencies ready"
+          cd ../..
+      
+      # Step 3: Build and archive
+      - name: "Build iOS App"
+        xcode:
+          scheme: "App"
+          destination: "generic/platform=iOS"
+          archive: true
+          workspace: "ios/App/App.xcworkspace"
+          
+          # Optimized build settings
+          build_settings:
+            CODE_SIGN_STYLE: "Automatic"
+            DEVELOPMENT_TEAM: "A43TZWNYA3"
+            IPHONEOS_DEPLOYMENT_TARGET: "13.0"
+            ENABLE_BITCODE: "NO"
+            SWIFT_VERSION: "5.0"
+            PRODUCT_BUNDLE_IDENTIFIER: "com.beanstalker.member"
+            ONLY_ACTIVE_ARCH: "NO"
+            VALID_ARCHS: "arm64"
+            ARCHS: "arm64"
+            COMPILER_INDEX_STORE_ENABLE: "NO"
+            
+          # Release configuration for TestFlight
+          archive_configuration: "Release"

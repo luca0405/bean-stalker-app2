@@ -7,6 +7,7 @@ import AuthPage from "@/pages/auth-page-mobile";
 import HomePage from "@/pages/home-page";
 import MenuPage from "@/pages/menu-page";
 import OrdersPage from "@/pages/orders-page";
+import CartPage from "@/pages/cart-page";
 import ProfilePage from "@/pages/profile-page";
 import AdminPage from "@/pages/admin-page";
 import FavoritesPage from "@/pages/favorites-page";
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <ProtectedRoute path="/" component={HomePage} />
       <ProtectedRoute path="/menu" component={MenuPage} />
+      <ProtectedRoute path="/cart" component={CartPage} />
       <ProtectedRoute path="/orders" component={OrdersPage} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <ProtectedRoute path="/membership" component={MembershipPage} />

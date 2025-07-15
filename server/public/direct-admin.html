@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct Admin Access</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Direct Admin Access</h1>
+    <p>Please click one of the buttons below to access the admin panel directly.</p>
+    
+    <form action="/direct-admin-login" method="post" target="_top" style="margin-bottom: 20px;">
+        <input type="hidden" name="username" value="bs_admin">
+        <input type="hidden" name="password" value="BS2025@@">
+        <button type="submit" style="padding: 10px 20px; background-color: #124430; color: white; border: none; cursor: pointer;">
+            Log in and Access Admin Panel
+        </button>
+    </form>
+    
+    <p style="margin-top: 20px; font-weight: bold;">OR</p>
+    
+    <p>If you're already logged in, you can directly access the standalone admin dashboard:</p>
+    
+    <a href="/standalone-admin" style="display: inline-block; padding: 10px 20px; background-color: #124430; color: white; text-decoration: none; margin-top: 10px;">
+        Go to Standalone Admin Dashboard
+    </a>
+</body>
+</html>

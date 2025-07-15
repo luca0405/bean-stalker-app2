@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Helper</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.5;
+        }
+        .description {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .button {
+            padding: 10px 15px;
+            background-color: #124430;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            text-align: left;
+        }
+        .button:hover {
+            background-color: #0d3526;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: none;
+        }
+        p {
+            margin: 10px 0;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bean Stalker Authentication Helper</h1>
+    
+    <div class="description">
+        <p>This page can help solve login issues by directly calling the API endpoints needed to get you logged in.</p>
+        <p>Choose an option below to attempt authentication:</p>
+    </div>
+    
+    <div class="container">
+        <button class="button" onclick="loginAsAdmin()">Login as Admin (bs_admin)</button>
+        <button class="button" onclick="loginAsUser()">Login as Regular User (sash)</button>
+        
+        <div style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 20px;">
+            <h3>Direct Server Routes</h3>
+            <p>If the login buttons above don't work, try these direct server routes:</p>
+            
+            <a href="/auto-login-admin" class="button" style="margin-top: 10px; background-color: #0d3526;">
+                Direct Admin Login
+            </a>
+            
+            <a href="/auto-login-user" class="button" style="margin-top: 10px; background-color: #0d3526;">
+                Direct Regular User Login (tries multiple accounts)
+            </a>
+            
+            <a href="/create-and-login-user" class="button" style="margin-top: 10px; background-color: #0d3526;">
+                Create & Login Temporary User (Last Resort)
+            </a>
+            
+            <div style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 20px;">
+                <h3>Standalone Admin Dashboard</h3>
+                <p>Access the admin dashboard directly without using the React router:</p>
+                
+                <a href="/standalone-admin" class="button" style="margin-top: 10px; background-color: #0d3526; font-weight: bold;">
+                    Access Standalone Admin Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div id="result"></div>
+    
+    <script>
+        const resultDiv = document.getElementById('result');
+        
+        function showResult(message, isSuccess) {
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = message;
+            resultDiv.className = isSuccess ? 'success' : 'error';
+        }
+        
+        async function directLogin(username, password) {
+            try {
+                // Clear any previous results
+                resultDiv.style.display = 'none';
+                
+                showResult('Attempting login...', true);
+                
+                // Make direct API call to login endpoint
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ username, password })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Login API call failed with status: ' + response.status);
+                }
+                
+                const userData = await response.json();
+                
+                showResult(`Login successful! Authenticated as ${username}`, true);
+                
+                // Create a multi-step approach
+                const buttonsHtml = `
+                    <div style="margin-top: 20px;">
+                        <p>Login was successful, but the SPA router is preventing regular navigation.</p>
+                        <p>Try one of these manual navigation options:</p>
+                        ${userData.isAdmin ? 
+                        `<button onclick="navigateTo('/standalone-admin')" class="button" style="background-color: #0d3526; font-weight: bold;">
+                            ⭐ Recommended: Use Standalone Admin Dashboard ⭐
+                        </button>` : ''}
+                        <button onclick="navigateTo('${userData.isAdmin ? '/admin' : '/'}')" class="button" style="margin-top: 10px;">
+                            1. Direct Navigation (may redirect)
+                        </button>
+                        <button onclick="setLoginAndReload()" class="button" style="margin-top: 10px;">
+                            2. Set Login & Reload App
+                        </button>
+                        <button onclick="openInNewTab('${userData.isAdmin ? '/admin' : '/'}')" class="button" style="margin-top: 10px;">
+                            3. Open in New Tab
+                        </button>
+                    </div>
+                `;
+                
+                resultDiv.innerHTML += buttonsHtml;
+                
+            } catch (error) {
+                showResult(`Login error: ${error.message}. Please try the alternate login method.`, false);
+            }
+        }
+        
+        function navigateTo(path) {
+            window.location.href = path;
+        }
+        
+        function setLoginAndReload() {
+            localStorage.setItem('wasLoggedIn', 'true');
+            localStorage.setItem('bypassAuth', 'true');
+            window.location.reload();
+        }
+        
+        function openInNewTab(path) {
+            window.open(path, '_blank');
+        }
+        
+        function loginAsAdmin() {
+            directLogin('bs_admin', 'BS2025@@');
+        }
+        
+        function loginAsUser() {
+            directLogin('sash', 'password');
+        }
+    </script>
+</body>
+</html>

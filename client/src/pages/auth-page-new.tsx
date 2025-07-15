@@ -156,8 +156,8 @@ export default function AuthPage() {
         throw new Error("Square payment system is not available");
       }
 
-      const appId = 'sandbox-sq0idb-oQNMvarN-HwItQT2e6bbtg'; // Square sandbox app ID
-      const locationId = 'LKTZKDFJ44YZD'; // Square sandbox location ID
+      const appId = 'sandbox-sq0idb-0f_-wyGBcz7NmblQtFkv9A'; // Square sandbox app ID
+      const locationId = 'LRQ926HVH9WFD'; // Beanstalker Sandbox location ID
 
       const payments = window.Square.payments(appId, locationId);
       const card = await payments.card();

@@ -1,18 +1,31 @@
 import { useState, useMemo, useCallback } from "react";
 import { AppHeader } from "@/components/app-header";
-
 import { CategoryFilter } from "@/components/category-filter";
-import { MenuItemCard } from "@/components/menu-item";
+import { GrabMenuCard } from "@/components/grab-menu-card";
+import { ProductDetailModal } from "@/components/product-detail-modal";
 import { useMenu } from "@/contexts/menu-context";
 import { Loader2, RefreshCw } from "lucide-react";
 import { formatCategoryName } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { MenuItem } from "@shared/schema";
 
 export default function MenuPage() {
   const { menuItems, categories, isLoading, isRefreshing, refreshMenu } = useMenu();
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { toast } = useToast();
+
+  const handleItemClick = (item: MenuItem) => {
+    setSelectedItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedItem(null);
+  };
   
 
   
@@ -122,10 +135,14 @@ export default function MenuPage() {
                       </h2>
                       <p className="text-green-100 text-sm">{items.length} items available</p>
                     </div>
-                    {/* Mobile-first 2-column grid */}
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+                    {/* Grab-style 2-column grid */}
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
                       {items.map((item) => (
-                        <MenuItemCard key={item.id} item={item} />
+                        <GrabMenuCard 
+                          key={item.id} 
+                          item={item} 
+                          onClick={() => handleItemClick(item)}
+                        />
                       ))}
                     </div>
                   </div>
@@ -138,10 +155,14 @@ export default function MenuPage() {
                     </h2>
                     <p className="text-green-100 text-sm">{filteredItems.length} items available</p>
                   </div>
-                  {/* Mobile-first 2-column grid for selected category */}
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+                  {/* Grab-style 2-column grid for selected category */}
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     {filteredItems.map((item) => (
-                      <MenuItemCard key={item.id} item={item} />
+                      <GrabMenuCard 
+                        key={item.id} 
+                        item={item} 
+                        onClick={() => handleItemClick(item)}
+                      />
                     ))}
                   </div>
                 </div>
@@ -150,6 +171,13 @@ export default function MenuPage() {
           )}
         </main>
       </div>
+
+      {/* Product Detail Modal */}
+      <ProductDetailModal
+        item={selectedItem}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }

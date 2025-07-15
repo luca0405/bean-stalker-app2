@@ -1,228 +1,171 @@
-# Bean Stalker - Coffee Shop PWA
+# Bean Stalker - Premium Coffee Shop iOS App
 
-A cutting-edge Progressive Web Application for Bean Stalker coffee shop, delivering an immersive digital coffee ordering experience with advanced user engagement and personalization technologies.
+A complete Progressive Web Application (PWA) with native iOS app for Bean Stalker coffee shop, featuring premium membership, in-app purchases, and real-time order management.
 
 ## 🚀 Features
 
 ### Customer Experience
-- **Mobile-First Design**: Optimized for smartphones with professional UI/UX
-- **Premium Membership**: Mandatory AUD$69 membership with instant credit balance
-- **Real-Time Ordering**: Browse menu, customize orders, and track status
-- **Push Notifications**: Get notified when your order is ready
-- **Credit System**: Buy and share credits with friends and family
-- **PWA Support**: Install on your phone like a native app
+- **Premium Membership** - AUD$69 membership with starting credits
+- **Coffee Menu** - Browse 33+ specialty coffee items and food
+- **Real-time Ordering** - Place orders with live status tracking
+- **In-App Purchases** - Buy credits via RevenueCat integration
+- **Biometric Authentication** - Touch ID/Face ID support
+- **Push Notifications** - Order status updates and promotions
 
-### Admin Management
-- **Order Management**: Real-time order tracking and status updates
-- **Menu Management**: Add, edit, and categorize menu items
-- **Credit Verification**: Manage credit transfers and sharing
-- **User Management**: View and manage customer accounts
-- **Square Integration**: Sync with Square Kitchen Display System
+### Business Management
+- **Square Integration** - Kitchen Display System sync
+- **Admin Dashboard** - Order management and user administration
+- **Credit System** - Flexible credit-based payment system
+- **Analytics** - Order tracking and business insights
 
-### Restaurant Operations
-- **Square for Restaurants**: Full integration with Square payment system
-- **Kitchen Display Sync**: Bidirectional sync between Bean Stalker and Square
-- **Real-Time Status Updates**: Orders sync automatically between systems
-- **Payment Processing**: Secure credit card payments via Square API
+## 📱 iOS App Distribution
 
-## 🛠 Tech Stack
+### Bundle ID: `com.beanstalker.member`
+
+### TestFlight Setup
+- **Xcode Cloud** - Automated builds and TestFlight uploads
+- **Internal Testing** - Immediate testing for team members
+- **External Testing** - Beta testing for customers
+
+### Test Account
+- **Username:** iamninz
+- **Password:** password123
+- **Email:** ninz@myma.com.au
+
+## 🛠 Technology Stack
 
 ### Frontend
 - **React 18** with TypeScript
-- **Tailwind CSS** with shadcn/ui components
-- **TanStack Query** for server state management
-- **Wouter** for client-side routing
-- **Framer Motion** for animations
-- **Service Worker** for offline support
+- **Tailwind CSS** - Professional UI styling
+- **shadcn/ui** - Modern component library
+- **Capacitor** - Native iOS integration
+- **PWA** - Offline support and installable
 
 ### Backend
 - **Node.js** with Express.js
 - **PostgreSQL** with Drizzle ORM
-- **Passport.js** for authentication
-- **Square API** for payments and restaurant integration
-- **Web Push API** for notifications
+- **Square API** - Payment processing and kitchen integration
+- **RevenueCat** - Cross-platform IAP management
+- **Web Push API** - Real-time notifications
 
-### Mobile App
-- **Capacitor** for iOS and Android deployment
-- **RevenueCat** for in-app purchases
-- **Native Biometric** authentication support
+### Mobile
+- **Capacitor iOS** - Native app wrapper
+- **RevenueCat** - In-App Purchase system
+- **Biometric Auth** - Native authentication
+- **Push Notifications** - Native notification support
 
-## 📱 Installation & Setup
+## 🔧 Development Setup
 
 ### Prerequisites
-- Node.js 20 or higher
+- Node.js 20+
 - PostgreSQL database
-- Square developer account
+- Square Developer account
+- Apple Developer account
+- Xcode 15+
+
+### Installation
+```bash
+# Install dependencies
+npm install
+
+# Setup database
+npm run db:push
+
+# Start development server
+npm run dev
+
+# Build iOS app
+npm run build
+npx cap sync ios
+```
 
 ### Environment Variables
-Create a `.env` file with the following variables:
-
 ```env
-# Database
-DATABASE_URL=your_postgresql_connection_string
-
-# Square Integration
-SQUARE_ACCESS_TOKEN=your_square_access_token
-SQUARE_APPLICATION_ID=your_square_application_id
-SQUARE_LOCATION_ID=your_square_location_id
-
-# Email Service
-GMAIL_USER=your_gmail_address
-GMAIL_APP_PASSWORD=your_gmail_app_password
-
-# RevenueCat (for mobile)
-VITE_REVENUECAT_API_KEY=your_revenuecat_key
+DATABASE_URL=postgresql://...
+SQUARE_ACCESS_TOKEN=sandbox-sq0atb-...
+SQUARE_APPLICATION_ID=sandbox-sq0idb-...
+SQUARE_LOCATION_ID=LRQ926HVH9WFD
+SQUARE_WEBHOOK_SIGNATURE_KEY=...
 ```
 
-### Development Setup
-
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Set up database:**
-   ```bash
-   npm run db:push
-   ```
-
-3. **Start development server:**
-   ```bash
-   npm run dev
-   ```
-
-4. **Access the application:**
-   - Web: `http://localhost:5000`
-   - Admin: Login with admin credentials
-
-### Mobile App Build
-
-1. **Build for mobile:**
-   ```bash
-   npm run build
-   npx cap sync
-   ```
-
-2. **iOS (requires macOS):**
-   ```bash
-   npx cap run ios
-   ```
-
-3. **Android:**
-   ```bash
-   npx cap run android
-   ```
-
-## 🏗 Project Structure
-
-```
-bean-stalker/
-├── client/                 # React frontend
-│   ├── src/
-│   │   ├── components/     # Reusable UI components
-│   │   ├── pages/          # Page components
-│   │   ├── hooks/          # Custom React hooks
-│   │   └── services/       # API and utility services
-├── server/                 # Express backend
-│   ├── auth.ts            # Authentication logic
-│   ├── routes.ts          # API endpoints
-│   ├── storage.ts         # Database operations
-│   └── square-*.ts        # Square integrations
-├── shared/                # Shared types and schemas
-│   └── schema.ts          # Database schema and types
-├── android/               # Android app files
-├── ios/                   # iOS app files
-└── uploads/               # User uploaded files
-```
-
-## 🔄 Square Integration
-
-### Kitchen Display System
-- Orders automatically sync from Bean Stalker to Square
-- Kitchen staff can update order status in Square
-- Status updates sync back to Bean Stalker
-- Customers receive push notifications on status changes
-
-### Payment Processing
-- Premium membership payments via Square
-- Secure credit card processing
-- Real-time payment verification
-- Transaction history tracking
-
-## 🚀 Deployment
+## 📋 Deployment
 
 ### Web Deployment (Replit)
-```bash
-npm run build
-```
+- **Platform:** Replit Autoscale
+- **URL:** https://member.beanstalker.com.au
+- **Database:** PostgreSQL 16
+- **Runtime:** Node.js 20
 
-### Mobile App Store
-1. **Build production app:**
-   ```bash
-   npm run build
-   npx cap sync
-   ```
+### iOS Deployment
+1. **Xcode Cloud** - Automated builds
+2. **TestFlight** - Beta distribution
+3. **App Store** - Production release
 
-2. **iOS App Store:**
-   - Open `ios/App/App.xcworkspace` in Xcode
-   - Configure signing and build for release
+## 🏪 Business Integration
 
-3. **Google Play Store:**
-   - Open `android/` folder in Android Studio
-   - Build signed APK/AAB for release
+### Square for Restaurants
+- **Kitchen Display** - Real-time order management
+- **POS Integration** - Unified payment processing
+- **Inventory Sync** - Menu item availability
+- **Reporting** - Sales and analytics
 
-## 🤝 Contributing
+### Revenue Streams
+- **Premium Memberships** - AUD$69 annual
+- **Credit Packages** - AUD$10-100 denominations
+- **Order Commissions** - Per-transaction fees
 
-1. **Fork the repository**
-2. **Create a feature branch:**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-3. **Make your changes and commit:**
-   ```bash
-   git commit -m "Add your feature"
-   ```
-4. **Push to your fork and create a Pull Request**
+## 📈 Metrics & Analytics
 
-### Development Guidelines
-- Follow the existing code style
-- Write tests for new features
-- Update documentation as needed
-- Ensure mobile compatibility
+### Key Performance Indicators
+- **Monthly Active Users** - App engagement
+- **Conversion Rate** - Free to premium membership
+- **Average Order Value** - Revenue per transaction
+- **Customer Retention** - Repeat purchase rate
 
-## 📄 API Documentation
+## 🔐 Security & Compliance
 
-### Authentication
-- `POST /api/register` - Create new user account
-- `POST /api/login` - User login
-- `POST /api/logout` - User logout
-- `GET /api/user` - Get current user
+### Data Protection
+- **Session Management** - Secure authentication
+- **Payment Security** - PCI DSS compliant via Square
+- **Data Encryption** - TLS/SSL throughout
+- **Privacy Controls** - GDPR/CCPA ready
 
-### Orders
-- `GET /api/orders` - Get user orders
-- `POST /api/orders` - Create new order
-- `PATCH /api/orders/:id/status` - Update order status
+### App Store Guidelines
+- **Content Rating** - 4+ (suitable for all ages)
+- **Privacy Policy** - Comprehensive data handling
+- **Terms of Service** - User agreement
+- **In-App Purchase** - Clear value proposition
 
-### Square Integration
-- `POST /api/square/webhook` - Square webhook endpoint
-- `POST /api/square/kitchen/sync` - Sync orders to Square
-- `GET /api/square/kitchen/orders` - Get kitchen display orders
+## 📞 Support & Maintenance
 
-### Credits
-- `POST /api/share-credits` - Share credits with others
-- `POST /api/verify-credit-share` - Verify credit transfer
-- `GET /api/admin/credit-transfers` - Admin credit management
+### Customer Support
+- **Email:** support@beanstalker.com.au
+- **In-App Help** - Integrated support system
+- **FAQ** - Common questions and answers
 
-## 📞 Support
+### Technical Support
+- **Monitoring** - 24/7 system monitoring
+- **Updates** - Regular feature releases
+- **Bug Fixes** - Rapid issue resolution
 
-For technical support or questions:
-- Create an issue in this repository
-- Contact the development team
+## 📊 Project Status
 
-## 📜 License
+### Current Phase: TestFlight Distribution
+- ✅ iOS app development complete
+- ✅ Xcode Cloud workflow configured  
+- ✅ RevenueCat IAP integration ready
+- ✅ Square Kitchen Display operational
+- ⏳ App Store Connect product setup
+- ⏳ TestFlight beta testing
+- ⏳ App Store submission
 
-This project is proprietary software for Bean Stalker coffee shop.
+### Next Milestones
+1. **Complete IAP Setup** - App Store Connect products
+2. **Beta Testing** - TestFlight distribution
+3. **App Store Review** - Submission and approval
+4. **Production Launch** - Public availability
 
 ---
 
-**Bean Stalker** - Premium Coffee Experience 🚀
+**Bean Stalker** - Premium Coffee Experience
+Built with ❤️ for coffee lovers everywhere

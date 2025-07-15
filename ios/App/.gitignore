@@ -1,0 +1,26 @@
+# iOS specific gitignore for App directory
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# Xcode user-specific files (but keep shared schemes)
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+
+# Build products
+build/
+*.ipa
+
+# Capacitor generated files
+App/public/
+App/config.xml
+App/Info.plist
+
+# Keep shared schemes for Xcode Cloud
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/xcshareddata/xcschemes/
+!*.xcodeproj/xcshareddata/xcschemes/*.xcscheme

@@ -1,6 +1,6 @@
 import { AppHeader } from "@/components/app-header";
 import { SettingsIcon } from "@/components/icons";
-import { Send, Menu, ShoppingCart, CreditCard, User, Gift, TrendingUp, Sparkles, DollarSign, Heart, Crown, QrCode, Coffee, Settings } from "lucide-react";
+import { Send, Menu, ShoppingCart, CreditCard, User, Gift, TrendingUp, Sparkles, DollarSign, Heart, Crown, QrCode, Coffee, Settings, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,7 +17,8 @@ import { useToast } from "@/hooks/use-toast";
 import { usePushNotificationContext } from "@/contexts/push-notification-context";
 import { useCart } from "@/contexts/cart-context";
 import { MenuItem } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -25,13 +26,44 @@ export default function HomePage() {
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
   const { toast } = useToast();
   const { notificationsEnabled } = usePushNotificationContext();
-  const { addToCart, setIsCartOpen } = useCart();
+  const { addToCart } = useCart();
   
   const { data: orders = [] } = useQuery<Order[], Error>({
     queryKey: ["/api/orders"],
     refetchOnWindowFocus: true,
     refetchOnMount: true,
     refetchInterval: 5000, // Refresh every 5 seconds
+  });
+
+  // Manual sync mutation to check Square for order status updates
+  const syncOrdersMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/square/sync-my-orders");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Refresh orders after sync
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      
+      if (data.updatedOrders && data.updatedOrders.length > 0) {
+        toast({
+          title: "Orders Updated",
+          description: `${data.updatedOrders.length} order(s) status updated from Square Kitchen`,
+        });
+      } else {
+        toast({
+          title: "Up to Date",
+          description: "All orders are already up to date",
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sync Failed",
+        description: error.message || "Failed to sync with Square Kitchen",
+        variant: "destructive",
+      });
+    },
   });
   
   // Add an effect to register and handle service worker message events for notifications
@@ -119,7 +151,7 @@ export default function HomePage() {
       });
       
       // Open the cart popup to show the items
-      setIsCartOpen(true);
+      // Cart automatically updates through context
       
     } catch (error) {
       console.error("Error ordering favorites:", error);
@@ -276,14 +308,26 @@ export default function HomePage() {
                   <TrendingUp className="h-5 w-5 text-green-600" />
                   Recent Orders
                 </h3>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => navigate("/orders")}
-                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                >
-                  View All
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => syncOrdersMutation.mutate()}
+                    disabled={syncOrdersMutation.isPending}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-1 ${syncOrdersMutation.isPending ? 'animate-spin' : ''}`} />
+                    {syncOrdersMutation.isPending ? 'Syncing...' : 'Check Updates'}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => navigate("/orders")}
+                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  >
+                    View All
+                  </Button>
+                </div>
               </div>
               <div className="space-y-3">
                 {recentOrders.length > 0 ? (
