@@ -38,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { MobileNetworkTest } from "@/components/mobile-network-test";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username or Email is required"),
@@ -515,6 +516,8 @@ export default function AuthPage() {
           )}
         </CardContent>
       </Card>
+      
+      <MobileNetworkTest />
     </div>
   );
 }

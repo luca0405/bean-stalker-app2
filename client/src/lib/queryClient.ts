@@ -34,9 +34,20 @@ export async function apiRequest(
   });
   
   try {
+    const headers: Record<string, string> = {};
+    if (data) {
+      headers["Content-Type"] = "application/json";
+    }
+    
+    // Add mobile-specific headers
+    if (Capacitor.isNativePlatform()) {
+      headers["User-Agent"] = "Bean Stalker Mobile App";
+      headers["Accept"] = "application/json";
+    }
+    
     const res = await fetch(fullUrl, {
       method,
-      headers: data ? { "Content-Type": "application/json" } : {},
+      headers,
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
       // Add timeout for mobile
@@ -52,14 +63,28 @@ export async function apiRequest(
     await throwIfResNotOk(res);
     return res;
   } catch (error) {
+    // Enhanced mobile error handling
+    let errorMessage = error.message;
+    
+    if (error.name === 'TypeError' && error.message.includes('Load failed')) {
+      errorMessage = 'Network connection failed. Check internet connectivity.';
+    } else if (error.name === 'AbortError') {
+      errorMessage = 'Request timed out. Server response too slow.';
+    } else if (error.message.includes('NETWORK_ERROR')) {
+      errorMessage = 'Network error. Unable to connect to server.';
+    }
+    
     console.error('API Request failed:', {
       url: fullUrl,
       method,
       error: error.message,
-      stack: error.stack
+      errorName: error.name,
+      stack: error.stack,
+      isNative: Capacitor.isNativePlatform(),
+      online: navigator.onLine
     });
     
-    throw error;
+    throw new Error(errorMessage);
   }
 }
 
@@ -73,7 +98,16 @@ export const getQueryFn: <T>(options: {
     const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
     
     try {
+      const headers: Record<string, string> = {};
+      
+      // Add mobile-specific headers
+      if (Capacitor.isNativePlatform()) {
+        headers["User-Agent"] = "Bean Stalker Mobile App";
+        headers["Accept"] = "application/json";
+      }
+      
       const res = await fetch(fullUrl, {
+        headers,
         credentials: "include",
         // Add timeout for mobile
         signal: AbortSignal.timeout(15000),

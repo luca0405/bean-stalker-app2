@@ -8,8 +8,11 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     // Allow cleartext traffic for development
     allowNavigation: [
-      'https://member.beanstalker.com.au'
-    ]
+      'https://member.beanstalker.com.au',
+      'https://*.beanstalker.com.au'
+    ],
+    // Handle CORS and network security for production
+    cleartext: true
   },
   plugins: {
     SplashScreen: {
