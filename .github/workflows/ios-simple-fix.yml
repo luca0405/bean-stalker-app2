@@ -23,6 +23,16 @@ jobs:
       run: |
         npm ci
         npm run build
+        
+        # Verify build output
+        echo "=== Verifying build output ==="
+        ls -la dist/
+        if [ ! -f "dist/index.html" ]; then
+          echo "Error: dist/index.html not found after build"
+          exit 1
+        fi
+        echo "Build verification successful"
+        
         npx cap sync ios
         cd ios/App && pod install
         
