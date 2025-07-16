@@ -4,9 +4,9 @@ const config: CapacitorConfig = {
   appId: 'com.beanstalker.member',
   appName: 'Bean Stalker',
   webDir: 'dist',
+  // Use local files for iOS app instead of remote server
   server: {
-    url: 'https://member.beanstalker.com.au',
-    cleartext: true
+    androidScheme: 'https'
   },
   plugins: {
     SplashScreen: {
