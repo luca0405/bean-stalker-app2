@@ -111,7 +111,10 @@ jobs:
         echo "=== Verifying Pod target bundle IDs ==="
         grep -r "PRODUCT_BUNDLE_IDENTIFIER" Pods/Target\ Support\ Files/ | head -10 || echo "No bundle ID conflicts found"
         
-        # Clean build and archive
+        # Fix build settings that cause archive conflicts
+        echo "=== Fixing build configuration conflicts ==="
+        
+        # Override problematic build settings
         xcodebuild clean -workspace App.xcworkspace -scheme App
         
         xcodebuild archive \
@@ -120,6 +123,12 @@ jobs:
           -archivePath "../../ios/export/App-clean.xcarchive" \
           -configuration Release \
           -destination generic/platform=iOS \
+          CODE_SIGN_STYLE=Automatic \
+          CODE_SIGN_IDENTITY="" \
+          PROVISIONING_PROFILE_SPECIFIER="" \
+          DEVELOPMENT_TEAM=A43TZWNYA3 \
+          SWIFT_OPTIMIZATION_LEVEL=-O \
+          SWIFT_COMPILATION_MODE=wholemodule \
           -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
           -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
           -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
