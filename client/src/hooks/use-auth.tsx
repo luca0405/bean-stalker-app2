@@ -62,7 +62,7 @@ export const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   
-  // Fetch current user
+  // Fetch current user with mobile-optimized configuration
   const {
     data: user,
     error,
@@ -70,6 +70,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: false, // Don't retry auth failures
+    refetchOnMount: false, // Don't refetch on component mount
+    refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
   // Login mutation

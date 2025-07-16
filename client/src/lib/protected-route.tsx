@@ -12,17 +12,23 @@ export function ProtectedRoute({
 }) {
   const { user, isLoading } = useAuth();
 
+  console.log('ProtectedRoute:', { path, user: !!user, isLoading });
+
   if (isLoading) {
     return (
       <Route path={path}>
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-green-50 to-green-100">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin text-green-600 mx-auto" />
+            <p className="text-green-800 font-medium">Loading...</p>
+          </div>
         </div>
       </Route>
     );
   }
 
   if (!user) {
+    console.log('No user, redirecting to /auth');
     return (
       <Route path={path}>
         <Redirect to="/auth" />

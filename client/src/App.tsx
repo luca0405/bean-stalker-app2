@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -24,9 +24,13 @@ import { IOSNotificationProvider } from "@/contexts/ios-notification-context";
 import { AppUpdateProvider } from "@/contexts/app-update-context";
 import { IAPProvider } from "@/hooks/use-iap";
 import { Capacitor } from '@capacitor/core';
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useState, useEffect } from 'react';
 
 function Router() {
+  const [location] = useLocation();
+  console.log('Router rendering, current location:', location);
+  
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
@@ -74,14 +78,24 @@ function App() {
               signal: AbortSignal.timeout(10000)
             });
             console.log('Server connectivity test:', response.ok ? 'SUCCESS' : 'FAILED', response.status);
+            if (!response.ok) {
+              console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+              const responseText = await response.text();
+              console.log('Response body:', responseText.substring(0, 200));
+            }
           } catch (connError) {
             console.error('Server connectivity test failed:', connError.message);
+            console.error('Connection error details:', {
+              name: connError.name,
+              stack: connError.stack,
+              online: navigator.onLine
+            });
             // Don't fail app initialization due to connectivity issues
           }
         }
         
         setIsReady(true);
-        console.log('Bean Stalker App ready');
+        console.log('Bean Stalker App ready - About to render components');
       } catch (error) {
         console.error('App initialization error:', error);
         setAppError(error.message);
@@ -120,24 +134,26 @@ function App() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <IAPProvider>
-          <MenuProvider>
-            <CartProvider>
-              <IOSNotificationProvider>
-                <PushNotificationProvider>
-                  <AppUpdateProvider>
-                    <Router />
-                    <Toaster />
-                  </AppUpdateProvider>
-                </PushNotificationProvider>
-              </IOSNotificationProvider>
-            </CartProvider>
-          </MenuProvider>
-        </IAPProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <IAPProvider>
+            <MenuProvider>
+              <CartProvider>
+                <IOSNotificationProvider>
+                  <PushNotificationProvider>
+                    <AppUpdateProvider>
+                      <Router />
+                      <Toaster />
+                    </AppUpdateProvider>
+                  </PushNotificationProvider>
+                </IOSNotificationProvider>
+              </CartProvider>
+            </MenuProvider>
+          </IAPProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
