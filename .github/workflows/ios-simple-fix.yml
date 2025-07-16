@@ -99,17 +99,38 @@ jobs:
       run: |
         # Extract and inspect IPA contents
         cd ios/export
+        rm -rf Payload 2>/dev/null || true
         unzip -q App.ipa
-        echo "=== Inspecting bundle IDs in IPA ==="
+        echo "=== Original bundle IDs in IPA ==="
         find Payload -name "Info.plist" -exec echo "File: {}" \; -exec plutil -p {} \; | grep -A1 -B1 CFBundleIdentifier
         
-        # Fix any duplicate bundle IDs directly in the extracted IPA
-        find Payload -name "Info.plist" -path "*/Frameworks/*" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.$(basename $(dirname {}) .framework)" {} \;
+        # Fix bundle IDs for each framework individually
+        echo "=== Fixing framework bundle IDs ==="
         
-        # Repackage the IPA
+        # Capacitor framework
+        find Payload -path "*/Frameworks/Capacitor.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.capacitor" {} \;
+        
+        # RevenueCat framework
+        find Payload -path "*/Frameworks/RevenueCat.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.revenuecat" {} \;
+        
+        # PurchasesHybridCommon framework
+        find Payload -path "*/Frameworks/PurchasesHybridCommon.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.hybridcommon" {} \;
+        
+        # RevenuecatPurchasesCapacitor framework
+        find Payload -path "*/Frameworks/RevenuecatPurchasesCapacitor.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.revenuecatpurchases" {} \;
+        
+        # CapacitorNativeBiometric framework
+        find Payload -path "*/Frameworks/CapacitorNativeBiometric.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.biometric" {} \;
+        
+        # Cordova framework
+        find Payload -path "*/Frameworks/Cordova.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.cordova" {} \;
+        
+        # Repackage the IPA (force overwrite)
+        rm -f App-fixed.ipa
         zip -qr App-fixed.ipa Payload
         
         echo "=== Verifying fixed bundle IDs ==="
+        rm -rf Payload
         unzip -q App-fixed.ipa
         find Payload -name "Info.plist" -exec echo "File: {}" \; -exec plutil -p {} \; | grep -A1 -B1 CFBundleIdentifier
         
