@@ -23,34 +23,38 @@ end
 post_install do |installer|
   assertDeploymentTarget(installer)
   
-  # Use update_code_signing_settings with targets instead of bundle_id
+  # Force unique bundle IDs for all framework targets to prevent collision
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      # Skip main app - only fix framework bundle IDs
+      unless target.name == 'App'
+        # Generate unique bundle ID based on target name
+        safe_name = target.name.gsub(/[^a-zA-Z0-9]/, '').downcase
+        config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.framework.#{safe_name}"
+        
+        # Ensure proper signing settings
+        config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
+        config.build_settings['CODE_SIGN_IDENTITY'] = ''
+        config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
+        config.build_settings['DEVELOPMENT_TEAM'] = 'A43TZWNYA3'
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+        
+        # Prevent bundle ID inheritance from main app
+        config.build_settings.delete('INHERIT_PRODUCT_BUNDLE_IDENTIFIER')
+      end
+    end
+  end
+  
+  # Also update generated projects (if any)
   installer.generated_projects.each do |project|
     project.targets.each do |target|
       target.build_configurations.each do |config|
-        # Remove any conflicting bundle identifier settings
-        config.build_settings.delete('PRODUCT_BUNDLE_IDENTIFIER')
-        
-        # Set unique bundle identifiers for each target
-        case target.name
-        when 'Capacitor'
-          config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.capacitor'
-        when 'CapacitorCordova'
-          config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.cordova'
-        when 'RevenuecatPurchasesCapacitor'
-          config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.revenuecat'
-        when 'CapacitorNativeBiometric'
-          config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.biometric'
-        when 'RevenueCat'
-          config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.revenuecatsdk'
-        when 'PurchasesHybridCommon'
-          config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.hybridcommon'
-        when /Pods-/
-          config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.beanstalker.framework.pods'
+        unless target.name == 'App'
+          safe_name = target.name.gsub(/[^a-zA-Z0-9]/, '').downcase
+          config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.beanstalker.framework.#{safe_name}"
+          config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
+          config.build_settings['DEVELOPMENT_TEAM'] = 'A43TZWNYA3'
         end
-        
-        # Ensure proper code signing settings
-        config.build_settings['CODE_SIGN_IDENTITY'] = ''
-        config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
       end
     end
   end

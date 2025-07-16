@@ -95,53 +95,66 @@ jobs:
           -allowProvisioningUpdates \
           -allowProvisioningDeviceRegistration
         
-    - name: Clean rebuild with fixed Podfile configuration
+    - name: Debug and fix IPA bundle IDs before upload
       run: |
-        echo "=== Cleaning and rebuilding with fixed bundle IDs ==="
+        # Extract and inspect IPA contents
+        cd ios/export
+        rm -rf Payload 2>/dev/null || true
+        unzip -q App.ipa
+        echo "=== Original bundle IDs in IPA ==="
+        find Payload -name "Info.plist" -exec echo "File: {}" \; -exec plutil -p {} \; | grep -A1 -B1 CFBundleIdentifier
         
-        # Clean everything for fresh build
-        cd ios/App
-        rm -rf Pods Podfile.lock
-        rm -rf ~/Library/Developer/Xcode/DerivedData
+        # Fix bundle IDs for each framework individually
+        echo "=== Fixing framework bundle IDs ==="
         
-        # Install pods with updated Podfile
-        pod install --repo-update
+        # Capacitor framework
+        find Payload -path "*/Frameworks/Capacitor.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.capacitor" {} \;
         
-        # Verify Podfile configuration applied
-        echo "=== Verifying Pod target bundle IDs ==="
-        grep -r "PRODUCT_BUNDLE_IDENTIFIER" Pods/Target\ Support\ Files/ | head -10 || echo "No bundle ID conflicts found"
+        # RevenueCat framework
+        find Payload -path "*/Frameworks/RevenueCat.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.revenuecat" {} \;
         
-        # Clean build and archive
-        xcodebuild clean -workspace App.xcworkspace -scheme App
+        # PurchasesHybridCommon framework
+        find Payload -path "*/Frameworks/PurchasesHybridCommon.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.hybridcommon" {} \;
         
-        xcodebuild archive \
-          -workspace App.xcworkspace \
-          -scheme App \
-          -archivePath "../../ios/export/App-clean.xcarchive" \
-          -configuration Release \
-          -destination generic/platform=iOS \
-          -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
-          -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
-          -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
-          -allowProvisioningUpdates \
-          -allowProvisioningDeviceRegistration
+        # RevenuecatPurchasesCapacitor framework
+        find Payload -path "*/Frameworks/RevenuecatPurchasesCapacitor.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.revenuecatpurchases" {} \;
         
-        # Export clean archive
-        xcodebuild -exportArchive \
-          -archivePath "../../ios/export/App-clean.xcarchive" \
-          -exportPath "../../ios/export-clean" \
-          -exportOptionsPlist "../../ExportOptions.plist" \
-          -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
-          -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
-          -authenticationKeyPath ~/private_keys/AuthKey_${{ secrets.APPSTORE_API_KEY_ID }}.p8 \
-          -allowProvisioningUpdates \
-          -allowProvisioningDeviceRegistration
+        # CapacitorNativeBiometric framework
+        find Payload -path "*/Frameworks/CapacitorNativeBiometric.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.biometric" {} \;
         
-    - name: Upload clean build to TestFlight
+        # Cordova framework
+        find Payload -path "*/Frameworks/Cordova.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.cordova" {} \;
+        
+        echo "=== Verifying fixed bundle IDs ==="
+        find Payload -name "Info.plist" -exec echo "File: {}" \; -exec plutil -p {} \; | grep -A1 -B1 CFBundleIdentifier
+        
+        echo "=== Re-signing modified app bundle ==="
+        # Re-sign the main app bundle after modifications
+        codesign --force --sign "iPhone Distribution" \
+          --entitlements "Payload/App.app/App.entitlements" \
+          --timestamp \
+          "Payload/App.app" || {
+          echo "Main app signing failed, trying with automatic identity..."
+          codesign --force --sign "-" \
+            --timestamp \
+            "Payload/App.app"
+        }
+        
+        # Re-sign all frameworks
+        find Payload/App.app/Frameworks -name "*.framework" -exec codesign --force --sign "iPhone Distribution" --timestamp {} \; || {
+          echo "Framework signing with distribution cert failed, using automatic..."
+          find Payload/App.app/Frameworks -name "*.framework" -exec codesign --force --sign "-" --timestamp {} \;
+        }
+        
+        # Repackage the signed IPA
+        rm -f App-fixed.ipa
+        zip -qr App-fixed.ipa Payload
+        
+    - name: Upload re-signed IPA to TestFlight
       run: |
         xcrun altool --upload-app \
           --type ios \
-          --file "ios/export-clean/App.ipa" \
+          --file "ios/export/App-fixed.ipa" \
           --apiKey "${{ secrets.APPSTORE_API_KEY_ID }}" \
           --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
           --verbose
