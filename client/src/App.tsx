@@ -23,6 +23,8 @@ import { PushNotificationProvider } from "@/contexts/push-notification-context";
 import { IOSNotificationProvider } from "@/contexts/ios-notification-context";
 import { AppUpdateProvider } from "@/contexts/app-update-context";
 import { IAPProvider } from "@/hooks/use-iap";
+import { Capacitor } from '@capacitor/core';
+import { useState, useEffect } from 'react';
 
 function Router() {
   return (
@@ -45,6 +47,78 @@ function Router() {
 }
 
 function App() {
+  const [appError, setAppError] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // Log platform information for debugging
+        console.log('Bean Stalker App initializing...', {
+          platform: Capacitor.getPlatform(),
+          isNative: Capacitor.isNativePlatform(),
+          userAgent: navigator.userAgent,
+          online: navigator.onLine
+        });
+
+        // Wait for Capacitor to be ready on mobile
+        if (Capacitor.isNativePlatform()) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Test server connectivity
+          console.log('Testing server connectivity...');
+          try {
+            const response = await fetch('https://member.beanstalker.com.au/api/menu', {
+              method: 'GET',
+              credentials: 'include',
+              signal: AbortSignal.timeout(10000)
+            });
+            console.log('Server connectivity test:', response.ok ? 'SUCCESS' : 'FAILED', response.status);
+          } catch (connError) {
+            console.error('Server connectivity test failed:', connError.message);
+            // Don't fail app initialization due to connectivity issues
+          }
+        }
+        
+        setIsReady(true);
+        console.log('Bean Stalker App ready');
+      } catch (error) {
+        console.error('App initialization error:', error);
+        setAppError(error.message);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  if (appError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-800 to-green-900 flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 text-white text-center max-w-md">
+          <h1 className="text-xl font-bold mb-4">App Error</h1>
+          <p className="mb-4">{appError}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-800 to-green-900 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading Bean Stalker...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

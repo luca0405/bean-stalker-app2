@@ -426,6 +426,13 @@ Changelog:
   - Current status: Build ✅ Archive ✅ Export ✅ Upload ✅ TestFlight ✅
   - Bean Stalker iOS app Version 1.0 now available in TestFlight for internal testing
   - GitHub Actions workflow "iOS Build - Simple Fix" operational for future releases
+- July 16, 2025. Mobile app white screen issue fix in progress
+  - Identified TestFlight app showing white screen and flickering on auth page
+  - Enhanced mobile API configuration with proper timeouts and error handling  
+  - Added comprehensive app initialization error handling and loading states
+  - Updated iOS workflow with build verification and file location fixes
+  - Mobile app now configured for production server connectivity with fallback error states
+  - Ready for GitHub Actions deployment with improved mobile experience
 ```
 
 ## User Preferences

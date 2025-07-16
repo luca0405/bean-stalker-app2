@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 // Get the correct API base URL for mobile vs web
 function getApiBaseUrl(): string {
   if (Capacitor.isNativePlatform()) {
+    // Use production server for mobile with proper error handling
     return 'https://member.beanstalker.com.au';
   }
   return ''; // Use relative URLs for web
@@ -24,15 +25,30 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
-  const res = await fetch(fullUrl, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  
+  try {
+    const res = await fetch(fullUrl, {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+      // Add timeout for mobile
+      signal: AbortSignal.timeout(15000),
+    });
 
-  await throwIfResNotOk(res);
-  return res;
+    await throwIfResNotOk(res);
+    return res;
+  } catch (error) {
+    console.error('API Request failed:', {
+      url: fullUrl,
+      method,
+      error: error.message
+    });
+    
+
+    
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -43,16 +59,27 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const url = queryKey[0] as string;
     const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
-    const res = await fetch(fullUrl, {
-      credentials: "include",
-    });
+    
+    try {
+      const res = await fetch(fullUrl, {
+        credentials: "include",
+        // Add timeout for mobile
+        signal: AbortSignal.timeout(15000),
+      });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+        return null;
+      }
+
+      await throwIfResNotOk(res);
+      return await res.json();
+    } catch (error) {
+      console.error('Query failed:', {
+        url: fullUrl,
+        error: error.message
+      });
+      throw error;
     }
-
-    await throwIfResNotOk(res);
-    return await res.json();
   };
 
 export const queryClient = new QueryClient({
@@ -62,7 +89,15 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false, 
       staleTime: 30000, // 30 seconds
-      retry: false,
+      retry: (failureCount, error) => {
+        // Retry up to 3 times for network errors on mobile
+        if (Capacitor.isNativePlatform() && failureCount < 3) {
+          console.log(`Retrying query (attempt ${failureCount + 1}/3)...`);
+          return true;
+        }
+        return false;
+      },
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
       refetchOnReconnect: true,
       refetchOnMount: true,
     },
