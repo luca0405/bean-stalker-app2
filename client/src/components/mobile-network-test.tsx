@@ -86,14 +86,15 @@ export function MobileNetworkTest() {
     addResult('Network tests completed.');
   };
 
-  if (!Capacitor.isNativePlatform()) {
-    return null; // Only show on mobile
-  }
+  // Always show for testing purposes
+  const isNative = Capacitor.isNativePlatform();
 
   return (
     <Card className="mx-4 my-2">
       <CardHeader>
-        <CardTitle className="text-sm">Mobile Network Test</CardTitle>
+        <CardTitle className="text-sm">
+          Network Test {isNative ? '(Native)' : '(Web)'}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         <Button 
