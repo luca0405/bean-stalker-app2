@@ -125,16 +125,32 @@ jobs:
         # Cordova framework
         find Payload -path "*/Frameworks/Cordova.framework/Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.cordova" {} \;
         
-        # Repackage the IPA (force overwrite)
+        echo "=== Verifying fixed bundle IDs ==="
+        find Payload -name "Info.plist" -exec echo "File: {}" \; -exec plutil -p {} \; | grep -A1 -B1 CFBundleIdentifier
+        
+        echo "=== Re-signing modified app bundle ==="
+        # Re-sign the main app bundle after modifications
+        codesign --force --sign "iPhone Distribution" \
+          --entitlements "Payload/App.app/App.entitlements" \
+          --timestamp \
+          "Payload/App.app" || {
+          echo "Main app signing failed, trying with automatic identity..."
+          codesign --force --sign "-" \
+            --timestamp \
+            "Payload/App.app"
+        }
+        
+        # Re-sign all frameworks
+        find Payload/App.app/Frameworks -name "*.framework" -exec codesign --force --sign "iPhone Distribution" --timestamp {} \; || {
+          echo "Framework signing with distribution cert failed, using automatic..."
+          find Payload/App.app/Frameworks -name "*.framework" -exec codesign --force --sign "-" --timestamp {} \;
+        }
+        
+        # Repackage the signed IPA
         rm -f App-fixed.ipa
         zip -qr App-fixed.ipa Payload
         
-        echo "=== Verifying fixed bundle IDs ==="
-        rm -rf Payload
-        unzip -q App-fixed.ipa
-        find Payload -name "Info.plist" -exec echo "File: {}" \; -exec plutil -p {} \; | grep -A1 -B1 CFBundleIdentifier
-        
-    - name: Upload fixed IPA to TestFlight
+    - name: Upload re-signed IPA to TestFlight
       run: |
         xcrun altool --upload-app \
           --type ios \
