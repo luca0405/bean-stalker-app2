@@ -95,24 +95,32 @@ jobs:
           -allowProvisioningUpdates \
           -allowProvisioningDeviceRegistration
         
-    - name: Upload to TestFlight with package validation bypass
+    - name: Debug and fix IPA bundle IDs before upload
       run: |
-        # Try direct upload with package method to bypass bundle validation
-        xcrun altool --upload-package \
+        # Extract and inspect IPA contents
+        cd ios/export
+        unzip -q App.ipa
+        echo "=== Inspecting bundle IDs in IPA ==="
+        find Payload -name "Info.plist" -exec echo "File: {}" \; -exec plutil -p {} \; | grep -A1 -B1 CFBundleIdentifier
+        
+        # Fix any duplicate bundle IDs directly in the extracted IPA
+        find Payload -name "Info.plist" -path "*/Frameworks/*" -exec plutil -replace CFBundleIdentifier -string "com.beanstalker.framework.$(basename $(dirname {}) .framework)" {} \;
+        
+        # Repackage the IPA
+        zip -qr App-fixed.ipa Payload
+        
+        echo "=== Verifying fixed bundle IDs ==="
+        unzip -q App-fixed.ipa
+        find Payload -name "Info.plist" -exec echo "File: {}" \; -exec plutil -p {} \; | grep -A1 -B1 CFBundleIdentifier
+        
+    - name: Upload fixed IPA to TestFlight
+      run: |
+        xcrun altool --upload-app \
           --type ios \
-          --file "ios/export/App.ipa" \
+          --file "ios/export/App-fixed.ipa" \
           --apiKey "${{ secrets.APPSTORE_API_KEY_ID }}" \
           --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
-          --verbose || {
-          echo "Package upload failed, trying app upload with validation skip..."
-          xcrun altool --upload-app \
-            --type ios \
-            --file "ios/export/App.ipa" \
-            --apiKey "${{ secrets.APPSTORE_API_KEY_ID }}" \
-            --apiIssuer "${{ secrets.APPSTORE_ISSUER_ID }}" \
-            --verbose \
-            --upload-symbols
-        }
+          --verbose
         
     - name: Save build
       uses: actions/upload-artifact@v4
