@@ -62,6 +62,8 @@ export const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   
+  console.log('AuthProvider: Initializing...');
+  
   // Fetch current user with mobile-optimized configuration
   const {
     data: user,
@@ -75,6 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refetchOnMount: false, // Don't refetch on component mount
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
+
+  console.log('AuthProvider: Query state:', { user: !!user, error: !!error, isLoading });
 
   // Login mutation
   const loginMutationObj = useMutation({

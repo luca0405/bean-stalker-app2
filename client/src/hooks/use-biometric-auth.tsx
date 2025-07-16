@@ -174,6 +174,10 @@ export function useBiometricAuth() {
   };
 
   const getBiometricDisplayName = (type: string): string => {
+    if (!type || typeof type !== 'string') {
+      return 'Biometric authentication';
+    }
+    
     switch (type.toLowerCase()) {
       case 'faceid':
         return 'Face ID';
@@ -187,6 +191,10 @@ export function useBiometricAuth() {
   };
 
   const getBiometricIcon = (type: string): string => {
+    if (!type || typeof type !== 'string') {
+      return '🔐'; // Generic biometric icon
+    }
+    
     switch (type.toLowerCase()) {
       case 'faceid':
         return '🔒'; // Face ID icon

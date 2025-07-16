@@ -34,6 +34,12 @@ const isIOS = () => {
     return false;
   }
   
+  // Check if userAgent exists and is a string before calling toLowerCase
+  if (!navigator.userAgent || typeof navigator.userAgent !== 'string') {
+    console.warn('navigator.userAgent is not available or not a string');
+    return false;
+  }
+  
   const ua = navigator.userAgent.toLowerCase();
   
   // Detect iOS devices (iPhone, iPad, iPod) and modern iPads that report as MacIntel
@@ -58,6 +64,12 @@ const isIOS = () => {
 // Check if browser is Safari (including iOS Safari)
 const isSafari = () => {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  
+  // Check if userAgent exists and is a string before calling toLowerCase
+  if (!navigator.userAgent || typeof navigator.userAgent !== 'string') {
+    console.warn('navigator.userAgent is not available for Safari detection');
     return false;
   }
   

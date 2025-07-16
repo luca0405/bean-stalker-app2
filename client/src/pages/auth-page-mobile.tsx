@@ -12,7 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Crown, Coffee, Star, Shield, Zap, CheckCircle2, Smartphone, User, Lock, Mail, Phone, Globe, Fingerprint } from "lucide-react";
 
 export default function AuthPageMobile() {
+  console.log('AuthPageMobile: Component rendering...');
   const { user, loginMutation, registerMutation } = useAuth();
+  console.log('AuthPageMobile: Auth state:', { user: !!user });
   const { purchaseProduct, isAvailable: isIAPAvailable, isLoading: iapLoading } = useIAP();
   const { toast } = useToast();
   

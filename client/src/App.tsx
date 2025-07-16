@@ -94,8 +94,8 @@ function App() {
           }
         }
         
-        setIsReady(true);
         console.log('Bean Stalker App ready - About to render components');
+        setIsReady(true);
       } catch (error) {
         console.error('App initialization error:', error);
         setAppError(error.message);
@@ -133,28 +133,47 @@ function App() {
     );
   }
 
-  return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <IAPProvider>
-            <MenuProvider>
-              <CartProvider>
-                <IOSNotificationProvider>
-                  <PushNotificationProvider>
-                    <AppUpdateProvider>
-                      <Router />
-                      <Toaster />
-                    </AppUpdateProvider>
-                  </PushNotificationProvider>
-                </IOSNotificationProvider>
-              </CartProvider>
-            </MenuProvider>
-          </IAPProvider>
-        </AuthProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  );
+  try {
+    console.log('App: Starting component render');
+    return (
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <IAPProvider>
+              <MenuProvider>
+                <CartProvider>
+                  <IOSNotificationProvider>
+                    <PushNotificationProvider>
+                      <AppUpdateProvider>
+                        <Router />
+                        <Toaster />
+                      </AppUpdateProvider>
+                    </PushNotificationProvider>
+                  </IOSNotificationProvider>
+                </CartProvider>
+              </MenuProvider>
+            </IAPProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    );
+  } catch (renderError) {
+    console.error('App: Render error caught:', renderError);
+    return (
+      <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-6 text-center max-w-md w-full">
+          <h1 className="text-xl font-bold text-red-600 mb-2">Render Error</h1>
+          <p className="text-gray-600 mb-4">{renderError.message}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+          >
+            Restart App
+          </button>
+        </div>
+      </div>
+    );
+  }
 }
 
 export default App;

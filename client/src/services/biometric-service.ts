@@ -112,6 +112,10 @@ class BiometricService {
    * Get user-friendly authentication reason based on biometric type
    */
   private getAuthenticationReason(biometricType: string): string {
+    if (!biometricType || typeof biometricType !== 'string') {
+      return 'Use biometric authentication to access Bean Stalker';
+    }
+    
     switch (biometricType.toLowerCase()) {
       case 'faceid':
         return 'Use Face ID to access Bean Stalker';
