@@ -25,6 +25,7 @@ import { AppUpdateProvider } from "@/contexts/app-update-context";
 import { IAPProvider } from "@/hooks/use-iap";
 import { Capacitor } from '@capacitor/core';
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { MobileDebugDisplay } from "@/components/mobile-debug-display";
 import { useState, useEffect } from 'react';
 
 function Router() {
@@ -147,6 +148,7 @@ function App() {
                       <AppUpdateProvider>
                         <Router />
                         <Toaster />
+                        <MobileDebugDisplay />
                       </AppUpdateProvider>
                     </PushNotificationProvider>
                   </IOSNotificationProvider>

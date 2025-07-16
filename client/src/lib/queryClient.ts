@@ -26,6 +26,13 @@ export async function apiRequest(
 ): Promise<Response> {
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
   
+  console.log('API Request:', {
+    method,
+    url: fullUrl,
+    hasData: !!data,
+    isNative: Capacitor.isNativePlatform()
+  });
+  
   try {
     const res = await fetch(fullUrl, {
       method,
@@ -36,16 +43,21 @@ export async function apiRequest(
       signal: AbortSignal.timeout(15000),
     });
 
+    console.log('API Response:', {
+      status: res.status,
+      statusText: res.statusText,
+      url: fullUrl
+    });
+
     await throwIfResNotOk(res);
     return res;
   } catch (error) {
     console.error('API Request failed:', {
       url: fullUrl,
       method,
-      error: error.message
+      error: error.message,
+      stack: error.stack
     });
-    
-
     
     throw error;
   }

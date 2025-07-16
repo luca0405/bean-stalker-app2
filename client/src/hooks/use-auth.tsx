@@ -6,6 +6,7 @@ import {
 import { InsertUser, User } from "@shared/schema";
 import { apiRequest, getQueryFn, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Capacitor } from '@capacitor/core';
 
 // Define simplified type for login data
 type LoginData = {
@@ -83,8 +84,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Login mutation
   const loginMutationObj = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("POST", "/api/login", credentials);
-      return await res.json();
+      console.log('Login attempt:', { 
+        username: credentials.username,
+        hasPassword: !!credentials.password 
+      });
+      
+      try {
+        const res = await apiRequest("POST", "/api/login", credentials);
+        console.log('Login response status:', res.status);
+        
+        const data = await res.json();
+        console.log('Login response data:', { success: !!data, user: !!data.username });
+        
+        return data;
+      } catch (error) {
+        console.error('Login API error:', {
+          message: error.message,
+          stack: error.stack
+        });
+        throw error;
+      }
     },
     onSuccess: (userData) => {
       queryClient.setQueryData(["/api/user"], userData);
@@ -95,20 +114,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let title = "Sign In Failed";
       let description = "Please check your credentials and try again";
 
+      // Enhanced error logging for mobile debugging
+      console.error('Authentication failed with detailed error:', {
+        message: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        online: navigator.onLine,
+        platform: Capacitor.isNativePlatform() ? 'mobile' : 'web'
+      });
+
       // Handle specific error cases
       if (error.message.includes("Invalid credentials")) {
         title = "Invalid Username or Password";
         description = "Please check your username and password are correct";
-      } else if (error.message.includes("Network")) {
+      } else if (error.message.includes("Network") || error.message.includes("fetch")) {
         title = "Connection Error";
-        description = "Please check your internet connection and try again";
-      } else if (error.message.includes("Server")) {
+        description = "Cannot connect to server. Check internet connection.";
+      } else if (error.message.includes("Server") || error.message.includes("500")) {
         title = "Server Error";
         description = "Our servers are temporarily unavailable. Please try again later";
-      } else if (error.message.includes("Unauthorized")) {
-        title = "Account Access Denied";
-        description = "Your account may be inactive. Please contact support";
+      } else if (error.message.includes("Unauthorized") || error.message.includes("401")) {
+        title = "Invalid Credentials";
+        description = "Username or password is incorrect";
+      } else if (error.message.includes("timeout")) {
+        title = "Request Timeout";
+        description = "Server response too slow. Try again.";
       }
+
+      // Log the specific error details for mobile debugging
+      console.log('Login error details for mobile debug:', {
+        title,
+        description,
+        originalError: error.message
+      });
 
       toast({
         title,

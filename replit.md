@@ -434,6 +434,13 @@ Changelog:
   - Optimized authentication flow with mobile-specific timeouts and error handling
   - Added comprehensive error boundary for React component failures
   - Ready for GitHub Actions deployment with proven white screen fixes
+- July 16, 2025. Fixed critical "toLowerCase is not a function" mobile app crash
+  - Resolved iOS notification context navigator.userAgent.toLowerCase() errors with null checks
+  - Protected all biometric service string operations with type validation
+  - Enhanced biometric authentication with comprehensive error handling
+  - Added extensive API request debugging for mobile authentication troubleshooting
+  - Mobile app now loads properly past loading screen without crashes
+  - Authentication connectivity issue identified - requires further investigation of production server communication
 ```
 
 ## User Preferences
