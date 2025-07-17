@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -20,10 +20,23 @@ export function MobileNetworkTest() {
     // Test 1: Basic internet connectivity
     try {
       addResult('Testing basic internet connectivity...');
-      const response = await fetch('https://httpbin.org/get', {
-        method: 'GET',
-        signal: AbortSignal.timeout(10000)
-      });
+      let response;
+      
+      if (isNative) {
+        const nativeResponse = await CapacitorHttp.request({
+          url: 'https://httpbin.org/get',
+          method: 'GET',
+          connectTimeout: 10000,
+          readTimeout: 10000
+        });
+        response = { status: nativeResponse.status };
+      } else {
+        response = await fetch('https://httpbin.org/get', {
+          method: 'GET',
+          signal: AbortSignal.timeout(10000)
+        });
+      }
+      
       addResult(`✅ Internet OK: ${response.status}`);
     } catch (error) {
       addResult(`❌ Internet FAILED: ${error.message}`);
@@ -32,10 +45,27 @@ export function MobileNetworkTest() {
     // Test 2: Production server connectivity
     try {
       addResult('Testing production server...');
-      const response = await fetch('https://member.beanstalker.com.au/api/menu', {
-        method: 'GET',
-        signal: AbortSignal.timeout(10000)
-      });
+      let response;
+      
+      if (isNative) {
+        const nativeResponse = await CapacitorHttp.request({
+          url: 'https://member.beanstalker.com.au/api/menu',
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Bean Stalker Mobile Test',
+            'Accept': 'application/json'
+          },
+          connectTimeout: 10000,
+          readTimeout: 10000
+        });
+        response = { status: nativeResponse.status };
+      } else {
+        response = await fetch('https://member.beanstalker.com.au/api/menu', {
+          method: 'GET',
+          signal: AbortSignal.timeout(10000)
+        });
+      }
+      
       addResult(`✅ Server OK: ${response.status}`);
     } catch (error) {
       addResult(`❌ Server FAILED: ${error.message}`);
@@ -44,15 +74,34 @@ export function MobileNetworkTest() {
     // Test 3: Authentication endpoint
     try {
       addResult('Testing auth endpoint...');
-      const response = await fetch('https://member.beanstalker.com.au/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Bean Stalker Mobile Test'
-        },
-        body: JSON.stringify({ username: 'test', password: 'test' }),
-        signal: AbortSignal.timeout(10000)
-      });
+      let response;
+      
+      if (isNative) {
+        const nativeResponse = await CapacitorHttp.request({
+          url: 'https://member.beanstalker.com.au/api/login',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Bean Stalker Mobile Test',
+            'Accept': 'application/json'
+          },
+          data: JSON.stringify({ username: 'test', password: 'test' }),
+          connectTimeout: 10000,
+          readTimeout: 10000
+        });
+        response = { status: nativeResponse.status };
+      } else {
+        response = await fetch('https://member.beanstalker.com.au/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Bean Stalker Mobile Test'
+          },
+          body: JSON.stringify({ username: 'test', password: 'test' }),
+          signal: AbortSignal.timeout(10000)
+        });
+      }
+      
       addResult(`✅ Auth endpoint OK: ${response.status}`);
     } catch (error) {
       addResult(`❌ Auth endpoint FAILED: ${error.message}`);
@@ -61,22 +110,45 @@ export function MobileNetworkTest() {
     // Test 4: With credentials
     try {
       addResult('Testing with valid credentials...');
-      const response = await fetch('https://member.beanstalker.com.au/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Bean Stalker Mobile Test'
-        },
-        body: JSON.stringify({ username: 'iamninz', password: 'password123' }),
-        credentials: 'include',
-        signal: AbortSignal.timeout(10000)
-      });
       
-      if (response.ok) {
-        const data = await response.json();
-        addResult(`✅ Login SUCCESS: User ${data.username}, Credits $${data.credits}`);
+      if (isNative) {
+        const nativeResponse = await CapacitorHttp.request({
+          url: 'https://member.beanstalker.com.au/api/login',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Bean Stalker Mobile Test',
+            'Accept': 'application/json'
+          },
+          data: JSON.stringify({ username: 'iamninz', password: 'password123' }),
+          connectTimeout: 10000,
+          readTimeout: 10000
+        });
+        
+        if (nativeResponse.status === 200) {
+          const data = typeof nativeResponse.data === 'string' ? JSON.parse(nativeResponse.data) : nativeResponse.data;
+          addResult(`✅ LOGIN SUCCESS: User ${data.username}, Credits $${data.credits}`);
+        } else {
+          addResult(`❌ Login FAILED: ${nativeResponse.status}`);
+        }
       } else {
-        addResult(`❌ Login FAILED: ${response.status} ${response.statusText}`);
+        const response = await fetch('https://member.beanstalker.com.au/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Bean Stalker Mobile Test'
+          },
+          body: JSON.stringify({ username: 'iamninz', password: 'password123' }),
+          credentials: 'include',
+          signal: AbortSignal.timeout(10000)
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          addResult(`✅ LOGIN SUCCESS: User ${data.username}, Credits $${data.credits}`);
+        } else {
+          addResult(`❌ Login FAILED: ${response.status} ${response.statusText}`);
+        }
       }
     } catch (error) {
       addResult(`❌ Login ERROR: ${error.message}`);

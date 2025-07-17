@@ -454,6 +454,13 @@ Changelog:
   - Created comprehensive mobile network test component for real-time connectivity debugging
   - Added mobile-specific headers and timeout handling for better network reliability
   - Changes ready for GitHub Actions deployment to resolve mobile authentication connectivity issues
+- July 17, 2025. Root cause identified: iOS provisioning profile missing network capabilities
+  - Discovered provisioning profile lacks "Network Extensions" or "App Transport Security" capabilities
+  - iOS apps require explicit network entitlements for external HTTPS requests to custom domains
+  - Current profile has IAP, Push Notifications, Apple Pay but missing network access permissions
+  - Implemented native HTTP solution using CapacitorHttp plugin as technical workaround
+  - Solution requires updating App ID in Apple Developer Portal to add network capabilities
+  - Once network entitlements added, both native HTTP and authentication should work properly
 ```
 
 ## User Preferences

@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { Capacitor } from '@capacitor/core';
+import { CapacitorHttp } from '@capacitor/core';
 
 // Get the correct API base URL for mobile vs web
 function getApiBaseUrl(): string {
@@ -34,15 +35,51 @@ export async function apiRequest(
   });
   
   try {
+    // Use native HTTP for mobile to bypass WebView restrictions
+    if (Capacitor.isNativePlatform()) {
+      const headers: Record<string, string> = {
+        "User-Agent": "Bean Stalker Mobile App",
+        "Accept": "application/json"
+      };
+      
+      if (data) {
+        headers["Content-Type"] = "application/json";
+      }
+      
+      const options = {
+        url: fullUrl,
+        method: method.toUpperCase(),
+        headers,
+        data: data ? JSON.stringify(data) : undefined,
+        connectTimeout: 15000,
+        readTimeout: 15000
+      };
+      
+      console.log('Using Capacitor HTTP for native request:', options);
+      
+      const nativeResponse = await CapacitorHttp.request(options);
+      
+      console.log('Native HTTP Response:', {
+        status: nativeResponse.status,
+        url: fullUrl,
+        headers: nativeResponse.headers
+      });
+      
+      // Convert native response to standard Response object
+      const response = new Response(nativeResponse.data, {
+        status: nativeResponse.status,
+        statusText: nativeResponse.status === 200 ? 'OK' : 'Error',
+        headers: nativeResponse.headers
+      });
+      
+      await throwIfResNotOk(response);
+      return response;
+    }
+    
+    // Use standard fetch for web
     const headers: Record<string, string> = {};
     if (data) {
       headers["Content-Type"] = "application/json";
-    }
-    
-    // Add mobile-specific headers
-    if (Capacitor.isNativePlatform()) {
-      headers["User-Agent"] = "Bean Stalker Mobile App";
-      headers["Accept"] = "application/json";
     }
     
     const res = await fetch(fullUrl, {
@@ -50,11 +87,10 @@ export async function apiRequest(
       headers,
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
-      // Add timeout for mobile
       signal: AbortSignal.timeout(15000),
     });
 
-    console.log('API Response:', {
+    console.log('Web Fetch Response:', {
       status: res.status,
       statusText: res.statusText,
       url: fullUrl
@@ -98,20 +134,36 @@ export const getQueryFn: <T>(options: {
     const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
     
     try {
-      const headers: Record<string, string> = {};
+      let res: Response;
       
-      // Add mobile-specific headers
+      // Use native HTTP for mobile to bypass WebView restrictions
       if (Capacitor.isNativePlatform()) {
-        headers["User-Agent"] = "Bean Stalker Mobile App";
-        headers["Accept"] = "application/json";
+        const options = {
+          url: fullUrl,
+          method: 'GET',
+          headers: {
+            "User-Agent": "Bean Stalker Mobile App",
+            "Accept": "application/json"
+          },
+          connectTimeout: 15000,
+          readTimeout: 15000
+        };
+        
+        const nativeResponse = await CapacitorHttp.request(options);
+        
+        // Convert native response to standard Response object
+        res = new Response(nativeResponse.data, {
+          status: nativeResponse.status,
+          statusText: nativeResponse.status === 200 ? 'OK' : 'Error',
+          headers: nativeResponse.headers
+        });
+      } else {
+        // Use standard fetch for web
+        res = await fetch(fullUrl, {
+          credentials: "include",
+          signal: AbortSignal.timeout(15000),
+        });
       }
-      
-      const res = await fetch(fullUrl, {
-        headers,
-        credentials: "include",
-        // Add timeout for mobile
-        signal: AbortSignal.timeout(15000),
-      });
 
       if (unauthorizedBehavior === "returnNull" && res.status === 401) {
         return null;
