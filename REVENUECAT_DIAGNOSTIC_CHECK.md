@@ -1,67 +1,47 @@
-# RevenueCat Configuration Diagnostic
+# RevenueCat IAP Diagnostic Check
 
-## Checking Your Setup...
+## Current Error: "Payment system not available"
 
-### ✅ Environment Configuration
-- **RevenueCat API Key**: Configured and available
-- **Bundle ID**: com.beanstalker.member (should match App Store Connect)
+This error typically indicates one of several configuration issues:
 
-### 📋 RevenueCat Dashboard Checklist
+### 1. RevenueCat Configuration Issues
+- API key not properly configured in iOS app
+- RevenueCat not properly initialized before purchase attempt
+- User not logged in to RevenueCat with correct app_user_id
 
-To verify your configuration, please check these items in your RevenueCat Dashboard:
+### 2. App Store Connect Issues
+- Products not properly configured in App Store Connect
+- Products still in "Draft" status (need to be "Ready for Review")
+- Bundle ID mismatch between app and App Store Connect products
 
-#### 1. App Configuration
-**Go to RevenueCat Dashboard → Project Settings → Apps**
-- [ ] iOS app configured with bundle ID: `com.beanstalker.member`
-- [ ] App Store Connect integration enabled
-- [ ] API key matches the one in Bean Stalker secrets
+### 3. iOS Simulator vs Device Issues
+- In-App Purchases don't work in iOS Simulator
+- Must test on real device with TestFlight
+- Sandbox Apple ID must be properly configured
 
-#### 2. App Store Connect Integration
-**In RevenueCat Dashboard → Project Settings → App Store Connect**
-- [ ] App Store Connect API key configured
-- [ ] Issuer ID set correctly
-- [ ] Key ID matches your App Store Connect API key
-- [ ] "Sync purchases" enabled
+### 4. Apple ID Configuration Issues
+- Not signed in with sandbox Apple ID on device
+- Sandbox Apple ID not properly created in App Store Connect
+- Real Apple ID signed in instead of sandbox Apple ID
 
-#### 3. Products Configuration
-**In RevenueCat Dashboard → Product catalog → Products**
-- [ ] `com.beanstalker.credit25` - imported from App Store Connect
-- [ ] `com.beanstalker.credit50` - imported from App Store Connect  
-- [ ] `com.beanstalker.credit100` - imported from App Store Connect
-- [ ] `com.beanstalker.membership69` - imported from App Store Connect
-- [ ] All products show "Active" status
+## Diagnostic Steps Required:
 
-#### 4. Test Your API Key
-Run this command in Bean Stalker to test the connection:
-```bash
-# This will test if your API key can fetch offerings
-curl -H "Authorization: Bearer sk_YOUR_API_KEY" \
-     https://api.revenuecat.com/v1/subscribers/test-user/offerings
-```
+### Step 1: Check RevenueCat Initialization
+Add comprehensive logging to verify:
+- API key is present and valid
+- RevenueCat initializes successfully
+- User login completes without errors
+- Offerings are properly loaded
 
-### 🔧 Common Configuration Issues
+### Step 2: Verify Product Configuration
+- Products exist in App Store Connect
+- Products are approved and "Ready for Review"
+- Bundle ID matches exactly: com.beanstalker.member
 
-#### Issue: Products not appearing
-**Cause**: App Store Connect API not properly connected
-**Solution**: 
-1. Generate new App Store Connect API key with "Developer" role
-2. Add key to RevenueCat with correct Issuer ID and Key ID
-3. Enable "Sync purchases" in RevenueCat
+### Step 3: Check Device Configuration
+- Using real device (not simulator)
+- Signed in with sandbox Apple ID
+- TestFlight app installed (not development build)
 
-#### Issue: "Product not found" errors
-**Cause**: Product IDs don't match between App Store Connect and RevenueCat
-**Solution**:
-1. Verify bundle ID matches exactly: `com.beanstalker.member`
-2. Check product IDs are identical in both platforms
-3. Ensure products are in "Ready to Submit" or "Developer Action Needed" status
-
-#### Issue: Purchases fail in sandbox
-**Cause**: Sandbox test user configuration
-**Solution**:
-1. Create dedicated sandbox test user
-2. Never sign into sandbox account in iOS Settings
-3. Only use sandbox credentials during purchase flow
-
-### 🧪 Live Test Results
-
-Run this diagnostic in Bean Stalker app to check real-time configuration:
+### Step 4: Enhanced Error Handling
+Add detailed error logging to identify exact failure point.

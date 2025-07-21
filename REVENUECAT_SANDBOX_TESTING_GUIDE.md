@@ -1,161 +1,118 @@
-# RevenueCat In-App Purchase Sandbox Testing Guide
+# RevenueCat Sandbox Testing Guide - Complete Setup
 
-## Your Current Products Setup ✅
+## Current Status: "Payment system not available" Error
 
-Based on your App Store Connect screenshot, you have these products configured:
+The issue likely stems from incomplete App Store Connect or device configuration. Here's the comprehensive setup needed:
 
-| Product ID | Reference Name | Type | Status |
-|------------|----------------|------|--------|
-| `com.beanstalker.credit25` | $25 Credit | Non-Consumable | Draft ✅ |
-| `com.beanstalker.credit50` | $50 Credit | Non-Consumable | Draft ✅ |
-| `com.beanstalker.credit100` | $100 Credit | Non-Consumable | Draft ✅ |
-| `com.beanstalker.membership69` | Beanstalker Membership | Non-Consumable | Draft ✅ |
+## Step 1: App Store Connect Product Configuration
 
-**✅ Draft products work perfectly in sandbox testing!**
+### Check Product Status
+1. Go to App Store Connect → My Apps → Bean Stalker
+2. Navigate to Features → In-App Purchases
+3. Verify these products exist and are **approved**:
+   - `com.beanstalker.credit25` - $25 Credits
+   - `com.beanstalker.credit50` - $50 Credits  
+   - `com.beanstalker.credit100` - $100 Credits
+   - `com.beanstalker.membership69` - Premium Membership
 
-## Testing Environment Setup
+### Product Requirements
+- **Status**: Must be "Ready for Review" or "Approved"
+- **Bundle ID**: Must match exactly: `com.beanstalker.member`
+- **Pricing**: Set for Australia (AUD)
+- **Metadata**: All required fields completed
 
-### 1. iOS Sandbox Testing Requirements
+## Step 2: Sandbox Apple ID Setup
 
-**Create Sandbox Test User:**
-1. Go to App Store Connect → Users and Access → Sandbox Testers
-2. Click the "+" button to add a new sandbox tester
-3. Use a **new email address** that's never been used with Apple ID
-4. Set password and country to Australia (for AUD pricing)
-5. **Important:** Use a different email than your main Apple ID
+### Create Sandbox Tester Account
+1. App Store Connect → Users and Roles → Sandbox Testers
+2. Create new sandbox Apple ID specifically for testing
+3. Use different email than your real Apple ID
+4. Set country to Australia (to match AUD pricing)
 
-**Example Sandbox Test User:**
-- Email: `beanstalker.test.ios@gmail.com` 
-- Password: `TestPass123!`
-- Country: Australia
-- Birth Date: 01/01/1990
+### Configure Device for Sandbox Testing
+1. iPhone Settings → App Store → Sign Out (from real Apple ID)
+2. **Important**: Don't sign in with sandbox Apple ID yet
+3. Install TestFlight app and Bean Stalker from TestFlight
+4. When making first IAP purchase, iOS will prompt for Apple ID
+5. **Then** sign in with sandbox Apple ID
 
-### 2. Device Setup for Testing
+## Step 3: RevenueCat Dashboard Configuration
 
-**On your iPhone/iPad:**
-1. Settings → App Store → Sign Out of your regular Apple ID
-2. **DO NOT** sign into sandbox account in Settings
-3. Launch Bean Stalker app from TestFlight
-4. Try to make a purchase
-5. **When prompted for Apple ID**, enter your sandbox test account credentials
-6. Complete the purchase flow
+### Verify Integration
+1. RevenueCat Dashboard → Project Settings
+2. Check App Store Connect integration is active
+3. Verify Bundle ID matches: `com.beanstalker.member`
+4. Ensure products are synced from App Store Connect
 
-**⚠️ Critical:** Never sign into sandbox account in iOS Settings - only during purchase!
+## Step 4: iOS App Configuration Check
 
-## Testing Flow in Bean Stalker App
+### Use Enhanced Diagnostic Tool
+The updated Buy Credits page now includes a diagnostic tab:
 
-### Step 1: Access Buy Credits
-1. Open Bean Stalker app from TestFlight
-2. Login with `iamninz/password123`
-3. Navigate to Buy Credits section
-4. You should see your 4 products:
-   - $25 Credit ($29.50 total with $4.50 bonus)
-   - $50 Credit ($59.90 total with $9.90 bonus) - Popular ⭐
-   - $100 Credit ($120.70 total with $20.70 bonus)
-   - Premium Membership ($69)
+1. Open Bean Stalker app
+2. Go to Buy Credits
+3. Tap "Diagnostic" tab
+4. Tap "Run Diagnostics"
+5. Check results for specific configuration issues
 
-### Step 2: Test Purchase Flow
-1. **Select any credit package** (start with $25 Credit)
-2. **Tap "Buy"** - App Store purchase dialog should appear
-3. **When prompted for Apple ID**, enter sandbox test credentials
-4. **Confirm purchase** - Sandbox will process payment
-5. **Verify success** - Credits should be added to your account
+### Expected Diagnostic Results
+- ✅ Platform Check: Native iOS
+- ✅ RevenueCat API Key: Configured
+- ✅ IAP Service Initialization: Success
+- ✅ User Login: Success
+- ✅ Product Loading: Found 4 products
+- ✅ IAP Availability: Available
 
-### Step 3: Verify RevenueCat Integration
-**Check RevenueCat Dashboard:**
-1. Go to RevenueCat Dashboard → Customers
-2. Search for customer ID (user ID: 32)
-3. Verify purchase appears in customer timeline
-4. Check that entitlements are correctly assigned
+## Step 5: Common Issue Resolution
 
-**Check Bean Stalker Database:**
-1. Purchase should update user credits in database
-2. Transaction should be logged in purchase history
-3. User should see updated credit balance immediately
+### "Payment system not available"
+**Causes:**
+- Parental controls enabled on device
+- Corporate/managed device restrictions
+- Not signed out of real Apple ID
+- Sandbox Apple ID not properly configured
 
-## Expected Sandbox Behavior
+**Solutions:**
+- Check Settings → Screen Time → Content & Privacy Restrictions
+- Ensure "iTunes & App Store Purchases" is enabled
+- Sign out completely from real Apple ID before testing
 
-### ✅ What Should Work:
-- Purchase dialog appears instantly
-- Sandbox payment processes immediately (no real charge)
-- Success confirmation shows
-- Credits added to Bean Stalker account
-- RevenueCat webhook fires to update backend
-- Purchase appears in RevenueCat dashboard
+### "Products not available"
+**Causes:**
+- Products still in "Draft" status in App Store Connect
+- Bundle ID mismatch
+- Products not approved by Apple
 
-### ⚠️ Sandbox-Specific Behaviors:
-- **No real money charged** - all payments are simulated
-- **Instant processing** - no wait time for payment
-- **Unlimited purchases** - same product can be "bought" multiple times
-- **Test receipts** - different format than production receipts
+**Solutions:**
+- Submit products for review in App Store Connect
+- Verify Bundle ID exactly matches: `com.beanstalker.member`
 
-## Troubleshooting Common Issues
+### "RevenueCat initialization failed"
+**Causes:**
+- API key missing or incorrect
+- Network connectivity issues
+- RevenueCat service outage
 
-### Issue: "Cannot connect to iTunes Store"
-**Solution:** 
-- Sign out of all Apple IDs in Settings
-- Use sandbox credentials only during purchase prompt
-- Ensure sandbox user email is unique
+**Solutions:**
+- Verify VITE_REVENUECAT_API_KEY is set correctly
+- Check device network connection
+- Test on different device/network
 
-### Issue: "This Apple ID has not yet been used with the App Store"
-**Solution:**
-- Use sandbox credentials created specifically for testing
-- Never use your main Apple ID for sandbox testing
+## Step 6: Testing Workflow
 
-### Issue: Products not loading
-**Solution:**
-- Verify bundle ID matches: `com.beanstalker.member`
-- Check that products are in "Ready to Submit" or "Draft" status
-- Ensure app build has correct RevenueCat configuration
+### Successful Purchase Flow
+1. Tap Buy Credits → Select package → Confirm purchase
+2. iOS prompts for sandbox Apple ID password
+3. Apple processes fake payment (no real money)
+4. RevenueCat receives receipt and validates
+5. Webhook triggers and adds credits to Bean Stalker account
+6. Success message displays with credit balance update
 
-### Issue: Purchase completes but credits not added
-**Solution:**
-- Check RevenueCat webhook configuration
-- Verify backend endpoints are handling purchase verification
-- Check network connectivity between app and backend
+### Troubleshooting Steps
+1. Run diagnostics first to identify specific issues
+2. Check App Store Connect product status
+3. Verify sandbox Apple ID configuration
+4. Test on physical device (never simulator)
+5. Check RevenueCat logs for errors
 
-## Quick Test Checklist
-
-**Before Testing:**
-- [ ] Sandbox test user created with unique email
-- [ ] Signed out of regular Apple ID on device
-- [ ] Bean Stalker app installed via TestFlight
-- [ ] App login works (iamninz/password123)
-
-**During Testing:**
-- [ ] Products load in Buy Credits section
-- [ ] Purchase dialog appears when tapping "Buy"
-- [ ] Sandbox credentials work for payment
-- [ ] Purchase completes successfully
-- [ ] Credits appear in Bean Stalker account
-- [ ] Purchase visible in RevenueCat dashboard
-
-**After Testing:**
-- [ ] Test different credit packages ($25, $50, $100)
-- [ ] Test premium membership purchase
-- [ ] Verify restore purchases functionality
-- [ ] Check that purchases persist across app restarts
-
-## Next Steps After Successful Testing
-
-1. **Submit products for review** in App Store Connect
-2. **Configure production RevenueCat** webhooks
-3. **Test on additional devices** with different sandbox users
-4. **Prepare for App Store submission** with working IAP
-
-## Technical Notes
-
-**RevenueCat Configuration:**
-- iOS API Key: Set in `VITE_REVENUECAT_API_KEY` environment variable
-- Product IDs must match exactly between App Store Connect and Bean Stalker code
-- Webhook URL: `https://member.beanstalker.com.au/api/revenuecat/webhook`
-
-**Bean Stalker Integration:**
-- Purchase verification handled by backend `/api/revenuecat/webhook`
-- Credits added automatically with correct bonus amounts:
-  - $25 purchase → $29.50 credits ($4.50 bonus)
-  - $50 purchase → $59.90 credits ($9.90 bonus) 
-  - $100 purchase → $120.70 credits ($20.70 bonus)
-- Transaction history stored in database for audit trail
-
-Your setup is perfect for testing! Draft products work exactly like live products in sandbox mode.
+The diagnostic tool will help identify exactly where the configuration is failing.

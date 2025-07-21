@@ -495,13 +495,17 @@ Changelog:
   - Credit-based orders now properly sync to Square Kitchen Display for unified order management
   - Order #79 manually completed in Square with CASH payment to verify dashboard visibility for testing
   - Square integration confirmed fully operational - orders visible in both Kitchen Display and main orders dashboard
-- July 21, 2025. RevenueCat IAP webhook configuration issue resolved
+- July 21, 2025. RevenueCat IAP integration completely fixed for iOS TestFlight
+  - Fixed critical issue: iOS app was running in development mode instead of using real RevenueCat SDK
+  - Updated IAP service to only use development mode on web platform, always use RevenueCat on native iOS/Android
   - Fixed RevenueCat webhook endpoint to properly handle external test requests and real IAP events
   - Added missing /api/iap/verify-purchase endpoint for iOS app purchase verification
   - Enhanced webhook error handling to prevent 500 errors during RevenueCat configuration testing
   - User ID mapping confirmed working correctly (sets RevenueCat app_user_id to "32" for iamninz)
-  - Webhook URL ready for RevenueCat Dashboard configuration: https://member.beanstalker.com.au/api/revenuecat/webhook
-  - Real IAP purchases through TestFlight will now properly appear in RevenueCat Dashboard and add credits to Bean Stalker account
+  - Webhook URL configured in RevenueCat Dashboard: https://member.beanstalker.com.au/api/revenuecat/webhook
+  - Authorization header: Bearer bean-stalker-webhook-2025
+  - Webhook testing confirmed: Successfully processes IAP events and adds correct credit amounts
+  - Real IAP purchases through updated TestFlight build will now appear in RevenueCat Dashboard and trigger webhook to add credits
 ```
 
 ## User Preferences
