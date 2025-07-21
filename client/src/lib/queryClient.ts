@@ -66,7 +66,15 @@ export async function apiRequest(
       });
       
       // Convert native response to standard Response object
-      const response = new Response(nativeResponse.data, {
+      // Handle both string and object response data
+      let responseData;
+      if (typeof nativeResponse.data === 'string') {
+        responseData = nativeResponse.data;
+      } else {
+        responseData = JSON.stringify(nativeResponse.data);
+      }
+      
+      const response = new Response(responseData, {
         status: nativeResponse.status,
         statusText: nativeResponse.status === 200 ? 'OK' : 'Error',
         headers: nativeResponse.headers
@@ -158,7 +166,15 @@ export const getQueryFn: <T>(options: {
         const nativeResponse = await CapacitorHttp.request(options);
         
         // Convert native response to standard Response object
-        res = new Response(nativeResponse.data, {
+        // Handle both string and object response data
+        let responseData;
+        if (typeof nativeResponse.data === 'string') {
+          responseData = nativeResponse.data;
+        } else {
+          responseData = JSON.stringify(nativeResponse.data);
+        }
+        
+        res = new Response(responseData, {
           status: nativeResponse.status,
           statusText: nativeResponse.status === 200 ? 'OK' : 'Error',
           headers: nativeResponse.headers
