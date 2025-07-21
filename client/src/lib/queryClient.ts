@@ -52,11 +52,15 @@ export async function apiRequest(
         headers,
         data: data ? JSON.stringify(data) : undefined,
         connectTimeout: 15000,
+<<<<<<< HEAD
         readTimeout: 15000,
         // Enable cookies for authentication
         webFetchExtra: {
           credentials: 'include'
         }
+=======
+        readTimeout: 15000
+>>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
       };
       
       console.log('Using Capacitor HTTP for native request:', options);
@@ -150,11 +154,15 @@ export const getQueryFn: <T>(options: {
             "Accept": "application/json"
           },
           connectTimeout: 15000,
+<<<<<<< HEAD
           readTimeout: 15000,
           // Enable cookies for authentication
           webFetchExtra: {
             credentials: 'include'
           }
+=======
+          readTimeout: 15000
+>>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
         };
         
         const nativeResponse = await CapacitorHttp.request(options);

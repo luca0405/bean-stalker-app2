@@ -23,6 +23,7 @@ export function MobileNetworkTest() {
       let response;
       
       if (isNative) {
+<<<<<<< HEAD
         // Try multiple reliable endpoints for mobile
         const testUrls = ['https://www.google.com', 'https://www.apple.com', 'https://httpbin.org/get'];
         let success = false;
@@ -46,6 +47,15 @@ export function MobileNetworkTest() {
         if (!success) {
           throw new Error('All connectivity tests failed');
         }
+=======
+        const nativeResponse = await CapacitorHttp.request({
+          url: 'https://httpbin.org/get',
+          method: 'GET',
+          connectTimeout: 10000,
+          readTimeout: 10000
+        });
+        response = { status: nativeResponse.status };
+>>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
       } else {
         response = await fetch('https://httpbin.org/get', {
           method: 'GET',
@@ -138,16 +148,21 @@ export function MobileNetworkTest() {
           },
           data: JSON.stringify({ username: 'iamninz', password: 'password123' }),
           connectTimeout: 10000,
+<<<<<<< HEAD
           readTimeout: 10000,
           // Enable cookies for session handling
           webFetchExtra: {
             credentials: 'include'
           }
+=======
+          readTimeout: 10000
+>>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
         });
         
         if (nativeResponse.status === 200) {
           const data = typeof nativeResponse.data === 'string' ? JSON.parse(nativeResponse.data) : nativeResponse.data;
           addResult(`✅ LOGIN SUCCESS: User ${data.username}, Credits $${data.credits}`);
+<<<<<<< HEAD
           
           // Test session persistence with a follow-up request
           try {
@@ -173,6 +188,8 @@ export function MobileNetworkTest() {
           } catch (sessionError) {
             addResult(`⚠️ SESSION TEST FAILED: ${sessionError.message}`);
           }
+=======
+>>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
         } else {
           addResult(`❌ Login FAILED: ${nativeResponse.status}`);
         }

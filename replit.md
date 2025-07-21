@@ -461,6 +461,7 @@ Changelog:
   - Implemented native HTTP solution using CapacitorHttp plugin as technical workaround
   - Solution requires updating App ID in Apple Developer Portal to add network capabilities
   - Once network entitlements added, both native HTTP and authentication should work properly
+<<<<<<< HEAD
 - July 17, 2025. iOS provisioning profile network capabilities successfully added and mobile networking operational
   - Updated provisioning profile in Apple Developer Portal with network capabilities and uploaded to GitHub secrets
   - Network connectivity tests now showing ✅ for Bean Stalker server, authentication endpoints, and login functionality
@@ -468,6 +469,8 @@ Changelog:
   - Added comprehensive error handling and logging for mobile authentication debugging
   - Implemented session persistence testing to verify authentication state across requests
   - Mobile app network infrastructure now fully operational with proper Apple Developer entitlements
+=======
+>>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
 ```
 
 ## User Preferences
