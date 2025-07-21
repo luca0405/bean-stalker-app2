@@ -63,8 +63,6 @@ export const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   
-  console.log('AuthProvider: Initializing...');
-  
   // Fetch current user with mobile-optimized configuration
   const {
     data: user,
@@ -79,31 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
-  console.log('AuthProvider: Query state:', { user: !!user, error: !!error, isLoading });
+
 
   // Login mutation
   const loginMutationObj = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      console.log('Login attempt:', { 
-        username: credentials.username,
-        hasPassword: !!credentials.password 
-      });
-      
-      try {
-        const res = await apiRequest("POST", "/api/login", credentials);
-        console.log('Login response status:', res.status);
-        
-        const data = await res.json();
-        console.log('Login response data:', { success: !!data, user: !!data.username });
-        
-        return data;
-      } catch (error) {
-        console.error('Login API error:', {
-          message: error.message,
-          stack: error.stack
-        });
-        throw error;
-      }
+      const res = await apiRequest("POST", "/api/login", credentials);
+      const data = await res.json();
+      return data;
     },
     onSuccess: (userData) => {
       queryClient.setQueryData(["/api/user"], userData);
@@ -114,15 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let title = "Sign In Failed";
       let description = "Please check your credentials and try again";
 
-      // Enhanced error logging for mobile debugging
-      console.error('Authentication failed with detailed error:', {
-        message: error.message,
-        stack: error.stack,
-        timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent,
-        online: navigator.onLine,
-        platform: Capacitor.isNativePlatform() ? 'mobile' : 'web'
-      });
+
 
       // Handle specific error cases
       if (error.message.includes("Invalid credentials")) {

@@ -350,17 +350,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let creditAmount = 0;
       let transactionType = "iap_purchase";
       
-      if (productId.includes('membership')) {
+      if (productId.includes('membership69')) {
         creditAmount = 69; // AUD$69 membership
         transactionType = "membership_iap";
-      } else if (productId.includes('credits_10')) {
-        creditAmount = 10;
-      } else if (productId.includes('credits_25')) {
-        creditAmount = 25;
-      } else if (productId.includes('credits_50')) {
-        creditAmount = 50;
-      } else if (productId.includes('credits_100')) {
-        creditAmount = 100;
+      } else if (productId.includes('credit25')) {
+        creditAmount = 29.50; // $25 purchase → $29.50 credits ($4.50 bonus)
+      } else if (productId.includes('credit50')) {
+        creditAmount = 59.90; // $50 purchase → $59.90 credits ($9.90 bonus)
+      } else if (productId.includes('credit100')) {
+        creditAmount = 120.70; // $100 purchase → $120.70 credits ($20.70 bonus)
       } else {
         return res.status(400).json({ message: "Unknown product ID" });
       }
@@ -417,11 +415,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Process the restoration (similar to verify-purchase logic)
           let creditAmount = 0;
-          if (receipt.productId.includes('membership')) creditAmount = 69;
-          else if (receipt.productId.includes('credits_10')) creditAmount = 10;
-          else if (receipt.productId.includes('credits_25')) creditAmount = 25;
-          else if (receipt.productId.includes('credits_50')) creditAmount = 50;
-          else if (receipt.productId.includes('credits_100')) creditAmount = 100;
+          if (receipt.productId.includes('membership69')) creditAmount = 69;
+          else if (receipt.productId.includes('credit25')) creditAmount = 29.50;
+          else if (receipt.productId.includes('credit50')) creditAmount = 59.90;
+          else if (receipt.productId.includes('credit100')) creditAmount = 120.70;
 
           if (creditAmount > 0) {
             const user = await storage.getUser(userId);
@@ -2889,6 +2886,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // RevenueCat webhook for IAP processing
+  app.post("/api/revenuecat/webhook", async (req, res) => {
+    try {
+      console.log('📨 Received RevenueCat webhook:', req.body);
+      
+      const { event } = req.body;
+      
+      if (event.type === 'INITIAL_PURCHASE' || event.type === 'RENEWAL') {
+        const { product_id, app_user_id } = event;
+        const userId = parseInt(app_user_id);
+        
+        if (!userId) {
+          console.error('❌ Invalid user ID in RevenueCat webhook');
+          return res.status(400).json({ error: 'Invalid user ID' });
+        }
+        
+        // Determine credit amount based on product ID
+        let creditAmount = 0;
+        let transactionType = "iap_purchase";
+        
+        if (product_id.includes('membership69')) {
+          creditAmount = 69;
+          transactionType = "membership_iap";
+        } else if (product_id.includes('credit25')) {
+          creditAmount = 29.50; // $25 → $29.50 ($4.50 bonus)
+        } else if (product_id.includes('credit50')) {
+          creditAmount = 59.90; // $50 → $59.90 ($9.90 bonus)
+        } else if (product_id.includes('credit100')) {
+          creditAmount = 120.70; // $100 → $120.70 ($20.70 bonus)
+        } else {
+          console.error('❌ Unknown product ID:', product_id);
+          return res.status(400).json({ error: 'Unknown product ID' });
+        }
+        
+        // Update user credits
+        const user = await storage.getUser(userId);
+        if (!user) {
+          console.error('❌ User not found:', userId);
+          return res.status(404).json({ error: 'User not found' });
+        }
+        
+        const updatedUser = await storage.updateUserCredits(userId, user.credits + creditAmount);
+        
+        // Record the transaction
+        await storage.createCreditTransaction({
+          userId,
+          type: transactionType,
+          amount: creditAmount,
+          description: `RevenueCat IAP: ${product_id}`,
+          balanceAfter: updatedUser.credits,
+          relatedUserId: null,
+          orderId: null
+        });
+        
+        console.log(`✅ RevenueCat IAP processed: User ${userId} received ${creditAmount} credits from ${product_id}`);
+        
+        res.status(200).json({ 
+          message: "Webhook processed successfully",
+          creditsAdded: creditAmount,
+          userId
+        });
+      } else {
+        console.log('ℹ️ RevenueCat webhook event type not processed:', event.type);
+        res.status(200).json({ message: "Event type not processed" });
+      }
+    } catch (error) {
+      console.error('💥 RevenueCat webhook error:', error);
+      res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+
   // Square webhook for bidirectional kitchen display sync
   app.post("/api/square/webhook", async (req, res) => {
     try {
@@ -3030,6 +3098,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       nodeEnv: process.env.NODE_ENV || 'development',
       override: 'FORCED_BEANSTALKER_SANDBOX'
     });
+  });
+
+  // RevenueCat Configuration Diagnostic
+  app.get("/api/debug/revenuecat", async (req, res) => {
+    try {
+      const diagnostic = {
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        apiKeyConfigured: !!process.env.VITE_REVENUECAT_API_KEY,
+        bundleId: 'com.beanstalker.member',
+        expectedProducts: [
+          'com.beanstalker.credit25',
+          'com.beanstalker.credit50', 
+          'com.beanstalker.credit100',
+          'com.beanstalker.membership69'
+        ],
+        configuration: {
+          webhookUrl: 'https://member.beanstalker.com.au/api/revenuecat/webhook',
+          creditStructure: {
+            'com.beanstalker.credit25': { purchase: 25, credits: 29.50, bonus: 4.50 },
+            'com.beanstalker.credit50': { purchase: 50, credits: 59.90, bonus: 9.90 },
+            'com.beanstalker.credit100': { purchase: 100, credits: 120.70, bonus: 20.70 },
+            'com.beanstalker.membership69': { purchase: 69, credits: 69, bonus: 0 }
+          }
+        },
+        appStoreConnect: {
+          bundleId: 'com.beanstalker.member',
+          productsInDraft: true,
+          sandboxReady: true
+        },
+        nextSteps: [
+          '1. Verify App Store Connect API integration in RevenueCat Dashboard',
+          '2. Create RevenueCat Offerings for better product management',
+          '3. Set up sandbox test user for IAP testing',
+          '4. Test purchase flow with draft products (works in sandbox)',
+          '5. Configure RevenueCat webhook URL in dashboard'
+        ]
+      };
+      
+      res.json(diagnostic);
+    } catch (error) {
+      res.status(500).json({ 
+        error: 'Failed to generate RevenueCat diagnostic',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
   });
 
   // Debug Square API connectivity test

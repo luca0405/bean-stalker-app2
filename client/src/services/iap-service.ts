@@ -24,13 +24,12 @@ class IAPService {
   private isInitialized = false;
   private offerings: PurchasesOffering[] = [];
 
-  // Product IDs - these will be configured in App Store Connect and Play Console
+  // Product IDs - matching your App Store Connect products
   private readonly PRODUCT_IDS = {
-    PREMIUM_MEMBERSHIP: 'com.beanstalker.member',
-    CREDITS_10: 'com.beanstalker.credits10',
-    CREDITS_25: 'com.beanstalker.credits25', 
-    CREDITS_50: 'com.beanstalker.credits50',
-    CREDITS_100: 'com.beanstalker.credits100'
+    PREMIUM_MEMBERSHIP: 'com.beanstalker.membership69',
+    CREDITS_25: 'com.beanstalker.credit25', 
+    CREDITS_50: 'com.beanstalker.credit50',
+    CREDITS_100: 'com.beanstalker.credit100'
   };
 
   async initialize(): Promise<boolean> {
@@ -105,19 +104,11 @@ class IAPService {
           priceCurrencyCode: 'AUD',
           type: 'membership'
         },
-        {
-          id: this.PRODUCT_IDS.CREDITS_10,
-          title: '10 Credits',
-          description: 'Add 10 credits to your account',
-          price: 'AUD $10.00',
-          priceAmountMicros: 10000000,
-          priceCurrencyCode: 'AUD',
-          type: 'credits'
-        },
+
         {
           id: this.PRODUCT_IDS.CREDITS_25,
-          title: '25 Credits + 2 Bonus',
-          description: 'Add 25 credits plus 2 bonus credits',
+          title: '$29.50 Credits',
+          description: 'Get $29.50 credits for $25 - $4.50 bonus!',
           price: 'AUD $25.00',
           priceAmountMicros: 25000000,
           priceCurrencyCode: 'AUD',
@@ -125,8 +116,8 @@ class IAPService {
         },
         {
           id: this.PRODUCT_IDS.CREDITS_50,
-          title: '50 Credits + 5 Bonus',
-          description: 'Add 50 credits plus 5 bonus credits',
+          title: '$59.90 Credits',
+          description: 'Get $59.90 credits for $50 - $9.90 bonus!',
           price: 'AUD $50.00',
           priceAmountMicros: 50000000,
           priceCurrencyCode: 'AUD',
@@ -134,8 +125,8 @@ class IAPService {
         },
         {
           id: this.PRODUCT_IDS.CREDITS_100,
-          title: '100 Credits + 15 Bonus',
-          description: 'Add 100 credits plus 15 bonus credits',
+          title: '$120.70 Credits',
+          description: 'Get $120.70 credits for $100 - $20.70 bonus!',
           price: 'AUD $100.00',
           priceAmountMicros: 100000000,
           priceCurrencyCode: 'AUD',
@@ -273,11 +264,10 @@ class IAPService {
   // Convert credit amount to product ID
   getCreditsProductId(amount: number): string {
     switch (amount) {
-      case 10: return this.PRODUCT_IDS.CREDITS_10;
       case 25: return this.PRODUCT_IDS.CREDITS_25;
       case 50: return this.PRODUCT_IDS.CREDITS_50;
       case 100: return this.PRODUCT_IDS.CREDITS_100;
-      default: return this.PRODUCT_IDS.CREDITS_10;
+      default: return this.PRODUCT_IDS.CREDITS_25;
     }
   }
 

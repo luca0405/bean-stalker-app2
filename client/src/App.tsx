@@ -25,12 +25,11 @@ import { AppUpdateProvider } from "@/contexts/app-update-context";
 import { IAPProvider } from "@/hooks/use-iap";
 import { Capacitor } from '@capacitor/core';
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { MobileDebugDisplay } from "@/components/mobile-debug-display";
+
 import { useState, useEffect } from 'react';
 
 function Router() {
   const [location] = useLocation();
-  console.log('Router rendering, current location:', location);
   
   return (
     <Switch>
@@ -58,48 +57,19 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Log platform information for debugging
-        console.log('Bean Stalker App initializing...', {
-          platform: Capacitor.getPlatform(),
-          isNative: Capacitor.isNativePlatform(),
-          userAgent: navigator.userAgent,
-          online: navigator.onLine
-        });
+
 
         // Wait for Capacitor to be ready on mobile
         if (Capacitor.isNativePlatform()) {
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          // Test server connectivity
-          console.log('Testing server connectivity...');
-          try {
-            const response = await fetch('https://member.beanstalker.com.au/api/menu', {
-              method: 'GET',
-              credentials: 'include',
-              signal: AbortSignal.timeout(10000)
-            });
-            console.log('Server connectivity test:', response.ok ? 'SUCCESS' : 'FAILED', response.status);
-            if (!response.ok) {
-              console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-              const responseText = await response.text();
-              console.log('Response body:', responseText.substring(0, 200));
-            }
-          } catch (connError) {
-            console.error('Server connectivity test failed:', connError.message);
-            console.error('Connection error details:', {
-              name: connError.name,
-              stack: connError.stack,
-              online: navigator.onLine
-            });
-            // Don't fail app initialization due to connectivity issues
-          }
+
         }
         
-        console.log('Bean Stalker App ready - About to render components');
+
         setIsReady(true);
       } catch (error) {
-        console.error('App initialization error:', error);
-        setAppError(error.message);
+        setAppError(error instanceof Error ? error.message : 'Unknown error');
       }
     };
 
@@ -135,7 +105,6 @@ function App() {
   }
 
   try {
-    console.log('App: Starting component render');
     return (
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
@@ -148,7 +117,6 @@ function App() {
                       <AppUpdateProvider>
                         <Router />
                         <Toaster />
-                        <MobileDebugDisplay />
                       </AppUpdateProvider>
                     </PushNotificationProvider>
                   </IOSNotificationProvider>
@@ -165,7 +133,7 @@ function App() {
       <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-6 text-center max-w-md w-full">
           <h1 className="text-xl font-bold text-red-600 mb-2">Render Error</h1>
-          <p className="text-gray-600 mb-4">{renderError.message}</p>
+          <p className="text-gray-600 mb-4">{renderError instanceof Error ? renderError.message : String(renderError)}</p>
           <button 
             onClick={() => window.location.reload()} 
             className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"

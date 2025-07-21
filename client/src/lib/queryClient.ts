@@ -27,12 +27,7 @@ export async function apiRequest(
 ): Promise<Response> {
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
   
-  console.log('API Request:', {
-    method,
-    url: fullUrl,
-    hasData: !!data,
-    isNative: Capacitor.isNativePlatform()
-  });
+
   
   try {
     // Use native HTTP for mobile to bypass WebView restrictions
@@ -55,15 +50,11 @@ export async function apiRequest(
         readTimeout: 15000
       };
       
-      console.log('Using Capacitor HTTP for native request:', options);
+
       
       const nativeResponse = await CapacitorHttp.request(options);
       
-      console.log('Native HTTP Response:', {
-        status: nativeResponse.status,
-        url: fullUrl,
-        headers: nativeResponse.headers
-      });
+
       
       // Convert native response to standard Response object
       // Handle both string and object response data
@@ -98,11 +89,7 @@ export async function apiRequest(
       signal: AbortSignal.timeout(15000),
     });
 
-    console.log('Web Fetch Response:', {
-      status: res.status,
-      statusText: res.statusText,
-      url: fullUrl
-    });
+
 
     await throwIfResNotOk(res);
     return res;
@@ -120,18 +107,6 @@ export async function apiRequest(
       } else if (error.message.includes('NETWORK_ERROR')) {
         errorMessage = 'Network error. Unable to connect to server.';
       }
-      
-      console.error('API Request failed:', {
-        url: fullUrl,
-        method,
-        error: error.message,
-        errorName: error.name,
-        stack: error.stack,
-        isNative: Capacitor.isNativePlatform(),
-        online: navigator.onLine
-      });
-    } else {
-      console.error('API Request failed with unknown error:', error);
     }
     
     throw new Error(errorMessage);
@@ -226,3 +201,5 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+export default queryClient;

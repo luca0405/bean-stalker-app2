@@ -10,13 +10,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Crown, Coffee, Star, Shield, Zap, CheckCircle2, Smartphone, User, Lock, Mail, Phone, Globe, Fingerprint } from "lucide-react";
-import { MobileNetworkTest } from "@/components/mobile-network-test";
-import { MobileAuthDebug } from "@/components/mobile-auth-debug";
+
 
 export default function AuthPageMobile() {
-  console.log('AuthPageMobile: Component rendering...');
   const { user, loginMutation, registerMutation } = useAuth();
-  console.log('AuthPageMobile: Auth state:', { user: !!user });
   const { purchaseProduct, isAvailable: isIAPAvailable, isLoading: iapLoading } = useIAP();
   const { toast } = useToast();
   
@@ -542,8 +539,7 @@ export default function AuthPageMobile() {
             </CardContent>
           </Card>
           
-          <MobileNetworkTest />
-          <MobileAuthDebug />
+
         </div>
       </div>
     </div>

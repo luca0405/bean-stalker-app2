@@ -17,10 +17,10 @@ interface CreditPackage {
 }
 
 const CREDIT_PACKAGES: CreditPackage[] = [
-  { id: 'com.beanstalker.credits10', amount: 10, price: 10 },
-  { id: 'com.beanstalker.credits25', amount: 25, price: 25, bonus: 2 },
-  { id: 'com.beanstalker.credits50', amount: 50, price: 50, bonus: 5, popular: true },
-  { id: 'com.beanstalker.credits100', amount: 100, price: 100, bonus: 15 }
+  { id: 'com.beanstalker.credit25', amount: 25, price: 25, bonus: 4.50 }, // $25 → $29.50
+  { id: 'com.beanstalker.credit50', amount: 50, price: 50, bonus: 9.90, popular: true }, // $50 → $59.90  
+  { id: 'com.beanstalker.credit100', amount: 100, price: 100, bonus: 20.70 }, // $100 → $120.70
+  { id: 'com.beanstalker.membership69', amount: 0, price: 69, bonus: 0 }
 ];
 
 export function EnhancedBuyCredits() {
@@ -74,12 +74,12 @@ export function EnhancedBuyCredits() {
                     <div className="flex items-center gap-2 mb-1">
                       <DollarSign className="h-4 w-4 text-green-600" />
                       <span className="font-semibold text-lg">
-                        {pkg.amount + (pkg.bonus || 0)} Credits
+                        {pkg.id === 'com.beanstalker.membership69' ? 'Premium Membership' : `${pkg.amount + (pkg.bonus || 0)} Credits`}
                       </span>
                     </div>
-                    {pkg.bonus && (
+                    {pkg.bonus && pkg.id !== 'com.beanstalker.membership69' && (
                       <p className="text-xs text-green-600 mb-2">
-                        {pkg.amount} + {pkg.bonus} bonus
+                        {formatCurrency(pkg.amount)} + {formatCurrency(pkg.bonus)} bonus = {formatCurrency(pkg.amount + pkg.bonus)}
                       </p>
                     )}
                     <div className="text-xl font-bold text-gray-900">
