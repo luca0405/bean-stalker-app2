@@ -3,35 +3,40 @@
  * CRITICAL: Forces production to use correct credentials regardless of environment variable caching
  */
 
-// Square configuration with deployment-safe credential switching
+// Modern Square OAuth configuration for both sandbox and production
 function getSquareConfig() {
-  // Determine if we should use production or sandbox credentials
-  const useProduction = process.env.NODE_ENV === 'production' && process.env.SQUARE_USE_PRODUCTION === 'true';
+  // Production mode enabled - OAuth configuration supports both environments
+  const hasProductionSecrets = process.env.SQUARE_ACCESS_TOKEN_PROD || process.env.SQUARE_LOCATION_ID_PROD;
+  // const hasProductionSecrets = false; // Uncomment to force sandbox mode
   
   let config;
   
-  if (useProduction) {
-    // Production Square credentials
+  if (hasProductionSecrets) {
+    // Production Square OAuth credentials (disabled for sandbox testing)
     config = {
-      locationId: process.env.SQUARE_PRODUCTION_LOCATION_ID || 'YOUR_PRODUCTION_LOCATION_ID',
-      applicationId: process.env.SQUARE_PRODUCTION_APPLICATION_ID || 'YOUR_PRODUCTION_APP_ID',
-      accessToken: process.env.SQUARE_PRODUCTION_ACCESS_TOKEN,
-      webhookSignatureKey: process.env.SQUARE_PRODUCTION_WEBHOOK_SIGNATURE_KEY
+      locationId: process.env.SQUARE_LOCATION_ID_PROD || 'YOUR_PRODUCTION_LOCATION_ID',
+      applicationId: process.env.SQUARE_APPLICATION_ID_PROD || 'YOUR_PRODUCTION_APP_ID',
+      accessToken: process.env.SQUARE_ACCESS_TOKEN_PROD,
+      applicationSecret: process.env.SQUARE_APPLICATION_SECRET_PROD,
+      webhookSignatureKey: process.env.SQUARE_WEBHOOK_SIGNATURE_KEY_PROD,
+      environment: 'production'
     };
-    console.log(`🏪 Using PRODUCTION Square credentials`);
+    console.log(`🏪 Using PRODUCTION Square OAuth credentials`);
   } else {
-    // Sandbox credentials (current working setup)
+    // Sandbox credentials with modern OAuth support
     config = {
-      locationId: 'LKTZKDFJ44YZD', // Working sandbox location
-      applicationId: 'sandbox-sq0idb-psFtGCJDduHGMjv3Qw34jA', // Working sandbox app
+      locationId: process.env.SQUARE_LOCATION_ID || 'LRQ926HVH9WFD', // Beanstalker Sandbox
+      applicationId: process.env.SQUARE_APPLICATION_ID || 'sandbox-sq0idb-0f_-wyGBcz7NmblQtFkv9A',
       accessToken: process.env.SQUARE_ACCESS_TOKEN,
-      webhookSignatureKey: process.env.SQUARE_WEBHOOK_SIGNATURE_KEY
+      applicationSecret: process.env.SQUARE_APPLICATION_SECRET,
+      webhookSignatureKey: process.env.SQUARE_WEBHOOK_SIGNATURE_KEY,
+      environment: 'sandbox'
     };
-    console.log(`🧪 Using SANDBOX Square credentials`);
+    console.log(`🧪 Using SANDBOX Square OAuth credentials`);
   }
 
-  // Log configuration
-  console.log(`🔧 Square Config: Location=${config.locationId}, App=${config.applicationId}`);
+  // Log configuration without exposing sensitive data
+  console.log(`🔧 Square Config: Location=${config.locationId}, App=${config.applicationId?.substring(0, 20)}..., Env=${config.environment}`);
   
   return config;
 }
@@ -54,6 +59,14 @@ export function getSquareAccessToken(): string | undefined {
 
 export function getSquareWebhookSignatureKey(): string | undefined {
   return squareConfig.webhookSignatureKey;
+}
+
+export function getSquareApplicationSecret(): string | undefined {
+  return squareConfig.applicationSecret;
+}
+
+export function getSquareEnvironment(): string {
+  return squareConfig.environment || 'sandbox';
 }
 
 // Force refresh function for production cache issues

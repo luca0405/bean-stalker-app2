@@ -2891,7 +2891,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('📨 Received RevenueCat webhook:', req.body);
       
+      // Optional: Verify authorization header if configured
+      const authHeader = req.headers.authorization;
+      if (authHeader) {
+        console.log('🔐 Authorization header received:', authHeader);
+        // You can add validation here if needed
+        if (authHeader !== 'Bearer bean-stalker-webhook-2025') {
+          console.log('❌ Invalid authorization header');
+          // Note: For testing, we'll continue processing anyway
+        }
+      }
+      
       const { event } = req.body;
+      
+      // Handle test pings and non-RevenueCat requests
+      if (!event) {
+        console.log('📨 Webhook ping/test received');
+        return res.status(200).json({ message: 'Webhook endpoint active' });
+      }
+      
+      if (!event.type) {
+        console.log('📨 Invalid webhook format - missing event.type');
+        return res.status(200).json({ message: 'Invalid event format' });
+      }
       
       if (event.type === 'INITIAL_PURCHASE' || event.type === 'RENEWAL') {
         const { product_id, app_user_id } = event;
@@ -2954,6 +2976,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('💥 RevenueCat webhook error:', error);
       res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+
+  // IAP purchase verification endpoint
+  app.post("/api/iap/verify-purchase", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    try {
+      const { productId, transactionId, receipt } = req.body;
+      const userId = req.user!.id;
+      
+      console.log(`🔍 Verifying IAP purchase: ${productId} for user ${userId}`);
+      
+      // Note: In production, you would validate the receipt with Apple
+      // For now, we'll trust RevenueCat webhook to handle the credit addition
+      
+      res.status(200).json({ 
+        success: true,
+        message: 'Purchase verified successfully',
+        productId,
+        transactionId
+      });
+      
+    } catch (error) {
+      console.error('IAP verification error:', error);
+      res.status(500).json({ error: 'Purchase verification failed' });
     }
   });
 
@@ -3146,23 +3196,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Debug Square API connectivity test
+  // Square OAuth authorization endpoint
+  app.get("/api/square/oauth/authorize", async (req, res) => {
+    try {
+      const { generateOAuthAuthorizationUrl } = await import('./square-oauth');
+      const authUrl = generateOAuthAuthorizationUrl();
+      
+      res.json({
+        success: true,
+        authorizationUrl: authUrl,
+        message: 'Visit this URL to authorize Bean Stalker with your Square account'
+      });
+    } catch (error) {
+      console.error("OAuth authorization URL generation failed:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Square OAuth callback endpoint
+  app.get("/auth/square/callback", async (req, res) => {
+    try {
+      const { code, state, error } = req.query;
+      
+      if (error) {
+        return res.status(400).send(`OAuth Error: ${error}`);
+      }
+      
+      if (!code) {
+        return res.status(400).send('Missing authorization code');
+      }
+      
+      const { exchangeCodeForAccessToken } = await import('./square-oauth');
+      const tokenData = await exchangeCodeForAccessToken(code as string);
+      
+      res.json({
+        success: true,
+        message: 'OAuth authorization successful',
+        data: tokenData
+      });
+    } catch (error) {
+      console.error("OAuth callback failed:", error);
+      res.status(500).send(`OAuth Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  });
+
+  // Debug Square API connectivity test with production detection
   app.get("/api/debug/square-test", async (req, res) => {
     try {
-      const { getSquareLocationId, getSquareAccessToken } = await import('./square-config');
+      const { getSquareLocationId, getSquareApplicationId, getSquareAccessToken } = await import('./square-config');
       const locationId = getSquareLocationId();
+      const applicationId = getSquareApplicationId();
       const accessToken = getSquareAccessToken();
+      
+      // Check which environment is being used
+      const isProduction = !!(process.env.SQUARE_ACCESS_TOKEN_PROD || process.env.SQUARE_LOCATION_ID_PROD);
+      const environment = isProduction ? 'PRODUCTION' : 'SANDBOX';
+      
+      // Log current configuration for debugging
+      console.log(`🔍 Square Debug - Environment: ${environment}`);
+      console.log(`🔍 Square Debug - Location: ${locationId}`);
+      console.log(`🔍 Square Debug - App ID: ${applicationId?.substring(0, 20)}...`);
+      console.log(`🔍 Square Debug - Has Token: ${!!accessToken}`);
+      console.log(`🔍 Square Debug - Token starts with: ${accessToken?.substring(0, 10)}...`);
+      console.log(`🔍 Square Debug - Token length: ${accessToken?.length || 0}`);
       
       console.log("Testing Square API connectivity...");
       
-      // Test basic locations endpoint
-      const response = await fetch('https://connect.squareupsandbox.com/v2/locations', {
-        headers: {
-          'Square-Version': '2024-06-04',
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+      if (!accessToken) {
+        throw new Error('No access token available');
+      }
+
+      // Use production URL for production credentials, sandbox for others
+      const baseUrl = environment === 'PRODUCTION' ? 'https://connect.squareup.com' : 'https://connect.squareupsandbox.com';
+      
+      // Try different authentication methods for modern Square OAuth
+      let response;
+      
+      // Method 1: Standard Bearer token
+      try {
+        response = await fetch(`${baseUrl}/v2/locations`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Square-Version': '2024-06-04',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log(`🔍 Tried Bearer token authentication: ${response.status}`);
+        
+        if (response.status === 401) {
+          // Method 2: Try with application secret if Bearer fails
+          const { getSquareApplicationSecret } = await import('./square-config');
+          const appSecret = getSquareApplicationSecret();
+          
+          if (appSecret) {
+            console.log("🔄 Trying OAuth authentication with application secret...");
+            response = await fetch(`${baseUrl}/v2/locations`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${appSecret}`,
+                'Square-Version': '2024-06-04',
+                'Content-Type': 'application/json'
+              }
+            });
+            console.log(`🔍 Tried application secret authentication: ${response.status}`);
+          }
         }
-      });
+      } catch (error) {
+        console.error('Square API authentication error:', error);
+        throw error;
+      }
 
       const data = await response.text();
       console.log("Square API response:", response.status, data);

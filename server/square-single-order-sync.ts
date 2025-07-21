@@ -3,7 +3,7 @@
  */
 
 import { storage } from './storage';
-import { getSquareLocationId, getSquareAccessToken } from './square-config';
+import { getSquareLocationId, getSquareAccessToken, getSquareEnvironment } from './square-config';
 
 /**
  * Send a specific order to Square immediately after it's created
@@ -55,10 +55,12 @@ export async function sendSingleOrderToSquare(orderId: number): Promise<{
       }
     }));
 
-    // Create Square order data using forced configuration
+    // Create Square order data using environment-aware configuration
     const locationId = getSquareLocationId();
     const accessToken = getSquareAccessToken();
-    console.log(`🔍 Debug: Using FORCED location_id: ${locationId}`);
+    const environment = getSquareEnvironment();
+    const baseUrl = environment === 'production' ? 'https://connect.squareup.com' : 'https://connect.squareupsandbox.com';
+    console.log(`🔍 Debug: Using ${environment} location_id: ${locationId}, API: ${baseUrl}`);
     const squareOrderData = {
       reference_id: `bs-order-${orderId}`,
       location_id: locationId,
@@ -78,7 +80,7 @@ export async function sendSingleOrderToSquare(orderId: number): Promise<{
     };
 
     // Create order in Square
-    const orderResponse = await fetch('https://connect.squareupsandbox.com/v2/orders', {
+    const orderResponse = await fetch(`${baseUrl}/v2/orders`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -102,9 +104,9 @@ export async function sendSingleOrderToSquare(orderId: number): Promise<{
     const squareOrderId = orderResult.order?.id;
 
     // Create payment for the order (representing credit payment)
-    console.log(`🔍 Debug: Creating payment for FORCED location_id: ${locationId}`);
+    console.log(`🔍 Debug: Creating payment for ${environment} location_id: ${locationId}`);
     const paymentData = {
-      source_id: 'cnon:card-nonce-ok', // Sandbox test nonce
+      source_id: environment === 'production' ? 'CASH' : 'cnon:card-nonce-ok', // Use CASH for production credits
       idempotency_key: `bs-pay-${orderId}-${Date.now()}`.substring(0, 45),
       amount_money: {
         amount: Math.round((order.total || 0) * 100),
@@ -115,7 +117,7 @@ export async function sendSingleOrderToSquare(orderId: number): Promise<{
       note: `Bean Stalker app credits payment for order #${orderId} by ${customerName}`
     };
 
-    const paymentResponse = await fetch('https://connect.squareupsandbox.com/v2/payments', {
+    const paymentResponse = await fetch(`${baseUrl}/v2/payments`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,

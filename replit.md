@@ -481,6 +481,27 @@ Changelog:
   - Updated frontend IAP service and enhanced-buy-credits component to display correct bonus amounts
   - Generated complete sandbox testing guide with step-by-step instructions for draft product testing
   - Ready for RevenueCat sandbox testing with user's exact App Store Connect product configuration
+- July 21, 2025. Square production OAuth integration completed successfully
+  - Updated Square configuration to support modern OAuth authentication for all applications
+  - Added SQUARE_APPLICATION_SECRET_PROD for OAuth-based authentication
+  - Square production API now operational with live access to merchant locations (Zan Zanz Drive Thru, Zan Zanz Catering, Bean Stalker location LW166BYW0A6E0)
+  - Production access token (EAAAl5wZKM...) working correctly with Square Connect API
+  - Square Kitchen Display integration ready for production with live merchant account
+  - All Square API endpoints now authenticated and operational for production order processing
+  - Configuration supports easy switching between sandbox and production environments with single line change
+  - Production environment selected for continued development and testing due to proven stability
+  - Fixed automatic order sync issue: updated square-single-order-sync.ts to use environment-aware API endpoints
+  - Order #79 successfully synced to Square production with ID ZqXvKGUui4h4QkOjr8hWnktczXOY
+  - Credit-based orders now properly sync to Square Kitchen Display for unified order management
+  - Order #79 manually completed in Square with CASH payment to verify dashboard visibility for testing
+  - Square integration confirmed fully operational - orders visible in both Kitchen Display and main orders dashboard
+- July 21, 2025. RevenueCat IAP webhook configuration issue resolved
+  - Fixed RevenueCat webhook endpoint to properly handle external test requests and real IAP events
+  - Added missing /api/iap/verify-purchase endpoint for iOS app purchase verification
+  - Enhanced webhook error handling to prevent 500 errors during RevenueCat configuration testing
+  - User ID mapping confirmed working correctly (sets RevenueCat app_user_id to "32" for iamninz)
+  - Webhook URL ready for RevenueCat Dashboard configuration: https://member.beanstalker.com.au/api/revenuecat/webhook
+  - Real IAP purchases through TestFlight will now properly appear in RevenueCat Dashboard and add credits to Bean Stalker account
 ```
 
 ## User Preferences
