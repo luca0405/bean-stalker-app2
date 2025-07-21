@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Crown, Coffee, Star, Shield, Zap, CheckCircle2, Smartphone, User, Lock, Mail, Phone, Globe, Fingerprint } from "lucide-react";
+import { MobileNetworkTest } from "@/components/mobile-network-test";
 
 export default function AuthPageMobile() {
   console.log('AuthPageMobile: Component rendering...');
@@ -68,8 +69,17 @@ export default function AuthPageMobile() {
       return;
     }
     
+    console.log('Mobile Login: Attempting login with:', { username: loginData.username });
+    
     try {
-      await loginMutation.mutateAsync(loginData);
+      const result = await loginMutation.mutateAsync(loginData);
+      console.log('Mobile Login: Success result:', result);
+      
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${loginData.username}!`,
+        variant: "default"
+      });
       
       // After successful login, offer to setup biometric auth if available
       if (biometricState.isAvailable && !biometricState.hasStoredCredentials) {
@@ -84,7 +94,26 @@ export default function AuthPageMobile() {
         }, 1000);
       }
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('Mobile Login: Failed with error:', error);
+      
+      // Enhanced error handling for mobile
+      let errorMessage = "Login failed. Please check your credentials.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
+          errorMessage = "Invalid username or password. Please try again.";
+        } else if (error.message.includes('Load failed')) {
+          errorMessage = "Network connection issue. Please check your internet and try again.";
+        } else if (error.message.includes('timeout')) {
+          errorMessage = "Connection timeout. Please try again.";
+        }
+      }
+      
+      toast({
+        title: "Login Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
     }
   };
 
@@ -511,6 +540,8 @@ export default function AuthPageMobile() {
               </Tabs>
             </CardContent>
           </Card>
+          
+          <MobileNetworkTest />
         </div>
       </div>
     </div>

@@ -6,13 +6,16 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    // Allow cleartext traffic for development
+    // Allow all external navigation for mobile networking
     allowNavigation: [
       'https://member.beanstalker.com.au',
-      'https://*.beanstalker.com.au'
+      'https://*.beanstalker.com.au',
+      'https://httpbin.org',
+      'https://*'
     ],
-    // Handle CORS and network security for production
-    cleartext: true
+    // Enhanced network configuration for mobile
+    cleartext: true,
+    hostname: 'localhost'
   },
   plugins: {
     SplashScreen: {
@@ -31,6 +34,9 @@ const config: CapacitorConfig = {
       title: "Biometric Authentication",
       subtitle: "Secure login with your fingerprint or face",
       description: "Authenticate using your device's biometric authentication",
+    },
+    CapacitorHttp: {
+      enabled: true,
     },
   },
 };
