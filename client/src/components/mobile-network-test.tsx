@@ -23,7 +23,6 @@ export function MobileNetworkTest() {
       let response;
       
       if (isNative) {
-<<<<<<< HEAD
         // Try multiple reliable endpoints for mobile
         const testUrls = ['https://www.google.com', 'https://www.apple.com', 'https://httpbin.org/get'];
         let success = false;
@@ -47,15 +46,6 @@ export function MobileNetworkTest() {
         if (!success) {
           throw new Error('All connectivity tests failed');
         }
-=======
-        const nativeResponse = await CapacitorHttp.request({
-          url: 'https://httpbin.org/get',
-          method: 'GET',
-          connectTimeout: 10000,
-          readTimeout: 10000
-        });
-        response = { status: nativeResponse.status };
->>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
       } else {
         response = await fetch('https://httpbin.org/get', {
           method: 'GET',
@@ -63,9 +53,9 @@ export function MobileNetworkTest() {
         });
       }
       
-      addResult(`✅ Internet OK: ${response.status}`);
+      addResult(`✅ Internet OK: ${response?.status || 'Unknown'}`);
     } catch (error) {
-      addResult(`⚠️ Internet Limited: ${error.message} (Bean Stalker should still work)`);
+      addResult(`⚠️ Internet Limited: ${error instanceof Error ? error.message : 'Unknown error'} (Bean Stalker should still work)`);
     }
 
     // Test 2: Production server connectivity
@@ -94,7 +84,7 @@ export function MobileNetworkTest() {
       
       addResult(`✅ Server OK: ${response.status}`);
     } catch (error) {
-      addResult(`❌ Server FAILED: ${error.message}`);
+      addResult(`❌ Server FAILED: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // Test 3: Authentication endpoint
@@ -130,7 +120,7 @@ export function MobileNetworkTest() {
       
       addResult(`✅ Auth endpoint OK: ${response.status}`);
     } catch (error) {
-      addResult(`❌ Auth endpoint FAILED: ${error.message}`);
+      addResult(`❌ Auth endpoint FAILED: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // Test 4: With credentials
@@ -148,21 +138,12 @@ export function MobileNetworkTest() {
           },
           data: JSON.stringify({ username: 'iamninz', password: 'password123' }),
           connectTimeout: 10000,
-<<<<<<< HEAD
-          readTimeout: 10000,
-          // Enable cookies for session handling
-          webFetchExtra: {
-            credentials: 'include'
-          }
-=======
           readTimeout: 10000
->>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
         });
         
         if (nativeResponse.status === 200) {
           const data = typeof nativeResponse.data === 'string' ? JSON.parse(nativeResponse.data) : nativeResponse.data;
           addResult(`✅ LOGIN SUCCESS: User ${data.username}, Credits $${data.credits}`);
-<<<<<<< HEAD
           
           // Test session persistence with a follow-up request
           try {
@@ -174,10 +155,7 @@ export function MobileNetworkTest() {
                 'Accept': 'application/json'
               },
               connectTimeout: 5000,
-              readTimeout: 5000,
-              webFetchExtra: {
-                credentials: 'include'
-              }
+              readTimeout: 5000
             });
             
             if (sessionTest.status === 200) {
@@ -186,10 +164,8 @@ export function MobileNetworkTest() {
               addResult(`⚠️ SESSION ISSUE: Status ${sessionTest.status} - cookies may not be persisting`);
             }
           } catch (sessionError) {
-            addResult(`⚠️ SESSION TEST FAILED: ${sessionError.message}`);
+            addResult(`⚠️ SESSION TEST FAILED: ${sessionError instanceof Error ? sessionError.message : 'Unknown error'}`);
           }
-=======
->>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
         } else {
           addResult(`❌ Login FAILED: ${nativeResponse.status}`);
         }
@@ -213,7 +189,7 @@ export function MobileNetworkTest() {
         }
       }
     } catch (error) {
-      addResult(`❌ Login ERROR: ${error.message}`);
+      addResult(`❌ Login ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     setIsRunning(false);

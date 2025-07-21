@@ -52,15 +52,7 @@ export async function apiRequest(
         headers,
         data: data ? JSON.stringify(data) : undefined,
         connectTimeout: 15000,
-<<<<<<< HEAD
-        readTimeout: 15000,
-        // Enable cookies for authentication
-        webFetchExtra: {
-          credentials: 'include'
-        }
-=======
         readTimeout: 15000
->>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
       };
       
       console.log('Using Capacitor HTTP for native request:', options);
@@ -108,25 +100,31 @@ export async function apiRequest(
     return res;
   } catch (error) {
     // Enhanced mobile error handling
-    let errorMessage = error.message;
+    let errorMessage = 'Request failed';
     
-    if (error.name === 'TypeError' && error.message.includes('Load failed')) {
-      errorMessage = 'Network connection failed. Check internet connectivity.';
-    } else if (error.name === 'AbortError') {
-      errorMessage = 'Request timed out. Server response too slow.';
-    } else if (error.message.includes('NETWORK_ERROR')) {
-      errorMessage = 'Network error. Unable to connect to server.';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      
+      if (error.name === 'TypeError' && error.message.includes('Load failed')) {
+        errorMessage = 'Network connection failed. Check internet connectivity.';
+      } else if (error.name === 'AbortError') {
+        errorMessage = 'Request timed out. Server response too slow.';
+      } else if (error.message.includes('NETWORK_ERROR')) {
+        errorMessage = 'Network error. Unable to connect to server.';
+      }
+      
+      console.error('API Request failed:', {
+        url: fullUrl,
+        method,
+        error: error.message,
+        errorName: error.name,
+        stack: error.stack,
+        isNative: Capacitor.isNativePlatform(),
+        online: navigator.onLine
+      });
+    } else {
+      console.error('API Request failed with unknown error:', error);
     }
-    
-    console.error('API Request failed:', {
-      url: fullUrl,
-      method,
-      error: error.message,
-      errorName: error.name,
-      stack: error.stack,
-      isNative: Capacitor.isNativePlatform(),
-      online: navigator.onLine
-    });
     
     throw new Error(errorMessage);
   }
@@ -154,15 +152,7 @@ export const getQueryFn: <T>(options: {
             "Accept": "application/json"
           },
           connectTimeout: 15000,
-<<<<<<< HEAD
-          readTimeout: 15000,
-          // Enable cookies for authentication
-          webFetchExtra: {
-            credentials: 'include'
-          }
-=======
           readTimeout: 15000
->>>>>>> aa6034a1b2846ced37af5e3a1769e9b75935b2a9
         };
         
         const nativeResponse = await CapacitorHttp.request(options);
@@ -190,7 +180,7 @@ export const getQueryFn: <T>(options: {
     } catch (error) {
       console.error('Query failed:', {
         url: fullUrl,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
       throw error;
     }
