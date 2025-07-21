@@ -33,13 +33,20 @@ class IAPService {
   };
 
   async initialize(): Promise<boolean> {
-    // Development mode - simulate IAP when not on native platform or no API key
-    const isDevelopmentMode = !Capacitor.isNativePlatform() || !import.meta.env.VITE_REVENUECAT_API_KEY;
+    // Only use development mode when not on native platform
+    // Always use RevenueCat on iOS/Android even during development
+    const isDevelopmentMode = !Capacitor.isNativePlatform();
     
     if (isDevelopmentMode) {
-      console.log('IAP: Running in development mode - simulating IAP functionality');
+      console.log('IAP: Running in web development mode - simulating IAP functionality');
       this.isInitialized = true;
       return true;
+    }
+    
+    // Native platform - always use RevenueCat
+    if (!import.meta.env.VITE_REVENUECAT_API_KEY) {
+      console.error('IAP: VITE_REVENUECAT_API_KEY is required for native platforms');
+      return false;
     }
 
     try {
@@ -90,8 +97,8 @@ class IAPService {
       throw new Error('IAP service not initialized');
     }
 
-    // Development mode - return mock products
-    const isDevelopmentMode = !Capacitor.isNativePlatform() || !import.meta.env.VITE_REVENUECAT_API_KEY;
+    // Development mode - return mock products (web only)
+    const isDevelopmentMode = !Capacitor.isNativePlatform();
     
     if (isDevelopmentMode) {
       return [
@@ -169,8 +176,8 @@ class IAPService {
       throw new Error('IAP service not initialized');
     }
 
-    // Development mode - simulate successful purchase
-    const isDevelopmentMode = !Capacitor.isNativePlatform() || !import.meta.env.VITE_REVENUECAT_API_KEY;
+    // Development mode - simulate successful purchase (web only)
+    const isDevelopmentMode = !Capacitor.isNativePlatform();
     
     if (isDevelopmentMode) {
       console.log(`IAP: Simulating purchase for ${productId}`);
@@ -256,8 +263,8 @@ class IAPService {
   }
 
   isAvailable(): boolean {
-    // Available in development mode or when properly initialized
-    const isDevelopmentMode = !Capacitor.isNativePlatform() || !import.meta.env.VITE_REVENUECAT_API_KEY;
+    // Available when properly initialized (web dev mode or native platform)
+    const isDevelopmentMode = !Capacitor.isNativePlatform();
     return this.isInitialized && (isDevelopmentMode || Capacitor.isNativePlatform());
   }
 
