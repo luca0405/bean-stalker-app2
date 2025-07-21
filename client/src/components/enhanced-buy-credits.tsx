@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Capacitor } from '@capacitor/core';
 import { useIAP } from '@/hooks/use-iap';
 
 import { formatCurrency } from '@/lib/utils';
-import { Smartphone, DollarSign } from 'lucide-react';
+import { Smartphone, DollarSign, Bug } from 'lucide-react';
+import IAPDiagnostic from '@/components/iap-diagnostic';
 
 interface CreditPackage {
   id: string;
@@ -48,8 +50,16 @@ export function EnhancedBuyCredits() {
   };
 
   return (
-    <div className="h-full max-h-[65vh] overflow-y-auto">
-      <div className="space-y-4 p-1">
+    <Tabs defaultValue="credits" className="h-full max-h-[65vh] overflow-y-auto">
+      <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsTrigger value="credits">Buy Credits</TabsTrigger>
+        <TabsTrigger value="diagnostic">
+          <Bug className="w-4 h-4 mr-2" />
+          Diagnostic
+        </TabsTrigger>
+      </TabsList>
+      
+      <TabsContent value="credits" className="space-y-4 p-1">
         {/* App Store Payment Header */}
         <div className="flex items-center gap-2 text-sm text-gray-600 px-2">
           <Smartphone className="h-4 w-4" />
@@ -112,7 +122,11 @@ export function EnhancedBuyCredits() {
           <p>• Credits added immediately after purchase</p>
           <p>• Credits never expire and can be used for any order</p>
         </div>
-      </div>
-    </div>
+      </TabsContent>
+      
+      <TabsContent value="diagnostic" className="p-2">
+        <IAPDiagnostic />
+      </TabsContent>
+    </Tabs>
   );
 }

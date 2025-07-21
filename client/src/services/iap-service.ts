@@ -50,45 +50,88 @@ class IAPService {
     }
 
     try {
-      // Configure RevenueCat for production
+      // Configure RevenueCat for production with enhanced logging
       await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
       
       const apiKey = import.meta.env.VITE_REVENUECAT_API_KEY;
+      console.log('IAP: Configuring RevenueCat with API key present:', !!apiKey);
+      
       await Purchases.configure({
         apiKey,
         appUserID: undefined, // Will be set when user logs in
       });
+      console.log('IAP: RevenueCat configured successfully');
+
+      // Check if In-App Purchases are available on device
+      const canMakePayments = await Purchases.canMakePayments();
+      console.log('IAP: Device can make payments:', canMakePayments);
+      
+      if (!canMakePayments) {
+        console.error('IAP: Device cannot make payments - IAP restricted or not available');
+        return false;
+      }
 
       // Get available offerings
       await this.loadOfferings();
       
       this.isInitialized = true;
-      console.log('IAP: Service initialized successfully');
+      console.log('IAP: Service initialized successfully with', this.offerings.length, 'offerings');
       return true;
     } catch (error) {
       console.error('IAP: Failed to initialize', error);
+      console.error('IAP: Error details:', JSON.stringify(error, null, 2));
       return false;
     }
   }
 
   async setUserID(userID: string): Promise<void> {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized) {
+      console.error('IAP: Cannot set user ID - service not initialized');
+      return;
+    }
     
     try {
-      await Purchases.logIn({ appUserID: userID });
-      console.log('IAP: User ID set', userID);
+      console.log('IAP: Logging in user with ID:', userID);
+      const result = await Purchases.logIn({ appUserID: userID });
+      console.log('IAP: User login successful:', result.customerInfo.originalAppUserId);
+      console.log('IAP: Customer info:', JSON.stringify(result.customerInfo, null, 2));
     } catch (error) {
       console.error('IAP: Failed to set user ID', error);
+      console.error('IAP: User login error details:', JSON.stringify(error, null, 2));
     }
   }
 
   private async loadOfferings(): Promise<void> {
     try {
+      console.log('IAP: Loading offerings from RevenueCat...');
       const offerings = await Purchases.getOfferings();
-      this.offerings = offerings.all ? Object.values(offerings.all) : [];
-      console.log('IAP: Loaded offerings', this.offerings);
+      
+      console.log('IAP: Raw offerings response:', JSON.stringify(offerings, null, 2));
+      
+      if (offerings.current) {
+        this.offerings = [offerings.current];
+        console.log('IAP: Using current offering:', offerings.current.identifier);
+      } else {
+        this.offerings = Object.values(offerings.all);
+        console.log('IAP: Using all offerings:', Object.keys(offerings.all));
+      }
+      
+      console.log('IAP: Loaded', this.offerings.length, 'offerings');
+      
+      // Log available packages in each offering
+      this.offerings.forEach((offering, index) => {
+        console.log(`IAP: Offering ${index + 1}: ${offering.identifier}`);
+        offering.availablePackages.forEach((pkg, pkgIndex) => {
+          console.log(`  Package ${pkgIndex + 1}: ${pkg.product.identifier} - ${pkg.product.title} - ${pkg.product.priceString}`);
+        });
+      });
+      
+      if (this.offerings.length === 0) {
+        console.warn('IAP: No offerings available - check App Store Connect product configuration');
+      }
     } catch (error) {
       console.error('IAP: Failed to load offerings', error);
+      console.error('IAP: Offerings error details:', JSON.stringify(error, null, 2));
     }
   }
 
