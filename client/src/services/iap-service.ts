@@ -142,31 +142,71 @@ class IAPService {
 
   async getDebugInfo(): Promise<string> {
     try {
+      console.log('IAP: Starting debug info collection...');
       const offerings = await Purchases.getOfferings();
+      console.log('IAP: Raw getOfferings response:', offerings);
+      
       const debugLines = [
+        `=== RevenueCat Offerings Debug ===`,
+        `Platform: ${Capacitor.isNativePlatform() ? 'Native (iOS/Android)' : 'Web'}`,
+        `RevenueCat SDK Version: ${await this.getSDKVersion()}`,
+        `API Key Present: ${!!import.meta.env.VITE_REVENUECAT_API_KEY}`,
         `Total offerings: ${Object.keys(offerings.all).length}`,
         `Current offering: ${offerings.current?.identifier || 'None'}`,
         `Available offerings: ${Object.keys(offerings.all).join(', ') || 'None'}`,
+        ``,
+        `=== Internal State ===`,
+        `Service initialized: ${this.isInitialized}`,
+        `Cached offerings count: ${this.offerings.length}`,
+        ``,
       ];
       
       if (offerings.current) {
-        debugLines.push(`Current offering packages: ${offerings.current.availablePackages.length}`);
+        debugLines.push(`=== Current Offering Details ===`);
+        debugLines.push(`ID: ${offerings.current.identifier}`);
+        debugLines.push(`Description: ${offerings.current.serverDescription || 'None'}`);
+        debugLines.push(`Packages: ${offerings.current.availablePackages.length}`);
         offerings.current.availablePackages.forEach((pkg, i) => {
-          debugLines.push(`  ${i+1}. ${pkg.identifier} → ${pkg.product.identifier}`);
+          debugLines.push(`  ${i+1}. Package: ${pkg.identifier}`);
+          debugLines.push(`     Product: ${pkg.product.identifier}`);
+          debugLines.push(`     Title: ${pkg.product.title || 'None'}`);
+          debugLines.push(`     Price: ${pkg.product.priceString || 'None'}`);
         });
+        debugLines.push(``);
       }
       
-      // Also check all offerings
+      // Check all offerings
+      debugLines.push(`=== All Offerings ===`);
       Object.values(offerings.all).forEach(offering => {
         debugLines.push(`Offering "${offering.identifier}": ${offering.availablePackages.length} packages`);
         offering.availablePackages.forEach((pkg, i) => {
-          debugLines.push(`  ${i+1}. ${pkg.identifier} → ${pkg.product.identifier}`);
+          debugLines.push(`  ${i+1}. ${pkg.identifier} → ${pkg.product.identifier} (${pkg.product.priceString})`);
         });
       });
       
+      // Check if we can get customer info
+      try {
+        const customerInfo = await Purchases.getCustomerInfo();
+        debugLines.push(``, `=== Customer Info ===`);
+        debugLines.push(`Original App User ID: ${customerInfo.originalAppUserId || 'None'}`);
+        debugLines.push(`Management URL: ${customerInfo.managementURL || 'None'}`);
+      } catch (customerError) {
+        debugLines.push(``, `Customer Info Error: ${customerError}`);
+      }
+      
       return debugLines.join('\n');
     } catch (error) {
-      return `Debug info error: ${JSON.stringify(error)}`;
+      console.error('IAP: Debug info collection failed:', error);
+      return `Debug info error: ${JSON.stringify(error, null, 2)}`;
+    }
+  }
+
+  private async getSDKVersion(): Promise<string> {
+    try {
+      // Try to get SDK version if available
+      return 'Unknown';
+    } catch {
+      return 'Unknown';
     }
   }
 
@@ -179,6 +219,7 @@ class IAPService {
     const isDevelopmentMode = !Capacitor.isNativePlatform();
     
     if (isDevelopmentMode) {
+      console.log('IAP: Running in development mode - returning mock products');
       return [
         {
           id: this.PRODUCT_IDS.PREMIUM_MEMBERSHIP,
@@ -189,7 +230,6 @@ class IAPService {
           priceCurrencyCode: 'AUD',
           type: 'membership'
         },
-
         {
           id: this.PRODUCT_IDS.CREDITS_25,
           title: '$29.50 Credits',
@@ -221,11 +261,18 @@ class IAPService {
     }
 
     // Production mode - use RevenueCat
+    console.log('IAP: Running in production mode - extracting products from RevenueCat offerings');
+    console.log('IAP: Available offerings count:', this.offerings.length);
+    
     const products: IAPProduct[] = [];
 
     for (const offering of this.offerings) {
+      console.log(`IAP: Processing offering: ${offering.identifier} with ${offering.availablePackages.length} packages`);
+      
       for (const packageObj of offering.availablePackages) {
         const product = packageObj.product;
+        
+        console.log(`IAP: Processing product: ${product.identifier} - ${product.title} - ${product.priceString}`);
         
         products.push({
           id: product.identifier,
@@ -239,6 +286,7 @@ class IAPService {
       }
     }
 
+    console.log('IAP: Total products extracted:', products.length);
     return products;
   }
 
