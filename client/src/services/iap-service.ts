@@ -76,6 +76,11 @@ class IAPService {
       
       this.isInitialized = true;
       console.log('IAP: Service initialized successfully with', this.offerings.length, 'offerings');
+      
+      // Force reload offerings to ensure fresh data
+      console.log('IAP: Force reloading offerings to check for updates...');
+      await this.loadOfferings();
+      
       return true;
     } catch (error) {
       console.error('IAP: Failed to initialize', error);
@@ -132,6 +137,36 @@ class IAPService {
     } catch (error) {
       console.error('IAP: Failed to load offerings', error);
       console.error('IAP: Offerings error details:', JSON.stringify(error, null, 2));
+    }
+  }
+
+  async getDebugInfo(): Promise<string> {
+    try {
+      const offerings = await Purchases.getOfferings();
+      const debugLines = [
+        `Total offerings: ${Object.keys(offerings.all).length}`,
+        `Current offering: ${offerings.current?.identifier || 'None'}`,
+        `Available offerings: ${Object.keys(offerings.all).join(', ') || 'None'}`,
+      ];
+      
+      if (offerings.current) {
+        debugLines.push(`Current offering packages: ${offerings.current.availablePackages.length}`);
+        offerings.current.availablePackages.forEach((pkg, i) => {
+          debugLines.push(`  ${i+1}. ${pkg.identifier} → ${pkg.product.identifier}`);
+        });
+      }
+      
+      // Also check all offerings
+      Object.values(offerings.all).forEach(offering => {
+        debugLines.push(`Offering "${offering.identifier}": ${offering.availablePackages.length} packages`);
+        offering.availablePackages.forEach((pkg, i) => {
+          debugLines.push(`  ${i+1}. ${pkg.identifier} → ${pkg.product.identifier}`);
+        });
+      });
+      
+      return debugLines.join('\n');
+    } catch (error) {
+      return `Debug info error: ${JSON.stringify(error)}`;
     }
   }
 

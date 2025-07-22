@@ -96,13 +96,19 @@ export default function IAPDiagnostic() {
 
       try {
         const products = await iapService.getAvailableProducts();
+        
+        // Get detailed RevenueCat logs for troubleshooting
+        const debugInfo = await iapService.getDebugInfo();
+        
         setResults(prev => prev.map(r => 
           r.test === 'Product Loading' 
             ? {
                 ...r,
                 status: products.length > 0 ? 'success' : 'warning',
                 message: `Found ${products.length} products`,
-                details: products.map(p => `${p.id}: ${p.title} - ${p.price}`).join('\n')
+                details: products.length > 0 
+                  ? products.map(p => `${p.id}: ${p.title} - ${p.price}`).join('\n')
+                  : `RevenueCat Debug Info:\n${debugInfo}`
               }
             : r
         ));
