@@ -506,6 +506,14 @@ Changelog:
   - Authorization header: Bearer bean-stalker-webhook-2025
   - Webhook testing confirmed: Successfully processes IAP events and adds correct credit amounts
   - Real IAP purchases through updated TestFlight build will now appear in RevenueCat Dashboard and trigger webhook to add credits
+- July 21, 2025. GitHub Actions environment variable configuration enhanced for iOS IAP deployment
+  - Fixed RevenueCat API key propagation issue in GitHub Actions workflow (VITE_REVENUECAT_API_KEY)
+  - Updated iOS build workflow to export environment variables for all subsequent build steps
+  - Added environment variable verification during Capacitor sync and iOS build process
+  - Created comprehensive IAP diagnostic tool integrated into Buy Credits page for real-time troubleshooting
+  - Confirmed correct RevenueCat API key: appl_owLmakOcTeYJOJoxJgScSQZtUQA (32 characters, iOS public SDK key)
+  - Enhanced build process logging to verify API key availability during npm run build and npx cap sync ios
+  - GitHub Actions workflow ready for deployment with fixed environment variable handling
 ```
 
 ## User Preferences

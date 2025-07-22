@@ -1,72 +1,103 @@
 # RevenueCat IAP Troubleshooting Guide
 
-## Issue: Real IAP Purchase Not Appearing in RevenueCat Dashboard
+## Current Issue: "VITE_REVENUECAT_API_KEY not set" Error
 
-### Root Cause Analysis ✅
+### Root Cause
+The RevenueCat API key is not being properly passed to the iOS build environment, causing the "Payment system not available" error in the TestFlight app.
 
-Your real IAP purchase through TestFlight is not appearing in RevenueCat because of these configuration issues:
+### ✅ Fixed GitHub Actions Workflow
+The workflow has been updated to properly export the environment variable for all build steps:
 
-### 1. App User ID Mapping Issue
-- **Problem**: RevenueCat needs the user ID "32" set when you login
-- **Current**: App User ID may not be properly set to "32" for iamninz
-- **Fix**: Ensure `Purchases.logIn({ appUserID: "32" })` is called after authentication
-
-### 2. Webhook Configuration Issue
-- **Problem**: Webhook URL returns 500 errors when accessed externally
-- **Current**: https://member.beanstalker.com.au/api/revenuecat/webhook (Status: 500)
-- **Fix**: Configure webhook URL correctly in RevenueCat Dashboard
-
-### 3. Development vs Production Mode
-- **Problem**: App might be running in development mode with mock IAP
-- **Current**: VITE_REVENUECAT_API_KEY configuration needs verification
-- **Fix**: Ensure RevenueCat API key is properly configured for production
-
-## Immediate Solutions ⚡
-
-### Step 1: Fix User ID Mapping
-The app needs to set RevenueCat user ID to "32" immediately after login:
-
-```typescript
-// In authentication success callback
-await iapService.setUserID("32");
+```yaml
+- name: Build
+  env:
+    VITE_REVENUECAT_API_KEY: ${{ secrets.VITE_REVENUECAT_API_KEY }}
+  run: |
+    # Export environment variable for all subsequent steps
+    echo "VITE_REVENUECAT_API_KEY=${{ secrets.VITE_REVENUECAT_API_KEY }}" >> $GITHUB_ENV
 ```
 
-### Step 2: Configure RevenueCat Dashboard
-1. Go to RevenueCat Dashboard → Project Settings → Webhooks
-2. Set webhook URL: `https://member.beanstalker.com.au/api/revenuecat/webhook`
-3. Enable events: INITIAL_PURCHASE, RENEWAL, CANCELLATION
-4. Save configuration
+### 🔧 Required GitHub Secret Configuration
 
-### Step 3: Verify RevenueCat API Key
-Check that VITE_REVENUECAT_API_KEY is:
-- Set correctly in environment variables
-- Using the correct project (not development/test)
-- Properly configured for iOS App Store
+**CRITICAL: You must update your GitHub secret with the exact API key:**
 
-## Testing Verification 🧪
+1. Go to GitHub repository: `luca0405/bean-stalker-app2`
+2. Navigate to: Settings → Secrets and variables → Actions
+3. Find or create secret: `VITE_REVENUECAT_API_KEY`
+4. Set the value to: `appl_owLmakOcTeYJOJoxJgScSQZtUQA`
 
-After fixes, your real IAP purchase should:
-1. **Appear in RevenueCat Dashboard** under customer ID "32"
-2. **Trigger webhook** to Bean Stalker server
-3. **Add credits** to your account automatically
-4. **Show in transaction history** in Bean Stalker app
+**Important:** Make sure there are no extra spaces or characters when copying the API key.
 
-## Current IAP Configuration ✅
+### 📱 Testing Process
 
-Your products are correctly configured:
-- com.beanstalker.credit25 → $29.50 credits
-- com.beanstalker.credit50 → $59.90 credits  
-- com.beanstalker.credit100 → $120.70 credits
-- com.beanstalker.membership69 → $69 membership
+#### 1. Deploy Updated iOS App
+```bash
+git add .
+git commit -m "Fix RevenueCat API key configuration for iOS IAP"
+git push origin main
+```
 
-**Webhook integration is working** - confirmed by successful test webhook processing.
+#### 2. Run GitHub Actions
+- Go to Actions tab in your GitHub repository
+- Click "Run workflow" on "iOS Build - Simple Fix"
+- Monitor build logs for: "Building with RevenueCat API Key: CONFIGURED"
 
-## Next Steps 🎯
+#### 3. Verify with Diagnostic Tool
+Once TestFlight build is installed:
+1. Open Bean Stalker app
+2. Login with: `iamninz` / `password123`
+3. Go to **Buy Credits** → **Diagnostic** tab
+4. Tap **"Run Diagnostics"**
 
-1. **Fix user ID mapping** in authentication flow
-2. **Configure webhook URL** in RevenueCat Dashboard
-3. **Test IAP again** with sandbox Apple ID
-4. **Verify transaction** appears in RevenueCat Dashboard
-5. **Confirm credits** are added to Bean Stalker account
+**Expected Success Results:**
+```
+✅ Platform Check: Native iOS
+✅ RevenueCat API Key: Configured
+✅ IAP Service Initialization: Success
+✅ User Login: Success (User ID: 32)
+✅ Product Loading: Found 4 products
+✅ IAP Availability: Available
+```
 
-The IAP infrastructure is solid - just needs proper RevenueCat configuration to link transactions to your user account.
+#### 4. Sandbox Purchase Test
+After diagnostics pass:
+1. Sign out from real Apple ID: Settings → App Store → Sign Out
+2. Open Bean Stalker app → Buy Credits
+3. Try purchasing any credit package
+4. When prompted, sign in with sandbox Apple ID
+5. Complete test purchase (no real money charged)
+6. Credits should appear in your account balance
+
+### 🔍 Troubleshooting
+
+#### If diagnostics still show "VITE_REVENUECAT_API_KEY not set":
+1. Check GitHub secret value is exactly: `appl_owLmakOcTeYJOJoxJgScSQZtUQA`
+2. Verify build logs show "Building with RevenueCat API Key: CONFIGURED"
+3. Ensure no trailing spaces or hidden characters in the GitHub secret
+
+#### If products don't load:
+1. Verify App Store Connect has products: `com.beanstalker.credit25`, `com.beanstalker.credit50`, `com.beanstalker.credit100`
+2. Check RevenueCat Dashboard has matching product identifiers
+3. Ensure products are in "Ready to Submit" status in App Store Connect
+
+#### If purchase fails:
+1. Verify sandbox Apple ID is properly created and verified
+2. Check RevenueCat Dashboard → Customer → User ID 32 for transaction logs
+3. Monitor webhook endpoint: `https://member.beanstalker.com.au/api/revenuecat/webhook`
+
+### 📊 Current Configuration Status
+- ✅ RevenueCat Dashboard: Configured with correct API key
+- ✅ GitHub Actions Workflow: Updated with environment variable fixes
+- ✅ Diagnostic Tool: Integrated and ready for testing
+- ✅ Webhook Handler: Operational and tested with manual requests
+- ⏳ GitHub Secret: Requires verification/update with exact API key value
+- ⏳ iOS Build: Awaiting deployment with corrected configuration
+
+### 🎯 Success Criteria
+The integration is complete when:
+1. Diagnostic tool shows all ✅ checkmarks
+2. Credit packages can be purchased with sandbox Apple ID
+3. Credits automatically appear in Bean Stalker account balance
+4. RevenueCat Dashboard shows successful transactions for User ID 32
+
+Once these steps are verified, your iOS IAP integration will be fully operational for TestFlight distribution.
