@@ -116,9 +116,18 @@ class IAPService {
       if (offerings.current) {
         this.offerings = [offerings.current];
         console.log('IAP: Using current offering:', offerings.current.identifier);
-      } else {
+      } else if (offerings.all && Object.keys(offerings.all).length > 0) {
         this.offerings = Object.values(offerings.all);
-        console.log('IAP: Using all offerings:', Object.keys(offerings.all));
+        console.log('IAP: No current offering set, using all available offerings:', Object.keys(offerings.all));
+        
+        // Prefer 'default' offering if it exists
+        if (offerings.all.default) {
+          this.offerings = [offerings.all.default];
+          console.log('IAP: Found and using "default" offering even though not set as current');
+        }
+      } else {
+        console.warn('IAP: No offerings found at all');
+        this.offerings = [];
       }
       
       console.log('IAP: Loaded', this.offerings.length, 'offerings');
@@ -153,11 +162,26 @@ class IAPService {
       console.log('IAP: Testing RevenueCat getOfferings...');
       const offerings = await Purchases.getOfferings();
       console.log('IAP: getOfferings successful:', offerings);
+      console.log('IAP: All offerings keys:', Object.keys(offerings.all || {}));
+      console.log('IAP: Current offering:', offerings.current);
       
       debugLines.push(`✅ RevenueCat API Call: SUCCESS`);
       debugLines.push(`Total offerings found: ${Object.keys(offerings.all || {}).length}`);
       debugLines.push(`Current offering: ${offerings.current?.identifier || 'NONE'}`);
       debugLines.push(`Available offerings: ${Object.keys(offerings.all || {}).join(', ') || 'NONE'}`);
+      
+      // Check if we can find default in all offerings even if not current
+      if (offerings.all && offerings.all.default) {
+        debugLines.push(``, `=== Found "default" in all offerings ===`);
+        const defaultOffering = offerings.all.default;
+        debugLines.push(`Packages: ${defaultOffering.availablePackages?.length || 0}`);
+        
+        if (defaultOffering.availablePackages) {
+          defaultOffering.availablePackages.forEach((pkg, i) => {
+            debugLines.push(`${i+1}. ${pkg.identifier} → ${pkg.product.identifier}`);
+          });
+        }
+      }
       
       if (offerings.current) {
         debugLines.push(``, `=== Current Offering: ${offerings.current.identifier} ===`);
