@@ -141,74 +141,54 @@ class IAPService {
   }
 
   async getDebugInfo(): Promise<string> {
+    const debugLines = [
+      `=== Simple RevenueCat Diagnostic ===`,
+      `Platform: ${Capacitor.isNativePlatform() ? 'Native (iOS/Android)' : 'Web'}`,
+      `API Key Present: ${!!import.meta.env.VITE_REVENUECAT_API_KEY}`,
+      `Service Initialized: ${this.isInitialized}`,
+      ``,
+    ];
+
     try {
-      console.log('IAP: Starting debug info collection...');
+      console.log('IAP: Testing RevenueCat getOfferings...');
       const offerings = await Purchases.getOfferings();
-      console.log('IAP: Raw getOfferings response:', offerings);
+      console.log('IAP: getOfferings successful:', offerings);
       
-      const debugLines = [
-        `=== RevenueCat Offerings Debug ===`,
-        `Platform: ${Capacitor.isNativePlatform() ? 'Native (iOS/Android)' : 'Web'}`,
-        `RevenueCat SDK Version: ${await this.getSDKVersion()}`,
-        `API Key Present: ${!!import.meta.env.VITE_REVENUECAT_API_KEY}`,
-        `Total offerings: ${Object.keys(offerings.all).length}`,
-        `Current offering: ${offerings.current?.identifier || 'None'}`,
-        `Available offerings: ${Object.keys(offerings.all).join(', ') || 'None'}`,
-        ``,
-        `=== Internal State ===`,
-        `Service initialized: ${this.isInitialized}`,
-        `Cached offerings count: ${this.offerings.length}`,
-        ``,
-      ];
+      debugLines.push(`✅ RevenueCat API Call: SUCCESS`);
+      debugLines.push(`Total offerings found: ${Object.keys(offerings.all || {}).length}`);
+      debugLines.push(`Current offering: ${offerings.current?.identifier || 'NONE'}`);
+      debugLines.push(`Available offerings: ${Object.keys(offerings.all || {}).join(', ') || 'NONE'}`);
       
       if (offerings.current) {
-        debugLines.push(`=== Current Offering Details ===`);
-        debugLines.push(`ID: ${offerings.current.identifier}`);
-        debugLines.push(`Description: ${offerings.current.serverDescription || 'None'}`);
-        debugLines.push(`Packages: ${offerings.current.availablePackages.length}`);
-        offerings.current.availablePackages.forEach((pkg, i) => {
-          debugLines.push(`  ${i+1}. Package: ${pkg.identifier}`);
-          debugLines.push(`     Product: ${pkg.product.identifier}`);
-          debugLines.push(`     Title: ${pkg.product.title || 'None'}`);
-          debugLines.push(`     Price: ${pkg.product.priceString || 'None'}`);
-        });
-        debugLines.push(``);
+        debugLines.push(``, `=== Current Offering: ${offerings.current.identifier} ===`);
+        debugLines.push(`Packages: ${offerings.current.availablePackages?.length || 0}`);
+        
+        if (offerings.current.availablePackages) {
+          offerings.current.availablePackages.forEach((pkg, i) => {
+            debugLines.push(`${i+1}. ${pkg.identifier} → ${pkg.product.identifier}`);
+          });
+        }
       }
       
-      // Check all offerings
-      debugLines.push(`=== All Offerings ===`);
-      Object.values(offerings.all).forEach(offering => {
-        debugLines.push(`Offering "${offering.identifier}": ${offering.availablePackages.length} packages`);
-        offering.availablePackages.forEach((pkg, i) => {
-          debugLines.push(`  ${i+1}. ${pkg.identifier} → ${pkg.product.identifier} (${pkg.product.priceString})`);
-        });
+      // Test product extraction
+      const extractedProducts = await this.getAvailableProducts();
+      debugLines.push(``, `=== Product Extraction ===`);
+      debugLines.push(`Products extracted: ${extractedProducts.length}`);
+      
+      extractedProducts.forEach((product, i) => {
+        debugLines.push(`${i+1}. ${product.id} - ${product.title} - ${product.price}`);
       });
       
-      // Check if we can get customer info
-      try {
-        const customerInfo = await Purchases.getCustomerInfo();
-        debugLines.push(``, `=== Customer Info ===`);
-        debugLines.push(`Original App User ID: ${customerInfo.originalAppUserId || 'None'}`);
-        debugLines.push(`Management URL: ${customerInfo.managementURL || 'None'}`);
-      } catch (customerError) {
-        debugLines.push(``, `Customer Info Error: ${customerError}`);
-      }
-      
-      return debugLines.join('\n');
     } catch (error) {
-      console.error('IAP: Debug info collection failed:', error);
-      return `Debug info error: ${JSON.stringify(error, null, 2)}`;
+      console.error('IAP: RevenueCat API failed:', error);
+      debugLines.push(`❌ RevenueCat API Call: FAILED`);
+      debugLines.push(`Error: ${error}`);
     }
+    
+    return debugLines.join('\n');
   }
 
-  private async getSDKVersion(): Promise<string> {
-    try {
-      // Try to get SDK version if available
-      return 'Unknown';
-    } catch {
-      return 'Unknown';
-    }
-  }
+
 
   async getAvailableProducts(): Promise<IAPProduct[]> {
     if (!this.isInitialized) {
