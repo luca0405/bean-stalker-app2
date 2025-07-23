@@ -2,7 +2,7 @@ import { AppHeader } from "@/components/app-header";
 
 import { QRCode } from "@/components/qr-code";
 import { PushNotificationToggle } from "@/components/push-notification-toggle";
-import { BuyCredits } from "@/components/buy-credits";
+import { EnhancedBuyCredits } from "@/components/enhanced-buy-credits";
 import { SendCredits } from "@/components/send-credits";
 import { TransactionHistory } from "@/components/transaction-history";
 import AppInstallButton from "@/components/app-install-button";
@@ -188,7 +188,7 @@ export default function ProfilePage() {
     <div className="min-h-screen flex flex-col bg-secondary">
       <AppHeader />
       
-      <main className="flex-1 p-5">
+      <main className="flex-1 p-5 scroll-container momentum-scroll">
         <div className="grid gap-6">
           <div className="flex items-center justify-between">
             <h1 className="font-semibold text-2xl text-primary">Profile Settings</h1>
@@ -404,7 +404,7 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="space-y-3">
-                <BuyCredits />
+                <EnhancedBuyCredits />
                 <SendCredits />
               </div>
             </CardContent>

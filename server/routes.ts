@@ -2430,8 +2430,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiresAt
       });
 
-      // Create SMS message
-      const smsMessage = `🎁 You've received $${amount.toFixed(2)} Bean Stalker credits from ${user.username}! Show this code at our store: ${verificationCode}. Valid for 24 hours. Bean Stalker Coffee Shop`;
+      // Create SMS message using full name if available, fallback to username
+      const senderName = user.fullName || user.username;
+      const smsMessage = `🎁 You've received $${amount.toFixed(2)} Bean Stalker credits from ${senderName}! Show this code at our store: ${verificationCode}. Bean Stalker Coffee Shop`;
 
       res.json({
         success: true,

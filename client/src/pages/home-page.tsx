@@ -1,7 +1,7 @@
 import { AppHeader } from "@/components/app-header";
 import { SettingsIcon } from "@/components/icons";
-import { Send, Menu, ShoppingCart, CreditCard, User, Gift, TrendingUp, Sparkles, DollarSign, Heart, Crown, QrCode, Coffee, Settings, RefreshCw } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Send, Menu, ShoppingCart, CreditCard, User, Gift, TrendingUp, Sparkles, DollarSign, Heart, Crown, QrCode, Coffee, Settings, RefreshCw, ArrowLeft, CheckCircle, X, Plus } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
@@ -12,6 +12,8 @@ import { formatDistanceToNow } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { EnhancedBuyCredits } from "@/components/enhanced-buy-credits";
+import { motion } from "framer-motion";
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { useToast } from "@/hooks/use-toast";
 import { usePushNotificationContext } from "@/contexts/push-notification-context";
@@ -24,15 +26,24 @@ export default function HomePage() {
   const { user } = useAuth();
   const [_, navigate] = useLocation();
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
+  const [favoritesPopupOpen, setFavoritesPopupOpen] = useState(false);
+  const [selectedFavorites, setSelectedFavorites] = useState<Set<number>>(new Set());
   const { toast } = useToast();
   const { notificationsEnabled } = usePushNotificationContext();
   const { addToCart } = useCart();
   
   const { data: orders = [] } = useQuery<Order[], Error>({
     queryKey: ["/api/orders"],
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
     refetchOnMount: true,
-    refetchInterval: 5000, // Refresh every 5 seconds
+    refetchInterval: false, // Completely disable automatic polling - let notifications handle updates
+  });
+
+  // Fetch favorites for the popup
+  const { data: favoriteItems = [] } = useQuery<MenuItem[], Error>({
+    queryKey: ["/api/favorites"],
+    enabled: favoritesPopupOpen, // Only fetch when popup is open
+    refetchOnWindowFocus: false,
   });
 
   // Manual sync mutation to check Square for order status updates
@@ -109,26 +120,35 @@ export default function HomePage() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 3); // Get only the 3 most recent orders
   
-  const handleOrderFavorites = async () => {
-    if (!user) return;
-    
-    try {
-      // Fetch user's favorite items directly
-      const favoritesResponse = await apiRequest("GET", "/api/favorites");
-      const favoriteItems: MenuItem[] = await favoritesResponse.json();
-      
-      if (favoriteItems.length === 0) {
-        toast({
-          title: "No Favorites Found",
-          description: "You haven't marked any items as favorites yet. Visit the menu to add favorites!",
-          variant: "default",
-        });
-        return;
-      }
-      
-      // Add all favorite items to cart
-      let addedCount = 0;
-      for (const item of favoriteItems) {
+  const handleOrderFavorites = () => {
+    setFavoritesPopupOpen(true);
+    setSelectedFavorites(new Set()); // Reset selection when opening
+  };
+
+  const handleFavoriteToggle = (itemId: number) => {
+    const newSelection = new Set(selectedFavorites);
+    if (newSelection.has(itemId)) {
+      newSelection.delete(itemId);
+    } else {
+      newSelection.add(itemId);
+    }
+    setSelectedFavorites(newSelection);
+  };
+
+  const handleAddSelectedToCart = () => {
+    if (selectedFavorites.size === 0) {
+      toast({
+        title: "No Items Selected",
+        description: "Please select some favorites to add to your cart.",
+        variant: "default",
+      });
+      return;
+    }
+
+    let addedCount = 0;
+    selectedFavorites.forEach(itemId => {
+      const item = favoriteItems.find(f => f.id === itemId);
+      if (item) {
         try {
           addToCart({
             menuItemId: item.id,
@@ -144,23 +164,15 @@ export default function HomePage() {
           console.error(`Error adding ${item.name} to cart:`, error);
         }
       }
-      
-      toast({
-        title: "Favorites Added to Cart",
-        description: `${addedCount} favorite item${addedCount !== 1 ? 's' : ''} added to your cart!`,
-      });
-      
-      // Open the cart popup to show the items
-      // Cart automatically updates through context
-      
-    } catch (error) {
-      console.error("Error ordering favorites:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load your favorite items. Please try again.",
-        variant: "destructive",
-      });
-    }
+    });
+
+    toast({
+      title: "Favorites Added to Cart",
+      description: `${addedCount} favorite item${addedCount !== 1 ? 's' : ''} added to your cart!`,
+    });
+
+    setFavoritesPopupOpen(false);
+    setSelectedFavorites(new Set());
   };
 
   const handleNavigateToMenu = () => {
@@ -175,64 +187,81 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
       <AppHeader />
       
-      <main className="flex-1 px-6 py-8 max-w-7xl mx-auto w-full">
+      <main className="flex-1 px-6 py-8 max-w-7xl mx-auto w-full scroll-container momentum-scroll">
         {/* Welcome Section */}
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-gray-900 mb-1">Welcome back, {user?.username}</h1>
+          <h1 className="text-xl font-semibold text-gray-900 mb-1">Hi, {user?.fullName || user?.username}</h1>
           <p className="text-sm text-gray-600">Manage your account and enjoy premium coffee experiences</p>
         </div>
       
         {/* Dashboard Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Enhanced Credit Balance Card */}
-          <Card className="lg:col-span-2 bg-gradient-to-br from-green-800 via-green-700 to-green-900 border-0 shadow-xl relative overflow-hidden group hover:shadow-2xl transition-all duration-300">
-            {/* Subtle pattern */}
-            <div className="absolute inset-0 opacity-10">
-              <div className="w-full h-full" style={{
-                backgroundImage: 'radial-gradient(circle at 20% 80%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)',
-                backgroundSize: '20px 20px'
-              }}></div>
-            </div>
-            
-            <CardContent className="p-8">
-              <div className="flex justify-between items-start">
+          {/* Available Balance Card */}
+          <Card className="lg:col-span-2 bg-green-800 border-0 shadow-lg rounded-xl">
+            <CardContent className="p-6">
+              <div className="flex justify-between items-center">
                 <div className="text-white">
                   <div className="flex items-center gap-2 mb-3">
-                    <DollarSign className="h-5 w-5 text-green-300" />
-                    <span className="text-sm font-medium text-green-100">Available Balance</span>
+                    <DollarSign className="h-4 w-4 text-white" />
+                    <span className="text-sm font-medium text-white opacity-90">Available Balance</span>
                   </div>
-                  <div className="text-4xl font-bold mb-2">
+                  <div className="text-4xl font-bold text-white">
                     ${user?.credits.toFixed(2)}
                   </div>
-                  <p className="text-green-100/80 text-sm">Ready for your next order</p>
                 </div>
                 
-                <div className="flex flex-col gap-3">
+                <div>
                   <Button 
-                    className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 transition-all duration-200 border border-white/30"
+                    className="bg-green-600 hover:bg-green-500 text-white border-0 px-6 py-2.5 rounded-lg transition-colors shadow-md"
                     onClick={() => setBuyCreditsOpen(true)}
                   >
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Add Credits
+                    <CreditCard className="h-5 w-5 mr-2" />
+                    <span className="text-sm">Add Credits</span>
                   </Button>
-                  {user?.credits && user.credits > 0 && (
-                    <Button 
-                      variant="ghost"
-                      size="sm"
-                      className="text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200"
-                      onClick={() => navigate("/send-credits")}
-                    >
-                      <Gift className="h-4 w-4 mr-2" />
-                      Send Credits
-                    </Button>
-                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Order Coffee & Food Card */}
+          <Card className="lg:col-span-3 bg-green-800 border-0 shadow-lg rounded-xl hover:shadow-xl transition-all duration-300 cursor-pointer group mb-2 relative overflow-hidden" onClick={() => navigate("/menu")}>
+            <CardContent className="px-6 py-0 relative">
+              <div className="flex items-center justify-between h-full py-6">
+                {/* Content */}
+                <div className="flex-1 space-y-4 pr-4">
+                  <h2 className="text-2xl font-bold text-white">Order Coffee<br />& Food</h2>
+                  <Button 
+                    className="bg-white text-green-800 hover:bg-gray-100 font-semibold px-6 py-2.5 rounded-lg shadow-md transition-all duration-200 text-sm flex items-center gap-2"
+                  >
+                    <Coffee className="h-4 w-4" />
+                    Browse Menu
+                  </Button>
+                </div>
+                
+                {/* Right side with coffee cup and sandwich */}
+                <div className="relative flex-shrink-0">
+                  {/* Coffee cup outline icon */}
+                  <div className="absolute top-4 right-8 z-10">
+                    <div className="w-16 h-16 rounded-full border-4 border-white/80 flex items-center justify-center">
+                      <div className="w-8 h-8 border-4 border-white/80 rounded-full"></div>
+                    </div>
+                  </div>
+                  
+                  {/* Breakfast sandwich image */}
+                  <div className="relative -mb-16">
+                    <img 
+                      src="/breakfast-coffee.png" 
+                      alt="Breakfast sandwich and coffee"
+                      className="w-64 h-auto object-contain"
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Featured Action - Order Favorites */}
-          <Card className="lg:col-span-3 bg-white border-2 border-green-200 shadow-sm hover:shadow-md hover:border-green-300 transition-all duration-300 cursor-pointer group mb-6">
+          <Card className="lg:col-span-3 bg-white border-2 border-orange-200 shadow-sm hover:shadow-md hover:border-orange-300 transition-all duration-300 cursor-pointer group mb-2">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="text-gray-900">
@@ -240,7 +269,7 @@ export default function HomePage() {
                   <p className="text-gray-600 text-sm">Quick access to your most loved items</p>
                 </div>
                 <Button 
-                  className="bg-green-600 hover:bg-green-700 text-white transition-all duration-200"
+                  className="bg-green-800 hover:bg-green-800/90 text-white transition-all duration-200"
                   onClick={handleOrderFavorites}
                 >
                   <Heart className="h-4 w-4 mr-2" />
@@ -250,37 +279,26 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          {/* Action Boxes Grid */}
-          <div className="grid grid-cols-4 gap-3">
-            {/* Order Coffee & Food */}
-            <Card 
-              className="bg-white border-2 border-green-200 shadow-sm hover:shadow-md hover:border-green-300 transition-all duration-300 cursor-pointer group"
-              onClick={() => navigate("/menu")}
-            >
-              <CardContent className="p-4 text-center">
-                <Coffee className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                <h3 className="text-gray-900 font-semibold text-sm">Order Coffee</h3>
-              </CardContent>
-            </Card>
-
+          {/* Other Action Boxes Grid */}
+          <div className="grid grid-cols-3 gap-4">
             {/* Buy Coffee Credits */}
             <Card 
-              className="bg-white border-2 border-blue-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all duration-300 cursor-pointer group"
+              className="bg-white border-2 border-orange-200 shadow-sm hover:shadow-md hover:border-orange-300 transition-all duration-300 cursor-pointer group"
               onClick={() => setBuyCreditsOpen(true)}
             >
               <CardContent className="p-4 text-center">
-                <CreditCard className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+                <CreditCard className="h-6 w-6 text-green-800 mx-auto mb-2" />
                 <h3 className="text-gray-900 font-semibold text-sm">Buy Credits</h3>
               </CardContent>
             </Card>
 
             {/* Send Credits */}
             <Card 
-              className="bg-white border-2 border-purple-200 shadow-sm hover:shadow-md hover:border-purple-300 transition-all duration-300 cursor-pointer group"
+              className="bg-white border-2 border-orange-200 shadow-sm hover:shadow-md hover:border-orange-300 transition-all duration-300 cursor-pointer group"
               onClick={() => navigate("/send-credits")}
             >
               <CardContent className="p-4 text-center">
-                <Gift className="h-6 w-6 text-purple-600 mx-auto mb-2" />
+                <Gift className="h-6 w-6 text-green-800 mx-auto mb-2" />
                 <h3 className="text-gray-900 font-semibold text-sm">Send Credits</h3>
               </CardContent>
             </Card>
@@ -291,7 +309,7 @@ export default function HomePage() {
               onClick={handleNavigateToProfile}
             >
               <CardContent className="p-4 text-center">
-                <Settings className="h-6 w-6 text-orange-600 mx-auto mb-2" />
+                <Settings className="h-6 w-6 text-green-800 mx-auto mb-2" />
                 <h3 className="text-gray-900 font-semibold text-sm">Profile Settings</h3>
               </CardContent>
             </Card>
@@ -305,7 +323,7 @@ export default function HomePage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
+                  <TrendingUp className="h-5 w-5 text-green-800" />
                   Recent Orders
                 </h3>
                 <div className="flex gap-2">
@@ -323,7 +341,7 @@ export default function HomePage() {
                     variant="ghost" 
                     size="sm"
                     onClick={() => navigate("/orders")}
-                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                    className="text-green-800 hover:text-green-800 hover:bg-green-50"
                   >
                     View All
                   </Button>
@@ -343,7 +361,7 @@ export default function HomePage() {
                         </div>
                       </div>
                       <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                        order.status === 'completed' ? 'bg-green-100 text-green-600' : 
+                        order.status === 'completed' ? 'bg-green-100 text-green-800' : 
                         order.status === 'pending' ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600'
                       }`}>
                         {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
@@ -357,7 +375,7 @@ export default function HomePage() {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="mt-2 border-green-200 text-green-600 hover:bg-green-50"
+                      className="mt-2 border-green-800 text-green-800 hover:bg-green-50"
                       onClick={() => navigate("/menu")}
                     >
                       Start Ordering
@@ -368,84 +386,198 @@ export default function HomePage() {
             </CardContent>
           </Card>
 
-          {/* Account Summary */}
-          <Card className="bg-white border border-gray-200 shadow-sm">
-            <CardContent className="p-6">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <User className="h-5 w-5 text-green-600" />
-                Account Summary
-              </h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <DollarSign className="h-4 w-4 text-green-600" />
-                    </div>
-                    <div>
-                      <div className="font-medium text-sm">Current Balance</div>
-                      <div className="text-xs text-gray-600">Available credits</div>
-                    </div>
-                  </div>
-                  <div className="text-lg font-semibold text-green-600">
-                    ${user?.credits.toFixed(2)}
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <Crown className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <div className="font-medium text-sm">Membership Status</div>
-                      <div className="text-xs text-gray-600">Premium member</div>
-                    </div>
-                  </div>
-                  <div className="text-sm font-medium text-blue-600">
-                    Active
-                  </div>
-                </div>
 
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                      <ShoppingCart className="h-4 w-4 text-purple-600" />
-                    </div>
-                    <div>
-                      <div className="font-medium text-sm">Total Orders</div>
-                      <div className="text-xs text-gray-600">Lifetime orders</div>
-                    </div>
-                  </div>
-                  <div className="text-sm font-medium text-purple-600">
-                    {orders.length}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </main>
       
-      {/* Buy Credits Dialog */}
-      <Dialog open={buyCreditsOpen} onOpenChange={setBuyCreditsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Buy Credits</DialogTitle>
-            <DialogDescription>
-              Add credits to your account to use for purchases.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <EnhancedBuyCredits />
-          
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setBuyCreditsOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Buy Credits Popup */}
+      {buyCreditsOpen && (
+        <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+          <div className="max-w-md mx-auto space-y-6">
+            {/* Header */}
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center space-x-4 pt-4"
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setBuyCreditsOpen(false)}
+                className="p-2 h-auto"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-2xl font-bold text-slate-800">Buy Credits</h1>
+            </motion.div>
 
+            <EnhancedBuyCredits />
+          </div>
+        </div>
+      )}
+
+      {/* Favorites Selection Popup */}
+      {favoritesPopupOpen && (
+        <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+          <div className="max-w-md mx-auto space-y-6">
+            {/* Header */}
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center space-x-4 pt-4"
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFavoritesPopupOpen(false)}
+                className="p-2 h-auto"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-2xl font-bold text-slate-800">Select Favorites</h1>
+            </motion.div>
+
+            {/* Favorites Count */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 }}
+            >
+              <Card className="bg-gradient-to-r from-green-600 to-green-700 text-white border-0">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                      <Heart className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-green-100 text-sm">Your Favorites</p>
+                      <p className="text-2xl font-bold">{favoriteItems.length} items</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Favorites List */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2 }}
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Heart className="h-5 w-5 text-green-600" />
+                    <span>Choose Items to Order</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Select your favorite items to add to cart. All items will be added with default options.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {favoriteItems.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500">
+                      <Heart className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                      <p className="text-sm mb-2">No favorites found</p>
+                      <p className="text-xs text-slate-400 mb-4">Visit the menu to add items to your favorites!</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setFavoritesPopupOpen(false);
+                          navigate("/menu");
+                        }}
+                        className="border-green-600 text-green-600 hover:bg-green-50"
+                      >
+                        Browse Menu
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-60 overflow-y-auto">
+                      {favoriteItems.map((item) => (
+                        <div key={item.id} className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                          <Checkbox
+                            checked={selectedFavorites.has(item.id)}
+                            onCheckedChange={() => handleFavoriteToggle(item.id)}
+                            className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate">{item.name}</p>
+                            <p className="text-xs text-slate-600 truncate">{item.description}</p>
+                            <p className="text-sm font-semibold text-green-600">{formatCurrency(item.price)}</p>
+                          </div>
+                          {item.imageUrl && (
+                            <div className="w-12 h-12 bg-slate-200 rounded-lg flex-shrink-0 overflow-hidden">
+                              <img 
+                                src={item.imageUrl} 
+                                alt={item.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {favoriteItems.length > 0 && (
+                    <div className="space-y-3 pt-4 mt-4 border-t border-slate-200">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Selected items:</span>
+                        <span className="font-semibold">{selectedFavorites.size}</span>
+                      </div>
+                      
+                      <Button
+                        onClick={handleAddSelectedToCart}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
+                        disabled={selectedFavorites.size === 0}
+                      >
+                        <Plus className="h-5 w-5 mr-2" />
+                        Add {selectedFavorites.size} Item{selectedFavorites.size !== 1 ? 's' : ''} to Cart
+                      </Button>
+                      
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setFavoritesPopupOpen(false)}
+                        className="w-full"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* How It Works */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card className="bg-slate-100 border-slate-200">
+                <CardContent className="p-4">
+                  <h3 className="font-semibold text-slate-800 mb-3">Quick Order</h3>
+                  <div className="space-y-2 text-sm text-slate-600">
+                    <div className="flex items-start space-x-2">
+                      <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">1</span>
+                      <p>Select your favorite items using the checkboxes</p>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">2</span>
+                      <p>Items will be added with default size and options</p>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">3</span>
+                      <p>Customize them later in your cart if needed</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

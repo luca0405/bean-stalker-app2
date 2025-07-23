@@ -245,11 +245,11 @@ export function PushNotificationProvider({ children }: { children: ReactNode }) 
             window.clearInterval(pollingIntervalRef.current);
           }
           
-          // Poll every 3 seconds for 60 seconds
+          // Poll every 30 seconds for 60 seconds to further reduce server load
           let pollCount = 0;
           pollingIntervalRef.current = window.setInterval(() => {
-            if (pollCount < 20) { // 20 * 3 seconds = 60 seconds
-              console.log('Polling orders (notification triggered)');
+            if (pollCount < 2) { // 2 * 30 seconds = 60 seconds
+              console.log('Polling orders (notification triggered) - 30s interval');
               queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
               if (orderId) {
                 queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });

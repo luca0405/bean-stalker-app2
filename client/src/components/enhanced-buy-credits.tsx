@@ -1,14 +1,13 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Capacitor } from '@capacitor/core';
 import { useIAP } from '@/hooks/use-iap';
+import { useToast } from '@/hooks/use-toast';
 
 import { formatCurrency } from '@/lib/utils';
-import { Smartphone, DollarSign, Bug } from 'lucide-react';
-import IAPDiagnostic from '@/components/iap-diagnostic';
+import { CreditCard, ShoppingBag, Star, Gift, Smartphone } from 'lucide-react';
 
 interface CreditPackage {
   id: string;
@@ -19,16 +18,16 @@ interface CreditPackage {
 }
 
 const CREDIT_PACKAGES: CreditPackage[] = [
-  { id: 'com.beanstalker.credit25', amount: 25, price: 25, bonus: 4.50 }, // $25 → $29.50
-  { id: 'com.beanstalker.credit50', amount: 50, price: 50, bonus: 9.90, popular: true }, // $50 → $59.90  
-  { id: 'com.beanstalker.credit100', amount: 100, price: 100, bonus: 20.70 }, // $100 → $120.70
-  { id: 'com.beanstalker.membership69', amount: 0, price: 69, bonus: 0 }
+  { id: 'com.beanstalker.credit25', amount: 25, price: 25, bonus: 4.50 }, // $25 → $29.50 (+18%)
+  { id: 'com.beanstalker.credit50', amount: 50, price: 50, bonus: 9.90, popular: true }, // $50 → $59.90 (+19.8%)  
+  { id: 'com.beanstalker.credit100', amount: 100, price: 100, bonus: 20.70 }, // $100 → $120.70 (+20.7%)
 ];
 
 export function EnhancedBuyCredits() {
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { purchaseProduct, isAvailable: iapAvailable, isLoading: iapLoading } = useIAP();
+  const { toast } = useToast();
   const isNative = Capacitor.isNativePlatform();
 
   const handlePurchase = async (creditPackage: CreditPackage) => {
@@ -39,10 +38,18 @@ export function EnhancedBuyCredits() {
       // Process IAP purchase through App Store
       const result = await purchaseProduct(creditPackage.id);
       if (result.success) {
-        console.log('App Store purchase successful:', result);
+        toast({
+          title: "Purchase Successful!",
+          description: `${formatCurrency(creditPackage.amount + (creditPackage.bonus || 0))} credits added to your account.`,
+        });
       }
     } catch (error) {
       console.error('App Store purchase failed:', error);
+      toast({
+        title: "Purchase Failed",
+        description: "Please try again or contact support if the issue persists.",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
       setSelectedPackage(null);
@@ -50,83 +57,148 @@ export function EnhancedBuyCredits() {
   };
 
   return (
-    <Tabs defaultValue="credits" className="h-full max-h-[65vh] overflow-y-auto">
-      <TabsList className="grid w-full grid-cols-2 mb-4">
-        <TabsTrigger value="credits">Buy Credits</TabsTrigger>
-        <TabsTrigger value="diagnostic">
-          <Bug className="w-4 h-4 mr-2" />
-          Diagnostic
-        </TabsTrigger>
-      </TabsList>
-      
-      <TabsContent value="credits" className="space-y-4 p-1">
-        {/* App Store Payment Header */}
-        <div className="flex items-center gap-2 text-sm text-gray-600 px-2">
-          <Smartphone className="h-4 w-4" />
-          <span className="text-xs">App Store In-App Purchase</span>
-        </div>
+    <div className="space-y-6">
+      {/* Account Balance Header */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.1 }}
+      >
+        <Card className="bg-gradient-to-r from-green-600 to-green-700 text-white border-0">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <CreditCard className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-green-100 text-sm">Add Credits</p>
+                <p className="text-2xl font-bold">Choose Your Package</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-        {/* Credit Packages - Mobile Optimized */}
-        <div className="space-y-3">
-          {CREDIT_PACKAGES.map((pkg) => (
-            <Card key={pkg.id} className={`relative cursor-pointer transition-all duration-200 ${
-              pkg.popular ? 'ring-2 ring-green-500 shadow-lg' : 'hover:shadow-md'
-            }`}>
-              {pkg.popular && (
-                <Badge className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-green-500 text-xs">
-                  Popular
-                </Badge>
-              )}
-              
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <DollarSign className="h-4 w-4 text-green-600" />
-                      <span className="font-semibold text-lg">
-                        {pkg.id === 'com.beanstalker.membership69' ? 'Premium Membership' : `${pkg.amount + (pkg.bonus || 0)} Credits`}
-                      </span>
-                    </div>
-                    {pkg.bonus && pkg.id !== 'com.beanstalker.membership69' && (
-                      <p className="text-xs text-green-600 mb-2">
-                        {formatCurrency(pkg.amount)} + {formatCurrency(pkg.bonus)} bonus = {formatCurrency(pkg.amount + pkg.bonus)}
-                      </p>
+      {/* Credit Packages */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.2 }}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <ShoppingBag className="h-5 w-5 text-green-600" />
+              <span>Credit Packages</span>
+            </CardTitle>
+            <CardDescription>
+              Select a credit package to add to your account. All payments are processed securely through the App Store.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 max-h-60 overflow-y-auto scroll-container momentum-scroll">
+              {CREDIT_PACKAGES.map((pkg) => (
+                <motion.div
+                  key={pkg.id}
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className={`relative p-4 bg-slate-50 rounded-lg border-2 transition-all duration-200 ${
+                    pkg.popular ? 'border-green-500 bg-green-50' : 'border-slate-200 hover:border-green-300'
+                  }`}>
+                    {pkg.popular && (
+                      <div className="absolute -top-2 left-4">
+                        <div className="bg-green-500 text-white text-xs font-semibold px-3 py-1 rounded-full flex items-center space-x-1">
+                          <Star className="h-3 w-3" />
+                          <span>Most Popular</span>
+                        </div>
+                      </div>
                     )}
-                    <div className="text-xl font-bold text-gray-900">
-                      {formatCurrency(pkg.price)}
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Gift className="h-5 w-5 text-green-600" />
+                          <span className="font-bold text-lg">
+                            {formatCurrency(pkg.amount + (pkg.bonus || 0))} Credits
+                          </span>
+                        </div>
+                        
+                        {pkg.bonus && (
+                          <div className="mb-2">
+                            <p className="text-sm text-green-700 font-medium">
+                              {formatCurrency(pkg.amount)} + {formatCurrency(pkg.bonus)} bonus
+                            </p>
+                            <p className="text-xs text-green-600">
+                              Save {Math.round((pkg.bonus / pkg.amount) * 100)}% extra credits!
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center space-x-2">
+                          <span className="text-2xl font-bold text-slate-900">
+                            {formatCurrency(pkg.price)}
+                          </span>
+                          <span className="text-sm text-slate-600">AUD</span>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        onClick={() => handlePurchase(pkg)}
+                        disabled={isProcessing || (isNative && iapLoading)}
+                        size="lg"
+                        className={`ml-4 min-w-[80px] ${
+                          pkg.popular 
+                            ? 'bg-green-600 hover:bg-green-700 text-white' 
+                            : 'bg-slate-600 hover:bg-slate-700 text-white'
+                        }`}
+                      >
+                        {isProcessing && selectedPackage?.id === pkg.id ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          'Buy Now'
+                        )}
+                      </Button>
                     </div>
                   </div>
-                  
-                  <Button
-                    onClick={() => handlePurchase(pkg)}
-                    disabled={isProcessing || (isNative && iapLoading)}
-                    size="sm"
-                    variant={pkg.popular ? "default" : "outline"}
-                    className="ml-4"
-                  >
-                    {isProcessing && selectedPackage?.id === pkg.id ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      'Buy'
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-        {/* Payment Method Info */}
-        <div className="text-xs text-gray-500 space-y-1 px-2 pb-4">
-          <p>• Secure payments processed by App Store</p>
-          <p>• Credits added immediately after purchase</p>
-          <p>• Credits never expire and can be used for any order</p>
-        </div>
-      </TabsContent>
-      
-      <TabsContent value="diagnostic" className="p-2">
-        <IAPDiagnostic />
-      </TabsContent>
-    </Tabs>
+      {/* Payment Method Info */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.3 }}
+      >
+        <Card className="bg-slate-100 border-slate-200">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-slate-800 mb-3 flex items-center space-x-2">
+              <Smartphone className="h-5 w-5" />
+              <span>Secure App Store Payment</span>
+            </h3>
+            <div className="space-y-2 text-sm text-slate-600">
+              <div className="flex items-start space-x-2">
+                <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">1</span>
+                <p>All payments are processed securely through the App Store</p>
+              </div>
+              <div className="flex items-start space-x-2">
+                <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">2</span>
+                <p>Credits are added immediately after successful purchase</p>
+              </div>
+              <div className="flex items-start space-x-2">
+                <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">3</span>
+                <p>Credits never expire and can be used for any Bean Stalker order</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+
+    </div>
   );
 }

@@ -7,8 +7,32 @@
     @apply border-border;
   }
 
+  html {
+    /* Enable smooth scrolling globally */
+    scroll-behavior: smooth;
+    /* Improve scrolling on iOS Safari */
+    -webkit-overflow-scrolling: touch;
+  }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    /* Enable momentum scrolling on mobile */
+    -webkit-overflow-scrolling: touch;
+    /* Improve touch responsiveness */
+    touch-action: manipulation;
+  }
+
+  /* Smooth scrolling for all scrollable elements */
+  * {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Enhanced scrolling for mobile containers */
+  .scrollable {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
   }
 }
 
@@ -43,5 +67,40 @@
   .w-screen-safe {
     width: 100vw;
     width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  }
+
+  /* Mobile smooth scrolling utilities */
+  .smooth-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .momentum-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Enhanced touch interactions */
+  .touch-optimized {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Scrollable container with momentum */
+  .scroll-container {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  .scroll-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
   }
 }

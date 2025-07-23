@@ -29,7 +29,7 @@ export function AppHeader() {
   return (
     <>
       <header className="relative">
-        <div className="bg-gradient-to-r from-green-800 to-green-700 text-white shadow-lg border-b border-green-600">
+        <div className="bg-green-800 text-white shadow-lg border-b border-green-600">
           <div className="px-4 py-3 pt-safe">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -41,6 +41,7 @@ export function AppHeader() {
               </div>
               
               <div className="flex items-center space-x-4">
+                {/* QR Code temporarily disabled
                 <Button 
                   variant="ghost" 
                   size="icon" 
@@ -50,6 +51,7 @@ export function AppHeader() {
                   <QrCode className="w-5 h-5" />
                   <span className="text-xs mt-1">QR</span>
                 </Button>
+                */}
 
                 <Link href="/cart">
                   <Button 

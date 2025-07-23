@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useIAP } from "@/hooks/use-iap";
 import { useBiometricAuth } from "@/hooks/use-biometric-auth";
@@ -13,9 +13,51 @@ import { Crown, Coffee, Star, Shield, Zap, CheckCircle2, Smartphone, User, Lock,
 
 
 export default function AuthPageMobile() {
-  const { user, loginMutation, registerMutation } = useAuth();
-  const { purchaseProduct, isAvailable: isIAPAvailable, isLoading: iapLoading } = useIAP();
-  const { toast } = useToast();
+  // Add safety checks for React hooks
+  if (!React || !React.useState) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-800 to-green-900 flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 text-white text-center max-w-md">
+          <h1 className="text-xl font-bold mb-4">Loading Error</h1>
+          <p className="mb-4">React is not properly initialized</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
+          >
+            Restart App
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  let authData, iapData, biometricData, toastData;
+  
+  try {
+    authData = useAuth();
+    iapData = useIAP();
+    biometricData = useBiometricAuth();
+    toastData = useToast();
+  } catch (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-800 to-green-900 flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 text-white text-center max-w-md">
+          <h1 className="text-xl font-bold mb-4">Hook Error</h1>
+          <p className="mb-4">Failed to initialize app hooks: {error instanceof Error ? error.message : 'Unknown error'}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded"
+          >
+            Restart App
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const { user, loginMutation, registerMutation } = authData;
+  const { purchaseProduct, isAvailable: isIAPAvailable, isLoading: iapLoading } = iapData;
+  const { toast } = toastData;
   
   const {
     biometricState,
@@ -24,7 +66,7 @@ export default function AuthPageMobile() {
     getBiometricDisplayName,
     getBiometricIcon,
     isAuthenticating
-  } = useBiometricAuth();
+  } = biometricData;
   
   const [loginData, setLoginData] = useState({
     username: "",
@@ -206,75 +248,24 @@ export default function AuthPageMobile() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-green-900 to-slate-900 flex flex-col">
-      {/* Header Section */}
-      <div className="relative text-center pt-12 pb-8 pt-safe">
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <img 
-            src="/bs-logo.png" 
-            alt="Bean Stalker Background Logo" 
-            className="w-32 h-32 mx-auto mt-4 animate-pulse opacity-30 filter brightness-0 invert"
-          />
-        </div>
-        
-        {/* Logo and branding */}
-        <div className="relative z-10">
-          <div className="flex items-center justify-center mb-4">
-            <div className="bg-gradient-to-br from-green-400 to-green-600 p-3 rounded-xl shadow-2xl">
-              <img 
-                src="/bs-logo.png" 
-                alt="Bean Stalker Logo" 
-                className="w-12 h-12 object-contain filter brightness-0 invert"
-              />
-            </div>
+    <div className="min-h-screen bg-green-800 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Header Section - Centered Logo and Title */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center mb-6">
+            <img 
+              src="/bean-stalker-logo.png" 
+              alt="Bean Stalker Logo" 
+              className="w-24 h-24 object-contain"
+            />
           </div>
           <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">
             Bean Stalker
           </h1>
-          <p className="text-green-300 text-lg font-medium">
+          <p className="text-green-200 text-lg font-medium">
             Premium Coffee Experience
           </p>
-          <Badge variant="secondary" className="mt-3 bg-green-600/20 text-green-300 border-green-500/30">
-            <Crown className="w-4 h-4 mr-2" />
-            Mobile Exclusive
-          </Badge>
         </div>
-      </div>
-
-      {/* Main Content Container */}
-      <div className="flex-1 px-6 pb-8">
-        <div className="max-w-md mx-auto">
-          
-          {/* Premium Features Showcase */}
-          <div className="bg-gradient-to-r from-green-600/10 to-green-500/10 backdrop-blur-sm border border-green-500/20 rounded-2xl p-6 mb-8">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="bg-green-600/20 rounded-xl p-3 mb-2 mx-auto w-fit">
-                  <Zap className="w-6 h-6 text-green-400" />
-                </div>
-                <p className="text-white/90 text-sm font-medium">Instant Orders</p>
-              </div>
-              <div className="text-center">
-                <div className="bg-green-600/20 rounded-xl p-3 mb-2 mx-auto w-fit">
-                  <Star className="w-6 h-6 text-green-400" />
-                </div>
-                <p className="text-white/90 text-sm font-medium">VIP Service</p>
-              </div>
-              <div className="text-center">
-                <div className="bg-green-600/20 rounded-xl p-3 mb-2 mx-auto w-fit">
-                  <Shield className="w-6 h-6 text-green-400" />
-                </div>
-                <p className="text-white/90 text-sm font-medium">Secure Payments</p>
-              </div>
-              <div className="text-center">
-                <div className="bg-green-600/20 rounded-xl p-3 mb-2 mx-auto w-fit">
-                  <Smartphone className="w-6 h-6 text-green-400" />
-                </div>
-                <p className="text-white/90 text-sm font-medium">Mobile First</p>
-              </div>
-            </div>
-          </div>
 
           {/* Auth Card */}
           <Card className="bg-white/5 backdrop-blur-xl border-white/10 shadow-2xl">
@@ -537,10 +528,7 @@ export default function AuthPageMobile() {
                 </TabsContent>
               </Tabs>
             </CardContent>
-          </Card>
-          
-
-        </div>
+        </Card>
       </div>
     </div>
   );

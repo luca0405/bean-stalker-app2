@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Send, MessageSquare, User, DollarSign, Shield, Clock, CheckCircle } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare, User, DollarSign, Shield, Clock, CheckCircle, Edit3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -26,6 +27,35 @@ export default function SendCreditsPage() {
   const [amount, setAmount] = useState("");
   const [showSMSPreview, setShowSMSPreview] = useState(false);
   const [smsDetails, setSmsDetails] = useState<ShareCreditsResponse | null>(null);
+  const [customMessage, setCustomMessage] = useState("");
+  const [isEditingMessage, setIsEditingMessage] = useState(false);
+  
+  // Extract default message parts for editing
+  const getEditableMessage = (fullMessage: string) => {
+    // Remove the protected parts and return just the editable greeting
+    return fullMessage
+      .replace(/🎁 You've received \$[\d.]+ Bean Stalker credits from [^!]+! /, '')
+      .replace(/Show this code at our store: \d{6}\. /, '')
+      .replace(/Valid for 24 hours\. /, '')
+      .replace(/Bean Stalker Coffee Shop$/, '')
+      .trim();
+  };
+  
+  const buildFullMessage = (editableText: string) => {
+    if (!smsDetails || !user) return editableText;
+    
+    const senderName = user.fullName || user.username;
+    const creditAmount = parseFloat(amount).toFixed(2);
+    const code = smsDetails.verificationCode;
+    
+    let message = `🎁 You've received $${creditAmount} Bean Stalker credits from ${senderName}! `;
+    if (editableText.trim()) {
+      message += `${editableText.trim()} `;
+    }
+    message += `Show this code at our store: ${code}. Bean Stalker Coffee Shop`;
+    
+    return message;
+  };
 
   // Format phone number as user types
   const formatPhoneNumber = (value: string) => {
@@ -42,6 +72,7 @@ export default function SendCreditsPage() {
     },
     onSuccess: (data: ShareCreditsResponse) => {
       setSmsDetails(data);
+      setCustomMessage(getEditableMessage(data.smsMessage)); // Initialize with just editable part
       setShowSMSPreview(true);
       toast({
         title: "Credit Share Ready",
@@ -60,9 +91,10 @@ export default function SendCreditsPage() {
   const handleSendSMS = () => {
     if (!smsDetails) return;
     
-    // Create SMS URL for native SMS app
+    // Create SMS URL for native SMS app using reconstructed message
     const cleanPhone = phoneNumber.replace(/\s/g, '');
-    const smsUrl = `sms:${cleanPhone}?body=${encodeURIComponent(smsDetails.smsMessage)}`;
+    const fullMessage = buildFullMessage(customMessage);
+    const smsUrl = `sms:${cleanPhone}?body=${encodeURIComponent(fullMessage)}`;
     
     // Open SMS app
     window.location.href = smsUrl;
@@ -166,12 +198,70 @@ export default function SendCreditsPage() {
 
                 {/* SMS Preview */}
                 <div className="bg-slate-100 rounded-lg p-4">
-                  <p className="text-sm text-slate-600 mb-2">Message Preview:</p>
-                  <div className="bg-white rounded-lg p-3 border-l-4 border-green-500">
-                    <p className="text-sm text-slate-800 leading-relaxed">
-                      {smsDetails.smsMessage}
-                    </p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm text-slate-600">Message Preview:</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsEditingMessage(!isEditingMessage)}
+                      className="h-auto p-1 text-slate-500 hover:text-slate-700"
+                    >
+                      <Edit3 className="h-4 w-4" />
+                    </Button>
                   </div>
+
+                  {/* Protected Information Display */}
+                  <div className="bg-white rounded-lg p-3 border-l-4 border-amber-500 mb-3">
+                    <p className="text-xs text-amber-600 font-medium mb-2">Protected Information (Cannot be edited):</p>
+                    <div className="space-y-1 text-xs text-slate-700">
+                      <div><strong>Amount:</strong> ${amount}</div>
+                      <div><strong>From:</strong> {user?.fullName || user?.username}</div>
+                      <div><strong>Code:</strong> {smsDetails.verificationCode}</div>
+                    </div>
+                  </div>
+                  
+                  {isEditingMessage ? (
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="customMessage" className="text-sm text-slate-600">
+                          Edit Message Content:
+                        </Label>
+                        <Textarea
+                          id="customMessage"
+                          value={customMessage}
+                          onChange={(e) => setCustomMessage(e.target.value)}
+                          className="text-sm min-h-[80px] resize-none mt-1"
+                          placeholder="Add your personal message here..."
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => setIsEditingMessage(false)}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setCustomMessage(getEditableMessage(smsDetails.smsMessage));
+                            setIsEditingMessage(false);
+                          }}
+                        >
+                          Reset
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-lg p-3 border-l-4 border-green-500">
+                      <p className="text-xs text-slate-500 mb-2">Full Message Preview:</p>
+                      <p className="text-sm text-slate-800 leading-relaxed">
+                        {buildFullMessage(customMessage)}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}
@@ -214,7 +304,7 @@ export default function SendCreditsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 scroll-container momentum-scroll">
       <div className="max-w-md mx-auto space-y-6">
         {/* Header */}
         <motion.div 

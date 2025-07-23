@@ -514,20 +514,30 @@ Changelog:
   - Confirmed correct RevenueCat API key: appl_owLmakOcTeYJOJoxJgScSQZtUQA (32 characters, iOS public SDK key)
   - Enhanced build process logging to verify API key availability during npm run build and npx cap sync ios
   - GitHub Actions workflow ready for deployment with fixed environment variable handling
-- July 23, 2025. RevenueCat SDK upgraded to latest version 11.0.0 to resolve "0 products" issue
-  - Upgraded from outdated version 10.3.6 to latest 11.0.0 with critical StoreKit 2 and product loading fixes
-  - Enhanced diagnostic with detailed investigation capabilities for precise troubleshooting
-  - Added comprehensive debugging for offerings structure, package details, and product information
-  - Latest SDK includes improved StoreKit 2 integration and billing client updates for better compatibility
-  - Ready for GitHub Actions deployment with latest RevenueCat SDK and enhanced diagnostic capabilities
-- July 22, 2025. RevenueCat "No Current Offering" issue identified and fix provided
-  - Diagnosed exact root cause through TestFlight diagnostic: "default" offering exists but not set as current offering
-  - App Store Connect integration confirmed working: products "Ready to Submit", API keys functional, all 4 packages present
-  - Enhanced diagnostic tool confirmed: Platform (Native iOS), API Key (present), Service (initialized) all correct
-  - RevenueCat SDK fails because no offering has "Current" badge in RevenueCat Dashboard → Offerings
-  - Created comprehensive fix guide: Set "default" offering as current using Actions menu
-  - Simple toggle fix will resolve entire IAP integration - no code changes needed
-  - Ready for immediate testing once current offering is activated
+- July 23, 2025. RevenueCat native vs web platform issue identified and temporarily paused
+  - Root cause confirmed: Products load successfully in web browser but fail on native iOS TestFlight
+  - RevenueCat SDK 11.0.0 integration confirmed working with API validation successful
+  - Platform-specific issue indicates Bundle ID mismatch or sandbox account configuration problem
+  - Enhanced diagnostic shows detailed platform analysis and troubleshooting steps
+  - Issue isolated to iOS native environment rather than RevenueCat API integration
+  - RevenueCat development temporarily paused to allow sandbox Apple ID account configuration
+  - Web-based product testing confirms all RevenueCat integration code is functional and ready
+- July 23, 2025. UI consistency improvements completed using floating menu green-800 base color
+  - Updated theme.json primary color to match floating menu's green-800 color (hsl(142, 71%, 29%))
+  - Changed Available Balance card from gradient to solid green-800 background for consistency
+  - Standardized all default buttons to use green-800 background throughout the app
+  - Updated all action cards to use green-800 borders and icons instead of mixed colors
+  - Made Recent Orders section icons and buttons use consistent green-800 styling
+  - Updated Account Summary section to use green-800 for all green color references
+  - Removed "Mobile Exclusive" features section from authentication page per user request
+  - App now has unified green color scheme matching the floating navigation bar design
+- July 23, 2025. Enhanced Send Credits functionality with message editing and security improvements
+  - Added editable message preview functionality with Edit3 icon and textarea input
+  - Implemented full name usage in SMS messages instead of username (user.fullName || user.username)
+  - Protected critical information: amount, sender name, and verification code cannot be edited
+  - Removed 24-hour expiration from SMS messages - credits now have no time limit
+  - Added warning notice for users about protected elements during message editing
+  - Enhanced message validation to ensure amount, sender, and code remain intact during editing
 ```
 
 ## User Preferences

@@ -368,11 +368,11 @@ export function useIOSNotificationService() {
     // Run once immediately
     checkForOrderUpdates();
     
-    // Then set up interval (every 5 seconds for more responsive updates)
-    const intervalId = setInterval(checkForOrderUpdates, 5000);
+    // Disable continuous polling entirely - rely on manual refresh and push notifications
+    // const intervalId = setInterval(checkForOrderUpdates, 300000);
     
-    // Clean up on unmount or when dependencies change
-    return () => clearInterval(intervalId);
+    // Clean up on unmount or when dependencies change  
+    return () => {};
   }, [enabled, user, toast, lastSeenOrderUpdate, isFirstLoad, lastKnownOrderStatuses]);
 
   const enableNotifications = () => setEnabled(true);
