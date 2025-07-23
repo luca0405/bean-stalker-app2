@@ -170,17 +170,39 @@ class IAPService {
       debugLines.push(`Current offering: ${offerings.current?.identifier || 'NONE'}`);
       debugLines.push(`Available offerings: ${Object.keys(offerings.all || {}).join(', ') || 'NONE'}`);
       
-      // Check if we can find default in all offerings even if not current
-      if (offerings.all && offerings.all.default) {
-        debugLines.push(``, `=== Found "default" in all offerings ===`);
-        const defaultOffering = offerings.all.default;
-        debugLines.push(`Packages: ${defaultOffering.availablePackages?.length || 0}`);
-        
-        if (defaultOffering.availablePackages) {
-          defaultOffering.availablePackages.forEach((pkg, i) => {
-            debugLines.push(`${i+1}. ${pkg.identifier} → ${pkg.product.identifier}`);
-          });
-        }
+      // Enhanced debugging for product loading issues
+      debugLines.push(``, `=== Detailed Investigation ===`);
+      debugLines.push(`Raw offerings object keys: ${Object.keys(offerings).join(', ')}`);
+      
+      if (offerings.all) {
+        Object.entries(offerings.all).forEach(([key, offering]) => {
+          debugLines.push(``, `=== Offering: ${key} ===`);
+          debugLines.push(`Identifier: ${offering.identifier}`);
+          debugLines.push(`Packages count: ${offering.availablePackages?.length || 0}`);
+          
+          if (offering.availablePackages && offering.availablePackages.length > 0) {
+            offering.availablePackages.forEach((pkg, i) => {
+              debugLines.push(`${i+1}. Package: ${pkg.identifier}`);
+              debugLines.push(`   Product ID: ${pkg.product.identifier}`);
+              debugLines.push(`   Title: ${pkg.product.title || 'No title'}`);
+              debugLines.push(`   Price: ${pkg.product.priceString || 'No price'}`);
+              debugLines.push(`   Description: ${pkg.product.description || 'No description'}`);
+            });
+          } else {
+            debugLines.push(`❌ No packages found in this offering`);
+          }
+        });
+      } else {
+        debugLines.push(`❌ offerings.all is null/undefined`);
+      }
+      
+      // Check for common issues
+      if (Object.keys(offerings.all || {}).length === 0) {
+        debugLines.push(``, `=== Possible Issues ===`);
+        debugLines.push(`• Bundle ID mismatch in RevenueCat vs App Store`);
+        debugLines.push(`• Products not approved in App Store Connect`);
+        debugLines.push(`• In-App Purchase Key permissions issue`);
+        debugLines.push(`• Sandbox vs Production environment mismatch`);
       }
       
       if (offerings.current) {
