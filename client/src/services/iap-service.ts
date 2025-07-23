@@ -170,6 +170,12 @@ class IAPService {
       debugLines.push(`Current offering: ${offerings.current?.identifier || 'NONE'}`);
       debugLines.push(`Available offerings: ${Object.keys(offerings.all || {}).join(', ') || 'NONE'}`);
       
+      // Platform-specific debugging
+      debugLines.push(``, `=== Platform Analysis ===`);
+      debugLines.push(`Platform: ${Capacitor.isNativePlatform() ? 'Native iOS/Android' : 'Web Browser'}`);
+      debugLines.push(`Bundle ID: ${Capacitor.isNativePlatform() ? 'com.beanstalker.member' : 'Web (no bundle)'}`);
+      debugLines.push(`StoreKit Version: ${Capacitor.isNativePlatform() ? 'StoreKit 2 (iOS 15+)' : 'N/A'}`);
+      
       // Enhanced debugging for product loading issues
       debugLines.push(``, `=== Detailed Investigation ===`);
       debugLines.push(`Raw offerings object keys: ${Object.keys(offerings).join(', ')}`);
@@ -196,13 +202,19 @@ class IAPService {
         debugLines.push(`❌ offerings.all is null/undefined`);
       }
       
-      // Check for common issues
+      // Platform-specific issue analysis
       if (Object.keys(offerings.all || {}).length === 0) {
-        debugLines.push(``, `=== Possible Issues ===`);
-        debugLines.push(`• Bundle ID mismatch in RevenueCat vs App Store`);
-        debugLines.push(`• Products not approved in App Store Connect`);
-        debugLines.push(`• In-App Purchase Key permissions issue`);
-        debugLines.push(`• Sandbox vs Production environment mismatch`);
+        debugLines.push(``, `=== Native iOS Issues ===`);
+        if (Capacitor.isNativePlatform()) {
+          debugLines.push(`• Bundle ID mismatch: Check RevenueCat app settings`);
+          debugLines.push(`• Sandbox account: Sign out of main Apple ID`);
+          debugLines.push(`• Products status: Verify "Ready to Submit" in App Store Connect`);
+          debugLines.push(`• In-App Purchase Key: Check RevenueCat dashboard integration`);
+          debugLines.push(`• TestFlight sandbox: Ensure using sandbox environment`);
+        } else {
+          debugLines.push(`• Web testing: Products found - issue is native-specific`);
+          debugLines.push(`• Deploy to TestFlight: Test with enhanced native diagnostic`);
+        }
       }
       
       if (offerings.current) {
