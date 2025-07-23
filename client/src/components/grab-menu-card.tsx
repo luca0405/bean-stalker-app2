@@ -105,12 +105,26 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
             src={item.imageUrl} 
             alt={item.name}
             className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+            onError={(e) => {
+              console.log(`Failed to load image: ${item.imageUrl} for ${item.name}`);
+              // Hide the broken image and show fallback
+              (e.target as HTMLImageElement).style.display = 'none';
+              if (e.target?.parentElement) {
+                const fallback = e.target.parentElement.querySelector('.image-fallback');
+                if (fallback) {
+                  (fallback as HTMLElement).style.display = 'flex';
+                }
+              }
+            }}
           />
-        ) : (
-          <div className="h-full w-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700">
-            <span className="text-sm font-medium text-center px-3">No Image</span>
-          </div>
-        )}
+        ) : null}
+        <div 
+          className={`h-full w-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700 image-fallback ${item.imageUrl ? 'hidden' : ''}`}
+        >
+          <span className="text-sm font-medium text-center px-3">
+            {item.imageUrl ? 'Image Loading...' : 'No Image'}
+          </span>
+        </div>
         
         {/* Heart Icon */}
         {user && (

@@ -114,6 +114,9 @@ export default function AuthPageMobile() {
 
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ backgroundColor: '#1a3b29' }}>
+      {/* White background section at top */}
+      <div className="w-full bg-white pt-safe pb-4"></div>
+      
       {/* Bean Stalker Logo - full width stretching across entire page */}
       <div className="relative z-10 pb-0">
         <div className="w-full">

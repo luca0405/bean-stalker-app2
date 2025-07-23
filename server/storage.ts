@@ -774,36 +774,36 @@ export class MemStorage implements IStorage {
   }
 
   private initializeMenu() {
-    // Add breakfast items
-    this.addMenuItem("Egg & Bacon Panini", "Scrambled eggs with crispy bacon on toasted panini bread.", 13.50, "breakfast", "/images/breakfast-panini.jpg");
-    this.addMenuItem("Avocado Toast", "Smashed avocado on sourdough with feta, cherry tomatoes and microgreens.", 12.00, "breakfast", "/images/avocado-toast.jpg");
-    this.addMenuItem("Breakfast Bowl", "Greek yogurt with granola, seasonal fruits, honey and chia seeds.", 10.50, "breakfast", "/images/breakfast-bowl.jpg");
+    // Add breakfast items - using actual available images or null for fallback
+    this.addMenuItem("Egg & Bacon Panini", "Scrambled eggs with crispy bacon on toasted panini bread.", 13.50, "breakfast", "/breakfast-coffee.png");
+    this.addMenuItem("Avocado Toast", "Smashed avocado on sourdough with feta, cherry tomatoes and microgreens.", 12.00, "breakfast", "/breakfast-coffee.png");
+    this.addMenuItem("Breakfast Bowl", "Greek yogurt with granola, seasonal fruits, honey and chia seeds.", 10.50, "breakfast", "/breakfast-coffee.png");
     
-    // Add lunch items
-    this.addMenuItem("Chicken Salad", "Grilled chicken with mixed greens, cherry tomatoes, cucumber and balsamic dressing.", 14.50, "lunch", "/images/chicken-salad.jpg");
-    this.addMenuItem("Turkey & Swiss Sandwich", "Sliced turkey, Swiss cheese, lettuce, tomato and mayo on multigrain bread.", 13.00, "lunch", "/images/turkey-sandwich.jpg");
-    this.addMenuItem("Vegetable Soup", "Hearty vegetable soup with seasonal vegetables and herbs, served with bread.", 9.50, "lunch", "/images/vegetable-soup.jpg");
+    // Add lunch items - using actual available images or null for fallback
+    this.addMenuItem("Chicken Salad", "Grilled chicken with mixed greens, cherry tomatoes, cucumber and balsamic dressing.", 14.50, "lunch", "/coffee-icon.png");
+    this.addMenuItem("Turkey & Swiss Sandwich", "Sliced turkey, Swiss cheese, lettuce, tomato and mayo on multigrain bread.", 13.00, "lunch", "/coffee-icon.png");
+    this.addMenuItem("Vegetable Soup", "Hearty vegetable soup with seasonal vegetables and herbs, served with bread.", 9.50, "lunch", "/coffee-icon.png");
     
-    // Add coffee items
-    this.addMenuItem("Cappuccino", "Espresso with steamed milk and a thick layer of foam.", 4.50, "coffee", "/images/cappuccino.jpg");
-    this.addMenuItem("Flat White", "Espresso with steamed milk and a thin layer of microfoam.", 4.50, "coffee", "/images/flat-white.jpg");
-    this.addMenuItem("Espresso", "Concentrated coffee served in a small cup.", 3.50, "coffee", "/images/espresso.jpg");
+    // Add coffee items - using actual available images
+    this.addMenuItem("Cappuccino", "Espresso with steamed milk and a thick layer of foam.", 4.50, "coffee", "/coffee-icon.png");
+    this.addMenuItem("Flat White", "Espresso with steamed milk and a thin layer of microfoam.", 4.50, "coffee", "/coffee-icon.png");
+    this.addMenuItem("Espresso", "Concentrated coffee served in a small cup.", 3.50, "coffee", "/coffee-icon.png");
     
-    // Add hot drinks
-    this.addMenuItem("Hot Chocolate", "Rich chocolate with steamed milk topped with whipped cream.", 4.50, "hot-drinks", "/images/hot-chocolate.jpg");
-    this.addMenuItem("Green Tea", "Traditional Japanese green tea.", 3.50, "hot-drinks", "/images/green-tea.jpg");
+    // Add hot drinks - using actual available images
+    this.addMenuItem("Hot Chocolate", "Rich chocolate with steamed milk topped with whipped cream.", 4.50, "hot-drinks", "/coffee-icon.png");
+    this.addMenuItem("Green Tea", "Traditional Japanese green tea.", 3.50, "hot-drinks", "/coffee-icon-small.png");
     
-    // Add iced drinks
-    this.addMenuItem("Iced Coffee", "Cold brew coffee served over ice.", 4.00, "iced-drinks", "/images/iced-coffee.jpg");
-    this.addMenuItem("Iced Tea", "Fresh brewed tea served over ice.", 3.50, "iced-drinks", "/images/iced-tea.jpg");
+    // Add iced drinks - using actual available images
+    this.addMenuItem("Iced Coffee", "Cold brew coffee served over ice.", 4.00, "iced-drinks", "/coffee-icon.png");
+    this.addMenuItem("Iced Tea", "Fresh brewed tea served over ice.", 3.50, "iced-drinks", "/coffee-icon-small.png");
     
-    // Add juices
-    this.addMenuItem("Orange Juice", "Freshly squeezed orange juice.", 4.50, "juices", "/images/orange-juice.jpg");
-    this.addMenuItem("Green Juice", "Spinach, kale, cucumber, apple and ginger.", 5.50, "juices", "/images/green-juice.jpg");
+    // Add juices - using actual available images
+    this.addMenuItem("Orange Juice", "Freshly squeezed orange juice.", 4.50, "juices", "/breakfast-coffee.png");
+    this.addMenuItem("Green Juice", "Spinach, kale, cucumber, apple and ginger.", 5.50, "juices", "/breakfast-coffee.png");
     
-    // Add smoothies
-    this.addMenuItem("Berry Blast", "Mixed berries, banana, yogurt and honey.", 6.00, "smoothies", "/images/berry-smoothie.jpg");
-    this.addMenuItem("Tropical Paradise", "Mango, pineapple, coconut milk and banana.", 6.00, "smoothies", "/images/tropical-smoothie.jpg");
+    // Add smoothies - using actual available images
+    this.addMenuItem("Berry Blast", "Mixed berries, banana, yogurt and honey.", 6.00, "smoothies", "/breakfast-coffee.png");
+    this.addMenuItem("Tropical Paradise", "Mango, pineapple, coconut milk and banana.", 6.00, "smoothies", "/breakfast-coffee.png");
   }
 
   private addMenuItem(

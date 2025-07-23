@@ -3334,6 +3334,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Serve static images with CORS headers for mobile app compatibility
+  app.get('/images/*', (req, res) => {
+    const imagePath = req.path.substring(8); // Remove '/images/' prefix
+    const fullPath = path.join(process.cwd(), 'client/public', imagePath);
+    
+    // Set CORS headers for mobile app access
+    res.set({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Cache-Control': 'public, max-age=86400' // Cache for 24 hours
+    });
+    
+    // Check if file exists
+    if (fs.existsSync(fullPath)) {
+      res.sendFile(path.resolve(fullPath));
+    } else {
+      // Fallback to coffee icon if image doesn't exist
+      const fallbackPath = path.join(process.cwd(), 'client/public/coffee-icon.png');
+      if (fs.existsSync(fallbackPath)) {
+        res.sendFile(path.resolve(fallbackPath));
+      } else {
+        res.status(404).json({ error: 'Image not found' });
+      }
+    }
+  });
+
+  // Serve root-level static files with CORS headers for mobile app compatibility
+  app.get('/:filename.(png|jpg|jpeg|gif|svg)', (req, res) => {
+    const filename = req.params.filename + '.' + req.params[0];
+    const filePath = path.join(process.cwd(), 'client/public', filename);
+    
+    // Set CORS headers for mobile app access
+    res.set({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Cache-Control': 'public, max-age=86400'
+    });
+    
+    if (fs.existsSync(filePath)) {
+      res.sendFile(path.resolve(filePath));
+    } else {
+      res.status(404).json({ error: 'File not found' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
