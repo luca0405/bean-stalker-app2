@@ -1,58 +1,74 @@
-# RevenueCat Dashboard Troubleshooting Guide
+# RevenueCat Dashboard Troubleshooting
 
-## Issue: Real IAP Purchase Not Showing in Dashboard
+## Issue: Still "Found 0 Products" After Creating Offering
 
-### Common Reasons Transactions Don't Appear:
+If you've created the "default" offering with all 4 products but still get "Found 0 products", there are several possible causes:
 
-1. **App User ID Mismatch**
-   - RevenueCat might not be linking purchases to the correct user
-   - Check if user ID "32" is being set correctly in the app
+## Troubleshooting Steps
 
-2. **Sandbox vs Production Environment**
-   - Dashboard might be filtered to show only production purchases
-   - Ensure you're viewing sandbox transactions
+### 1. Verify Offering Configuration
+In RevenueCat Dashboard → Offerings:
+- [ ] Offering ID is exactly: `default` (lowercase)
+- [ ] Offering contains all 4 packages
+- [ ] Each package is properly configured with correct product IDs
 
-3. **App Store Connect Integration**
-   - RevenueCat needs to be connected to your App Store Connect account
-   - Check if App Store integration is properly configured
+### 2. Check Product Status
+In RevenueCat Dashboard → Product Catalog:
+- [ ] All 4 products show "Active" status (not "Missing Metadata")
+- [ ] Product IDs exactly match App Store Connect
 
-4. **Purchase Receipt Validation**
-   - Apple receipts might not be reaching RevenueCat
-   - Check if RevenueCat API key is correctly configured in the iOS app
+### 3. App Store Connect Verification  
+In App Store Connect → Features → In-App Purchases:
+- [ ] All 4 products exist: com.beanstalker.credit25, credit50, credit100, membership69
+- [ ] Products are "Ready to Submit" status
+- [ ] Bundle ID matches: com.beanstalker.member
 
-### Diagnostic Steps:
+### 4. RevenueCat App Configuration
+In RevenueCat Dashboard → Apps:
+- [ ] iOS app is configured with bundle ID: com.beanstalker.member
+- [ ] App Store Connect integration is properly set up
+- [ ] API key matches what's in GitHub secrets
 
-#### Step 1: Check RevenueCat Dashboard Settings
-- Go to Customer section
-- Search for user ID "32" or app user ID "32"
-- Check if any customers exist with purchases
+### 5. SDK Configuration Issues
+Common problems:
+- [ ] Offering might be named something other than "default"
+- [ ] Products might be in wrong app configuration
+- [ ] API key might be for wrong project/app
 
-#### Step 2: Verify App Store Connect Integration
-- RevenueCat Dashboard → Project Settings → App Store Connect
-- Ensure API key is configured and active
-- Verify bundle ID matches: com.beanstalker.member
+## Diagnostic Tool Enhancement
+The updated diagnostic will now show detailed RevenueCat information including:
+- Total number of offerings found
+- Names of all available offerings  
+- Packages in each offering
+- Product IDs for each package
 
-#### Step 3: Check Environment Filter
-- Dashboard might be showing Production only
-- Switch to Sandbox environment in dashboard filter
+## Expected Output After Fix
+Once properly configured, diagnostic should show:
+```
+Total offerings: 1
+Current offering: default  
+Available offerings: default
+Current offering packages: 4
+  1. credit_25 → com.beanstalker.credit25
+  2. credit_50 → com.beanstalker.credit50  
+  3. credit_100 → com.beanstalker.credit100
+  4. membership → com.beanstalker.membership69
+```
 
-#### Step 4: Verify iOS App Configuration
-- Check if VITE_REVENUECAT_API_KEY is set in mobile app
-- Ensure RevenueCat.configure() is called with correct API key
-- Verify user login: RevenueCat.logIn({ appUserID: "32" })
+## Alternative Solutions
 
-### Manual Verification Steps:
+### Option 1: Check Offering Name
+If you created offering with different name:
+- SDK looks for "default" offering specifically
+- Rename your offering to "default" or update SDK code
 
-1. **Check if webhook is receiving events**
-2. **Verify user ID mapping in mobile app**
-3. **Test with RevenueCat's test event feature**
-4. **Check RevenueCat logs for any errors**
+### Option 2: Force Refresh RevenueCat
+- Products might be cached
+- Try logging out/in to RevenueCat Dashboard
+- Wait 5-10 minutes for changes to propagate
 
-### Expected Behavior:
-After real IAP purchase:
-1. Transaction processed by Apple App Store
-2. Receipt sent to RevenueCat
-3. RevenueCat validates receipt
-4. Customer appears in RevenueCat Dashboard
-5. Webhook sent to Bean Stalker (if configured)
-6. Credits added to Bean Stalker account
+### Option 3: Verify Bundle ID Match
+Most common issue:
+- RevenueCat app bundle ID: com.beanstalker.member
+- App Store Connect bundle ID: must match exactly
+- Any mismatch will cause 0 products found

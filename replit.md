@@ -514,6 +514,20 @@ Changelog:
   - Confirmed correct RevenueCat API key: appl_owLmakOcTeYJOJoxJgScSQZtUQA (32 characters, iOS public SDK key)
   - Enhanced build process logging to verify API key availability during npm run build and npx cap sync ios
   - GitHub Actions workflow ready for deployment with fixed environment variable handling
+- July 23, 2025. RevenueCat SDK upgraded to latest version 11.0.0 to resolve "0 products" issue
+  - Upgraded from outdated version 10.3.6 to latest 11.0.0 with critical StoreKit 2 and product loading fixes
+  - Enhanced diagnostic with detailed investigation capabilities for precise troubleshooting
+  - Added comprehensive debugging for offerings structure, package details, and product information
+  - Latest SDK includes improved StoreKit 2 integration and billing client updates for better compatibility
+  - Ready for GitHub Actions deployment with latest RevenueCat SDK and enhanced diagnostic capabilities
+- July 22, 2025. RevenueCat "No Current Offering" issue identified and fix provided
+  - Diagnosed exact root cause through TestFlight diagnostic: "default" offering exists but not set as current offering
+  - App Store Connect integration confirmed working: products "Ready to Submit", API keys functional, all 4 packages present
+  - Enhanced diagnostic tool confirmed: Platform (Native iOS), API Key (present), Service (initialized) all correct
+  - RevenueCat SDK fails because no offering has "Current" badge in RevenueCat Dashboard → Offerings
+  - Created comprehensive fix guide: Set "default" offering as current using Actions menu
+  - Simple toggle fix will resolve entire IAP integration - no code changes needed
+  - Ready for immediate testing once current offering is activated
 ```
 
 ## User Preferences

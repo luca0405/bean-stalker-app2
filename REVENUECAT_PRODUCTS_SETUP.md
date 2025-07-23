@@ -1,89 +1,69 @@
-# RevenueCat Products Setup Guide
+# RevenueCat Products Setup Issue
 
-## Required Products for Bean Stalker App
+## Current Status: API Key Working ✅ Products Missing ⚠️
 
-### App Bundle ID: com.beanstalker.member
+The diagnostic shows:
+- ✅ RevenueCat API Key: success - API key configured
+- ✅ IAP Service Initialization: success  
+- ✅ User Login: success
+- ✅ IAP Availability: success
+- ⚠️ **Product Loading: Found 0 products (warning)**
 
-### Products to Create in App Store Connect:
+## Root Cause: Product Configuration Mismatch
 
-#### 1. Premium Membership
-- **Product ID:** `com.beanstalker.member`
-- **Type:** Non-Renewable Subscription (or In-App Purchase)
-- **Price:** AUD $69.00
-- **Display Name:** "Premium Membership"
-- **Description:** "Full access to Bean Stalker premium features with AUD$69 starting credit"
+The RevenueCat SDK is working but can't find the products. This indicates:
+1. Products exist in App Store Connect but not configured in RevenueCat Dashboard
+2. Product IDs don't match between App Store Connect and RevenueCat
+3. Products aren't in "Ready to Submit" status in App Store Connect
 
-#### 2. Credit Packages
-- **Product ID:** `com.beanstalker.credits10`
-- **Type:** Consumable In-App Purchase
-- **Price:** AUD $10.00
-- **Display Name:** "10 Credits"
-- **Description:** "Add 10 credits to your Bean Stalker account"
+## Expected Products Configuration
 
-- **Product ID:** `com.beanstalker.credits25`
-- **Type:** Consumable In-App Purchase
-- **Price:** AUD $25.00
-- **Display Name:** "25 Credits + 2 Bonus"
-- **Description:** "Add 25 credits plus 2 bonus credits to your account"
+### App Store Connect Products (should exist):
+- `com.beanstalker.credit25` - $25 Credit Package
+- `com.beanstalker.credit50` - $50 Credit Package  
+- `com.beanstalker.credit100` - $100 Credit Package
+- `com.beanstalker.membership69` - $69 Premium Membership
 
-- **Product ID:** `com.beanstalker.credits50`
-- **Type:** Consumable In-App Purchase
-- **Price:** AUD $50.00
-- **Display Name:** "50 Credits + 5 Bonus"
-- **Description:** "Add 50 credits plus 5 bonus credits to your account"
+### RevenueCat Dashboard Requirements:
+1. Go to RevenueCat Dashboard → Products
+2. Each App Store Connect product must be added to RevenueCat
+3. Product IDs must match exactly
+4. Products must be associated with the "Beanstalker (App Store)" app
 
-- **Product ID:** `com.beanstalker.credits100`
-- **Type:** Consumable In-App Purchase
-- **Price:** AUD $100.00
-- **Display Name:** "100 Credits + 15 Bonus"
-- **Description:** "Add 100 credits plus 15 bonus credits to your account"
+## Fix Options
 
-## App Store Connect Setup Steps:
+### Option 1: Configure Products in RevenueCat Dashboard
+1. Login to RevenueCat Dashboard
+2. Go to Projects → Beanstalker → Products
+3. Add products with exact IDs:
+   - `com.beanstalker.credit25`
+   - `com.beanstalker.credit50` 
+   - `com.beanstalker.credit100`
+   - `com.beanstalker.membership69`
 
-### 1. Log into App Store Connect
-- Go to https://appstoreconnect.apple.com/
-- Select your Bean Stalker app
+### Option 2: Verify App Store Connect
+1. Login to App Store Connect
+2. Go to Apps → Bean Stalker → Features → In-App Purchases
+3. Verify all 4 products exist and are "Ready to Submit"
+4. Check product IDs match exactly
 
-### 2. Create In-App Purchases
-- Go to "Features" → "In-App Purchases"
-- Click "+" to add new products
-- Choose "Consumable" for credit packages
-- Choose "Non-Consumable" or "Non-Renewable Subscription" for membership
+### Option 3: Check RevenueCat Offerings (Most Likely Issue)
+1. RevenueCat Dashboard → Offerings
+2. Create an offering called "default" 
+3. Add all 4 products to the default offering
+4. Products won't appear in SDK without being in an offering
 
-### 3. Configure Each Product
-For each product:
-1. Enter the Product ID exactly as listed above
-2. Set the pricing in AUD
-3. Add display names and descriptions
-4. Upload required metadata and screenshots
-5. Submit for review
+## Expected Result After Fix
+Diagnostic should show:
+- ✅ Product Loading: Found 4 products
+- Credit packages should appear in Buy Credits interface
+- Test purchases should work with sandbox Apple ID
 
-### 4. RevenueCat Dashboard Setup
-1. Log into RevenueCat dashboard
-2. Go to your Bean Stalker project
-3. Navigate to "Products"
-4. Add each Product ID from App Store Connect
-5. Create Offerings that group related products
+## Current Bean Stalker Product Structure
+Based on the app configuration:
+- $25 → $29.50 credits (+$4.50 bonus)
+- $50 → $59.90 credits (+$9.90 bonus)  
+- $100 → $120.70 credits (+$20.70 bonus)
+- $69 Premium Membership (one-time)
 
-### 5. Test with Sandbox Users
-1. Create test users in App Store Connect → "Users and Access" → "Sandbox Testers"
-2. Test purchases using these sandbox accounts
-3. Verify products appear and purchases complete successfully
-
-## Current Status
-- **Bundle ID:** ✅ Configured (com.beanstalker.member)
-- **RevenueCat Integration:** ✅ Ready
-- **Products:** ❌ Need to be created in App Store Connect
-- **Testing:** ❌ Requires sandbox setup
-
-## Next Steps
-1. Create all products in App Store Connect with exact Product IDs listed above
-2. Submit products for Apple review
-3. Configure corresponding products in RevenueCat dashboard
-4. Test with sandbox users before production release
-
-## Important Notes
-- Product IDs must match exactly between App Store Connect and RevenueCat
-- All products need Apple approval before they can be purchased
-- Sandbox testing requires special test user accounts
-- RevenueCat will automatically sync products once they're approved
+The most likely issue is that products need to be added to a RevenueCat "Offering" to be discoverable by the SDK.
