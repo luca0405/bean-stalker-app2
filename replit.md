@@ -538,6 +538,14 @@ Changelog:
   - Removed 24-hour expiration from SMS messages - credits now have no time limit
   - Added warning notice for users about protected elements during message editing
   - Enhanced message validation to ensure amount, sender, and code remain intact during editing
+- July 23, 2025. Safe area handling and scroll optimization for iPhone dynamic island completed
+  - Implemented safe area handling across all full-screen popups (Buy Credits, Send Credits, Profile, Favorites)
+  - Applied popup-container and popup-content CSS classes with safe area padding for iOS compatibility
+  - Removed scroll containers from individual cards since popups are now scrollable
+  - Enhanced Buy Credits component to display all packages without height restrictions
+  - Updated Transaction History component to show all transactions without max-height limits
+  - Fixed Favorites popup to display all items without scroll container restrictions
+  - Optimized user experience by eliminating nested scroll areas and utilizing popup-level scrolling
 ```
 
 ## User Preferences

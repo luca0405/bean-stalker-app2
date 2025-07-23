@@ -144,14 +144,15 @@ export default function SendCreditsPage() {
 
   if (showSMSPreview && smsDetails) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-        <div className="max-w-md mx-auto space-y-6">
-          {/* Header */}
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center space-x-4 pt-4"
-          >
+      <div className="popup-container">
+        <div className="popup-content">
+          <div className="max-w-md mx-auto space-y-6">
+            {/* Header */}
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="popup-header flex items-center space-x-4"
+            >
             <Button
               variant="ghost"
               size="sm"
@@ -163,7 +164,8 @@ export default function SendCreditsPage() {
             <h1 className="text-2xl font-bold text-slate-800">Send SMS</h1>
           </motion.div>
 
-          {/* SMS Preview Card */}
+          <div className="scroll-container momentum-scroll">
+            {/* SMS Preview Card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -298,20 +300,23 @@ export default function SendCreditsPage() {
               </CardContent>
             </Card>
           </motion.div>
+          </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 scroll-container momentum-scroll">
-      <div className="max-w-md mx-auto space-y-6">
-        {/* Header */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center space-x-4 pt-4"
-        >
+    <div className="popup-container">
+      <div className="popup-content">
+        <div className="max-w-md mx-auto space-y-6">
+          {/* Header */}
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="popup-header flex items-center space-x-4"
+          >
           <Link href="/">
             <Button variant="ghost" size="sm" className="p-2 h-auto">
               <ArrowLeft className="h-5 w-5" />
@@ -320,7 +325,8 @@ export default function SendCreditsPage() {
           <h1 className="text-2xl font-bold text-slate-800">Share Credits</h1>
         </motion.div>
 
-        {/* Available Balance */}
+        <div className="scroll-container momentum-scroll">
+          {/* Available Balance */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -448,6 +454,8 @@ export default function SendCreditsPage() {
             </CardContent>
           </Card>
         </motion.div>
+        </div>
+        </div>
       </div>
     </div>
   );

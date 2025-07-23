@@ -35,8 +35,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "../lib/queryClient";
-import { useEffect } from "react";
-import { useAppUpdate } from "@/contexts/app-update-context";
 
 const profileFormSchema = z.object({
   username: z.string(),
@@ -44,22 +42,17 @@ const profileFormSchema = z.object({
   fullName: z.string().optional().or(z.literal("")),
   phoneNumber: z.string().optional().or(z.literal("")),
   notifications: z.boolean().default(true),
-  marketing: z.boolean().default(false),
+  marketing: z.boolean().default(true),
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
-// Add testNotification to Window interface
-declare global {
-  interface Window {
-    testNotification?: () => void;
-  }
-}
+
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { checkForUpdates, updateAvailable, applyUpdate } = useAppUpdate();
+
   
   const {
     biometricState,
@@ -67,74 +60,6 @@ export default function ProfilePage() {
     disableBiometricAuth,
     getBiometricDisplayName,
   } = useBiometricAuth();
-
-  // Create a single mutation for testing push notifications
-  const testNotificationMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/push/test');
-      return await res.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Test notification sent",
-        description: "If notifications are enabled, you should receive it shortly.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Test notification failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-  
-  // Handler for sending a test notification
-  const handleSendTestNotification = () => {
-    // First, send a message to all clients with a potential notification payload
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      const timestamp = new Date().toISOString();
-      const testId = Math.random().toString(36).substring(2, 10);
-      
-      // Create notification data to be verified by service worker
-      const notificationData = {
-        title: "Test Notification",
-        body: `This is a test notification (${new Date().toLocaleTimeString()})`,
-        timestamp: Date.now(),
-        data: {
-          testId,
-          url: "/profile",
-          timestamp,
-          orderId: 999, // For test notifications
-          status: "test",
-          isTestNotification: true,
-          userId: user?.id // Include user ID for verification
-        }
-      };
-      
-      console.log('Sending TEST_NOTIFICATION message to service worker with user ID:', user?.id);
-      
-      // Send test notification message to service worker
-      navigator.serviceWorker.controller.postMessage({
-        type: 'TEST_NOTIFICATION',
-        notificationData
-      });
-    }
-    
-    // Also trigger the backend mutation to send the test notification
-    testNotificationMutation.mutate();
-  };
-  
-  // Expose the test notification function to the window object
-  // so it can be called from the PushNotificationToggle component
-  useEffect(() => {
-    window.testNotification = handleSendTestNotification;
-    
-    // Clean up when component unmounts
-    return () => {
-      delete window.testNotification;
-    };
-  }, [handleSendTestNotification, user?.id]);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -144,7 +69,7 @@ export default function ProfilePage() {
       fullName: user?.fullName || "",
       phoneNumber: user?.phoneNumber || "",
       notifications: true,
-      marketing: false,
+      marketing: true,
     },
   });
 
@@ -185,15 +110,16 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <AppHeader />
       
-      <main className="flex-1 p-5 scroll-container momentum-scroll">
-        <div className="grid gap-6">
-          <div className="flex items-center justify-between">
+      <main className="pt-safe pb-24 px-5">
+        <div className="max-w-2xl mx-auto py-6">
+          <div className="flex items-center justify-between mb-6">
             <h1 className="font-semibold text-2xl text-primary">Profile Settings</h1>
           </div>
           
+          <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Account Information</CardTitle>
@@ -429,147 +355,9 @@ export default function ProfilePage() {
           <AppInstallButton />
           
           <PushNotificationToggle />
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Debug Tools</CardTitle>
-              <CardDescription>Utilities for debugging the application</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <div className="text-sm font-semibold">Notification Status</div>
-                <ul className="list-disc pl-5 text-sm">
-                  <li>Push API Supported: {'Notification' in window ? 'Yes' : 'No'}</li>
-                  <li>Service Worker Supported: {'serviceWorker' in navigator ? 'Yes' : 'No'}</li>
-                  <li>Notification Permission: {typeof window !== 'undefined' && 'Notification' in window ? window.Notification.permission : 'unknown'}</li>
-                  <li>Is Windows: {typeof window !== 'undefined' ? window.navigator.userAgent.includes('Windows') ? 'Yes' : 'No' : 'unknown'}</li>
-                </ul>
-              </div>
-              
-              <div className="flex flex-col gap-3 pt-2">
-                <Button 
-                  variant="outline"
-                  onClick={() => {
-                    if ('serviceWorker' in navigator) {
-                      navigator.serviceWorker.ready
-                        .then(reg => {
-                          const state = reg.active?.state;
-                          console.log('Service worker state:', state);
-                          toast({
-                            title: 'Service Worker Status',
-                            description: `State: ${state || 'unknown'}`,
-                            duration: 3000
-                          });
-                        })
-                        .catch(err => {
-                          console.error('Service worker error:', err);
-                          toast({
-                            title: 'Service Worker Error',
-                            description: String(err),
-                            variant: 'destructive',
-                            duration: 5000
-                          });
-                        });
-                    } else {
-                      toast({
-                        title: 'Service Worker Not Supported',
-                        description: 'This browser does not support Service Workers',
-                        variant: 'destructive',
-                        duration: 5000
-                      });
-                    }
-                  }}
-                >
-                  Check Service Worker State
-                </Button>
-                
-                <Button
-                  onClick={() => {
-                    toast({
-                      title: "Sending test notification",
-                      description: "Check your notifications and console logs",
-                      duration: 3000
-                    });
-                    handleSendTestNotification();
-                  }}
-                >
-                  Send Test Notification
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    toast({
-                      title: "Checking for updates",
-                      description: "Looking for new versions of the app...",
-                      duration: 3000
-                    });
-                    
-                    const hasUpdate = await checkForUpdates();
-                    
-                    if (hasUpdate) {
-                      toast({
-                        title: "Update Available",
-                        description: "A new version of the app is available.",
-                        action: (
-                          <Button 
-                            variant="default" 
-                            size="sm" 
-                            onClick={applyUpdate}
-                          >
-                            Update Now
-                          </Button>
-                        ),
-                        duration: 10000
-                      });
-                    } else {
-                      toast({
-                        title: "No Updates",
-                        description: "You're already using the latest version.",
-                        duration: 3000
-                      });
-                    }
-                  }}
-                >
-                  Check for Updates
-                </Button>
-                
-                <Button 
-                  variant="secondary"
-                  onClick={() => {
-                    // Force unregister and reregister service worker
-                    if ('serviceWorker' in navigator) {
-                      navigator.serviceWorker.getRegistrations().then(registrations => {
-                        for(let registration of registrations) {
-                          console.log('Unregistering service worker:', registration);
-                          registration.unregister();
-                        }
-                        
-                        toast({
-                          title: 'Service Worker Reset',
-                          description: 'Service worker has been unregistered. Refresh the page to reinstall.',
-                          duration: 5000
-                        });
-                      });
-                    } else {
-                      toast({
-                        title: 'Service Worker Not Supported',
-                        description: 'This browser does not support Service Workers',
-                        variant: 'destructive',
-                        duration: 5000
-                      });
-                    }
-                  }}
-                >
-                  Reset Service Worker
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          </div>
         </div>
       </main>
-      
-
     </div>
   );
 }

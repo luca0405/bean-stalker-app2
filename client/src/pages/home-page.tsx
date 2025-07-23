@@ -392,50 +392,55 @@ export default function HomePage() {
       
       {/* Buy Credits Popup */}
       {buyCreditsOpen && (
-        <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-          <div className="max-w-md mx-auto space-y-6">
-            {/* Header */}
-            <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center space-x-4 pt-4"
-            >
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setBuyCreditsOpen(false)}
-                className="p-2 h-auto"
+        <div className="popup-container">
+          <div className="popup-content">
+            <div className="max-w-md mx-auto space-y-6">
+              {/* Header */}
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="popup-header flex items-center space-x-4"
               >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <h1 className="text-2xl font-bold text-slate-800">Buy Credits</h1>
-            </motion.div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setBuyCreditsOpen(false)}
+                  className="p-2 h-auto"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <h1 className="text-2xl font-bold text-slate-800">Buy Credits</h1>
+              </motion.div>
 
-            <EnhancedBuyCredits />
+              <div className="scroll-container momentum-scroll">
+                <EnhancedBuyCredits />
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Favorites Selection Popup */}
       {favoritesPopupOpen && (
-        <div className="fixed inset-0 z-50 bg-gradient-to-br from-slate-50 to-slate-100 p-4">
-          <div className="max-w-md mx-auto space-y-6">
-            {/* Header */}
-            <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center space-x-4 pt-4"
-            >
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFavoritesPopupOpen(false)}
-                className="p-2 h-auto"
+        <div className="popup-container">
+          <div className="popup-content">
+            <div className="max-w-md mx-auto space-y-6">
+              {/* Header */}
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="popup-header flex items-center space-x-4"
               >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <h1 className="text-2xl font-bold text-slate-800">Select Favorites</h1>
-            </motion.div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFavoritesPopupOpen(false)}
+                  className="p-2 h-auto"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <h1 className="text-2xl font-bold text-slate-800">Select Favorites</h1>
+              </motion.div>
 
             {/* Favorites Count */}
             <motion.div
@@ -458,123 +463,126 @@ export default function HomePage() {
               </Card>
             </motion.div>
 
-            {/* Favorites List */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Heart className="h-5 w-5 text-green-600" />
-                    <span>Choose Items to Order</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Select your favorite items to add to cart. All items will be added with default options.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {favoriteItems.length === 0 ? (
-                    <div className="text-center py-8 text-slate-500">
-                      <Heart className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                      <p className="text-sm mb-2">No favorites found</p>
-                      <p className="text-xs text-slate-400 mb-4">Visit the menu to add items to your favorites!</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          setFavoritesPopupOpen(false);
-                          navigate("/menu");
-                        }}
-                        className="border-green-600 text-green-600 hover:bg-green-50"
-                      >
-                        Browse Menu
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 max-h-60 overflow-y-auto">
-                      {favoriteItems.map((item) => (
-                        <div key={item.id} className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                          <Checkbox
-                            checked={selectedFavorites.has(item.id)}
-                            onCheckedChange={() => handleFavoriteToggle(item.id)}
-                            className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-900 truncate">{item.name}</p>
-                            <p className="text-xs text-slate-600 truncate">{item.description}</p>
-                            <p className="text-sm font-semibold text-green-600">{formatCurrency(item.price)}</p>
-                          </div>
-                          {item.imageUrl && (
-                            <div className="w-12 h-12 bg-slate-200 rounded-lg flex-shrink-0 overflow-hidden">
-                              <img 
-                                src={item.imageUrl} 
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          )}
+              <div className="scroll-container momentum-scroll">
+                {/* Favorites List */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Heart className="h-5 w-5 text-green-600" />
+                        <span>Choose Items to Order</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Select your favorite items to add to cart. All items will be added with default options.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {favoriteItems.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500">
+                          <Heart className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                          <p className="text-sm mb-2">No favorites found</p>
+                          <p className="text-xs text-slate-400 mb-4">Visit the menu to add items to your favorites!</p>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setFavoritesPopupOpen(false);
+                              navigate("/menu");
+                            }}
+                            className="border-green-600 text-green-600 hover:bg-green-50"
+                          >
+                            Browse Menu
+                          </Button>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      ) : (
+                        <div className="space-y-3">
+                          {favoriteItems.map((item) => (
+                            <div key={item.id} className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                              <Checkbox
+                                checked={selectedFavorites.has(item.id)}
+                                onCheckedChange={() => handleFavoriteToggle(item.id)}
+                                className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-900 truncate">{item.name}</p>
+                                <p className="text-xs text-slate-600 truncate">{item.description}</p>
+                                <p className="text-sm font-semibold text-green-600">{formatCurrency(item.price)}</p>
+                              </div>
+                              {item.imageUrl && (
+                                <div className="w-12 h-12 bg-slate-200 rounded-lg flex-shrink-0 overflow-hidden">
+                                  <img 
+                                    src={item.imageUrl} 
+                                    alt={item.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
-                  {favoriteItems.length > 0 && (
-                    <div className="space-y-3 pt-4 mt-4 border-t border-slate-200">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">Selected items:</span>
-                        <span className="font-semibold">{selectedFavorites.size}</span>
+                      {favoriteItems.length > 0 && (
+                        <div className="space-y-3 pt-4 mt-4 border-t border-slate-200">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Selected items:</span>
+                            <span className="font-semibold">{selectedFavorites.size}</span>
+                          </div>
+                          
+                          <Button
+                            onClick={handleAddSelectedToCart}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
+                            disabled={selectedFavorites.size === 0}
+                          >
+                            <Plus className="h-5 w-5 mr-2" />
+                            Add {selectedFavorites.size} Item{selectedFavorites.size !== 1 ? 's' : ''} to Cart
+                          </Button>
+                          
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setFavoritesPopupOpen(false)}
+                            className="w-full"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                {/* How It Works */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <Card className="bg-slate-100 border-slate-200">
+                    <CardContent className="p-4">
+                      <h3 className="font-semibold text-slate-800 mb-3">Quick Order</h3>
+                      <div className="space-y-2 text-sm text-slate-600">
+                        <div className="flex items-start space-x-2">
+                          <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">1</span>
+                          <p>Select your favorite items using the checkboxes</p>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">2</span>
+                          <p>Items will be added with default size and options</p>
+                        </div>
+                        <div className="flex items-start space-x-2">
+                          <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">3</span>
+                          <p>Customize them later in your cart if needed</p>
+                        </div>
                       </div>
-                      
-                      <Button
-                        onClick={handleAddSelectedToCart}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
-                        disabled={selectedFavorites.size === 0}
-                      >
-                        <Plus className="h-5 w-5 mr-2" />
-                        Add {selectedFavorites.size} Item{selectedFavorites.size !== 1 ? 's' : ''} to Cart
-                      </Button>
-                      
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setFavoritesPopupOpen(false)}
-                        className="w-full"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* How It Works */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              <Card className="bg-slate-100 border-slate-200">
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-slate-800 mb-3">Quick Order</h3>
-                  <div className="space-y-2 text-sm text-slate-600">
-                    <div className="flex items-start space-x-2">
-                      <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">1</span>
-                      <p>Select your favorite items using the checkboxes</p>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">2</span>
-                      <p>Items will be added with default size and options</p>
-                    </div>
-                    <div className="flex items-start space-x-2">
-                      <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">3</span>
-                      <p>Customize them later in your cart if needed</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              </div>
+            </div>
           </div>
         </div>
       )}

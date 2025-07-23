@@ -96,7 +96,7 @@ export function EnhancedBuyCredits() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 max-h-60 overflow-y-auto scroll-container momentum-scroll">
+            <div className="space-y-3">
               {CREDIT_PACKAGES.map((pkg) => (
                 <motion.div
                   key={pkg.id}

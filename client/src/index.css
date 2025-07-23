@@ -103,4 +103,40 @@
   .scroll-container::-webkit-scrollbar {
     display: none; /* Chrome, Safari */
   }
+
+  /* Full screen popup container */
+  .popup-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    background: linear-gradient(to bottom right, rgb(248 250 252), rgb(241 245 249));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Popup content with safe area */
+  .popup-content {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding-top: max(env(safe-area-inset-top), 16px);
+    padding-bottom: max(env(safe-area-inset-bottom), 16px);
+    padding-left: max(env(safe-area-inset-left), 16px);
+    padding-right: max(env(safe-area-inset-right), 16px);
+  }
+
+  /* Safe area aware header */
+  .popup-header {
+    padding-top: env(safe-area-inset-top);
+    margin-top: 4px;
+    position: sticky;
+    top: env(safe-area-inset-top);
+    z-index: 10;
+    background: rgb(248 250 252);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
 }
