@@ -184,7 +184,7 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
       <AppHeader />
       
-      <main className="flex-1 px-6 py-8 max-w-7xl mx-auto w-full scroll-container momentum-scroll">
+      <main className="flex-1 px-6 py-8 max-w-7xl mx-auto w-full main-content-with-header">
         {/* Welcome Section */}
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-gray-900 mb-1">Hi, {user?.fullName || user?.username}</h1>

@@ -30,9 +30,9 @@ class IAPService {
   // Product IDs - matching your App Store Connect products
   private readonly PRODUCT_IDS = {
     PREMIUM_MEMBERSHIP: 'com.beanstalker.membership69',
-    CREDITS_25: 'com.beanstalker.credit25', 
-    CREDITS_50: 'com.beanstalker.credit50',
-    CREDITS_100: 'com.beanstalker.credit100'
+    CREDITS_25: 'com.beanstalker.credits25', 
+    CREDITS_50: 'com.beanstalker.credits50',
+    CREDITS_100: 'com.beanstalker.credits100'
   };
 
   async initialize(): Promise<boolean> {
@@ -271,11 +271,18 @@ class IAPService {
         aPackage: targetPackage 
       });
 
-      // Generate a unique transaction ID for each purchase attempt to allow multiple purchases
-      // Use RevenueCat transaction ID if available, otherwise generate unique ID with timestamp
-      const transactionId = result.transaction?.transactionIdentifier || 
-                           result.transaction?.revenueCatId || 
-                           `rc_${productId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // For consumable products, always generate a unique transaction ID to allow multiple purchases
+      // RevenueCat may reuse transaction IDs for consumable products, so we create unique ones
+      const baseTransactionId = result.transaction?.transactionIdentifier || 
+                               result.transaction?.revenueCatId;
+      
+      // Always generate unique transaction ID with timestamp for consumable credit purchases
+      const transactionId = `rc_${productId}_${Date.now()}_${baseTransactionId || Math.random().toString(36).substr(2, 9)}`;
+
+      console.log(`💳 IAP Purchase successful for ${productId}:`);
+      console.log(`📱 Generated transaction ID: ${transactionId}`);
+      console.log(`🔄 Base RevenueCat ID: ${baseTransactionId || 'none'}`);
+      console.log(`📦 Customer: ${result.customerInfo?.originalAppUserId || 'anonymous'}`);
 
       return {
         success: true,

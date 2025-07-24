@@ -337,26 +337,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid receipt" });
       }
 
-      // Check if this exact transaction ID has already been processed to prevent double-processing the same RevenueCat transaction
-      // But allow multiple separate purchases of the same product
-      const existingTransaction = await storage.getCreditTransactionByTransactionId(transactionId);
-      if (existingTransaction) {
-        console.log(`🔄 Duplicate transaction ID detected: ${transactionId} for user ${userId}`);
-        console.log(`📱 Previous transaction: ${JSON.stringify(existingTransaction)}`);
-        
-        // For the same exact transaction ID, we return success but don't add credits again
-        // This handles RevenueCat caching/retry scenarios
-        const user = await storage.getUser(userId);
-        const { password, ...userWithoutPassword } = user;
-        
-        return res.json({ 
-          success: true, 
-          user: userWithoutPassword,
-          creditsAdded: 0,
-          message: "Transaction already processed - no additional credits added",
-          isRepeatTransaction: true
-        });
+      // Check for duplicate transactions only if using exact RevenueCat transaction IDs
+      // For consumable credit purchases, we generate unique IDs to allow multiple purchases
+      let isDuplicateTransaction = false;
+      
+      // Only check for duplicates if this is NOT a generated transaction ID (doesn't start with 'rc_')
+      if (!transactionId.startsWith('rc_')) {
+        const existingTransaction = await storage.getCreditTransactionByTransactionId(transactionId);
+        if (existingTransaction) {
+          console.log(`🔄 Duplicate RevenueCat transaction ID detected: ${transactionId} for user ${userId}`);
+          isDuplicateTransaction = true;
+          
+          const user = await storage.getUser(userId);
+          const { password, ...userWithoutPassword } = user;
+          
+          return res.json({ 
+            success: true, 
+            user: userWithoutPassword,
+            creditsAdded: 0,
+            message: "Transaction already processed - no additional credits added",
+            isRepeatTransaction: true
+          });
+        }
       }
+      
+      // For generated transaction IDs (consumable purchases), always allow the transaction
+      console.log(`✅ Processing ${transactionId.startsWith('rc_') ? 'consumable' : 'standard'} IAP transaction: ${transactionId}`);
 
       const user = await storage.getUser(userId);
       if (!user) {
@@ -370,11 +376,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (productId.includes('membership69')) {
         creditAmount = 69; // AUD$69 membership
         transactionType = "membership_iap";
-      } else if (productId.includes('credit25')) {
+      } else if (productId.includes('credits25')) {
         creditAmount = 29.50; // $25 purchase → $29.50 credits ($4.50 bonus)
-      } else if (productId.includes('credit50')) {
+      } else if (productId.includes('credits50')) {
         creditAmount = 59.90; // $50 purchase → $59.90 credits ($9.90 bonus)
-      } else if (productId.includes('credit100')) {
+      } else if (productId.includes('credits100')) {
         creditAmount = 120.70; // $100 purchase → $120.70 credits ($20.70 bonus)
       } else {
         return res.status(400).json({ message: "Unknown product ID" });
@@ -392,7 +398,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionId
       });
 
-      console.log(`IAP Purchase verified: User ${userId} received ${creditAmount} credits from ${productId}`);
+      console.log(`✅ IAP Purchase verified: User ${userId} received ${creditAmount} credits from ${productId}`);
+      console.log(`💰 New credit balance: ${updatedUser.credits} (was ${user.credits})`);
+      console.log(`🔗 Transaction ID: ${transactionId}`);
       
       const { password, ...userWithoutPassword } = updatedUser;
       res.json({ 
@@ -2943,11 +2951,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (product_id.includes('membership69')) {
           creditAmount = 69;
           transactionType = "membership_iap";
-        } else if (product_id.includes('credit25')) {
+        } else if (product_id.includes('credits25')) {
           creditAmount = 29.50; // $25 → $29.50 ($4.50 bonus)
-        } else if (product_id.includes('credit50')) {
+        } else if (product_id.includes('credits50')) {
           creditAmount = 59.90; // $50 → $59.90 ($9.90 bonus)
-        } else if (product_id.includes('credit100')) {
+        } else if (product_id.includes('credits100')) {
           creditAmount = 120.70; // $100 → $120.70 ($20.70 bonus)
         } else {
           console.error('❌ Unknown product ID:', product_id);

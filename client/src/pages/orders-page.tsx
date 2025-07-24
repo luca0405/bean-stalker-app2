@@ -69,8 +69,8 @@ export default function OrdersPage() {
     <div className="min-h-screen flex flex-col bg-secondary">
       <AppHeader />
 
-      <div className="flex-1 overflow-y-auto">
-        <main className="p-5">
+      <div className="flex-1 overflow-y-auto scrollable">
+        <main className="p-5 main-content-with-header">
           <div className="flex justify-between items-center mb-4">
             <h1 className="font-semibold text-2xl text-primary">Order History</h1>
             <Button 

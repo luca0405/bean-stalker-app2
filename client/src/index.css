@@ -12,6 +12,8 @@
     scroll-behavior: smooth;
     /* Improve scrolling on iOS Safari */
     -webkit-overflow-scrolling: touch;
+    /* Prevent overscroll bounce on iOS */
+    overscroll-behavior: none;
   }
 
   body {
@@ -20,6 +22,12 @@
     -webkit-overflow-scrolling: touch;
     /* Improve touch responsiveness */
     touch-action: manipulation;
+    /* Prevent overscroll bounce */
+    overscroll-behavior: none;
+    /* Ensure body takes full height */
+    min-height: 100vh;
+    /* Enable GPU acceleration for smooth scrolling */
+    transform: translate3d(0, 0, 0);
   }
 
   /* Smooth scrolling for all scrollable elements */
@@ -32,21 +40,50 @@
   #root {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
+    /* Enable GPU acceleration */
+    transform: translate3d(0, 0, 0);
+    /* Ensure full height */
+    min-height: 100vh;
   }
 
   /* Main content areas */
   main, .main-content {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
+    /* Enable GPU acceleration for smooth scrolling */
+    transform: translate3d(0, 0, 0);
   }
 
   /* Enhanced scrolling for mobile containers */
   .scrollable {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
-    overscroll-behavior: contain;
+    overscroll-behavior: none;
+    transform: translate3d(0, 0, 0);
+  }
+
+  /* Fixed header compensation for pages */
+  .main-content-with-header {
+    padding-top: calc(32px + env(safe-area-inset-top, 0px) + 80px);
+  }
+
+  /* iOS specific scrolling improvements */
+  @supports (-webkit-touch-callout: none) {
+    body {
+      /* iOS Safari specific improvements */
+      -webkit-transform: translate3d(0, 0, 0);
+      -webkit-backface-visibility: hidden;
+      -webkit-perspective: 1000;
+    }
+    
+    .scrollable, main {
+      /* Enable hardware acceleration on iOS */
+      -webkit-transform: translate3d(0, 0, 0);
+      -webkit-backface-visibility: hidden;
+      -webkit-perspective: 1000;
+    }
   }
 }
 

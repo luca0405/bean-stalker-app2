@@ -101,7 +101,7 @@ export default function CartPage() {
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
         <AppHeader />
         
-        <div className="flex-1 flex items-center justify-center p-6">
+        <div className="flex-1 flex items-center justify-center p-6 main-content-with-header">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -127,8 +127,8 @@ export default function CartPage() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
       <AppHeader />
       
-      <div className="flex-1 overflow-y-auto">
-        <main className="p-4 max-w-2xl mx-auto pb-24">
+      <div className="flex-1 overflow-y-auto scrollable">
+        <main className="p-4 max-w-2xl mx-auto pb-24 main-content-with-header">
           {/* Header */}
           <div className="flex items-center gap-4 mb-6">
             <Button

@@ -618,6 +618,22 @@ Changelog:
   - Mobile IAP system now prevents development mode fallback and always uses real RevenueCat transactions
   - Users can now purchase multiple $25, $50, or $100 credit packages without restrictions
   - System still prevents double-processing of the exact same RevenueCat transaction ID for fraud protection
+- July 24, 2025. Fixed iOS dynamic island header overlap and smooth scrolling issues completely
+  - Updated header to use fixed positioning with proper safe area handling for iOS dynamic island
+  - Added inline CSS safe area padding: calc(12px + env(safe-area-inset-top, 0px))
+  - Enhanced smooth scrolling with GPU acceleration and momentum scrolling for iOS Safari
+  - Added main-content-with-header CSS class for consistent page spacing across all pages
+  - Fixed overscroll behavior and enabled hardware acceleration for smooth scrolling performance
+  - Updated menu-page, orders-page, cart-page, and home-page with proper header compensation
+  - iOS users now have smooth scrolling without header overlap with dynamic island area
+- July 24, 2025. Fixed RevenueCat multiple purchase issue for consumable credit packages
+  - Identified issue: RevenueCat was reusing transaction IDs for repeat purchases, triggering duplicate detection
+  - Enhanced transaction ID generation to always create unique identifiers for consumable purchases
+  - Updated server logic to allow generated transaction IDs (starting with 'rc_') for multiple purchases
+  - Only checks for duplicates on actual RevenueCat transaction IDs to prevent genuine fraud
+  - Added comprehensive debug logging for IAP purchase tracking and verification
+  - Users can now successfully purchase multiple $25, $50, or $100 credit packages without restrictions
+  - Fixed client-side notification handling for repeat transaction scenarios with native notifications
 ```
 
 ## User Preferences

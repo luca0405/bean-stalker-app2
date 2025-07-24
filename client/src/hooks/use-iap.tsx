@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { iapService, IAPProduct, PurchaseResult } from '@/services/iap-service';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
+import { useNativeNotifications } from './use-native-notifications';
 import { apiRequest } from '@/lib/queryClient';
 
 interface IAPContextType {
@@ -21,6 +22,7 @@ export function IAPProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
 
   useEffect(() => {
     initializeIAP();
@@ -113,7 +115,8 @@ export function IAPProvider({ children }: { children: ReactNode }) {
         
         if (responseData.isRepeatTransaction) {
           console.log('🔄 Repeat transaction - credits already added for this transaction ID');
-          // Don't reload page since no new credits were added
+          // Don't reload page since no new credits were added, but show success message
+          notifySuccess("Purchase Already Processed", "This transaction was already completed successfully.");
           return;
         }
         

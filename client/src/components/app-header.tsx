@@ -28,9 +28,9 @@ export function AppHeader() {
 
   return (
     <>
-      <header className="relative">
+      <header className="fixed top-0 left-0 right-0 z-50">
         <div className="bg-green-800 text-white shadow-lg border-b border-green-600">
-          <div className="px-4 py-3 pt-safe">
+          <div className="px-4 py-3" style={{ paddingTop: `calc(12px + env(safe-area-inset-top, 0px))` }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Logo className="h-8 w-8 text-white" />
