@@ -278,10 +278,7 @@ export default function ProfilePage() {
                       onCheckedChange={async (enabled) => {
                         if (enabled) {
                           // Would prompt user to sign in again to save credentials
-                          toast({
-                            title: "Setup Required",
-                            description: "Sign out and back in to enable biometric authentication",
-                          });
+                          notifySuccess("Setup Required", "Sign out and back in to enable biometric authentication");
                         } else {
                           await disableBiometricAuth();
                         }

@@ -240,7 +240,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[10000] flex items-end justify-center product-detail-modal">
+        <div className="fixed inset-0 flex items-end justify-center product-detail-modal" style={{ zIndex: 10000 }}>
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -257,6 +257,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
             className="relative w-full max-w-md bg-white rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto product-modal-content"
+            style={{ zIndex: 10001 }}
           >
             {/* Header */}
             <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 p-4 flex justify-between items-center rounded-t-3xl z-10">
