@@ -7,8 +7,8 @@ export const SANDBOX_IAP_CONFIG = {
   
   // Override environment detection
   isSandboxBuild: () => {
-    // Always return true for iOS testing
-    return true;
+    // Check for forced sandbox mode or development environment
+    return import.meta.env.VITE_FORCE_SANDBOX === 'true' || import.meta.env.DEV || !import.meta.env.PROD;
   },
   
   // Get proper RevenueCat configuration for sandbox
