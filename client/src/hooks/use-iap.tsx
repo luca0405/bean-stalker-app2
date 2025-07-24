@@ -109,8 +109,20 @@ export function IAPProvider({ children }: { children: ReactNode }) {
       });
 
       if (response.ok) {
+        const responseData = await response.json();
+        
+        if (responseData.isRepeatTransaction) {
+          console.log('🔄 Repeat transaction - credits already added for this transaction ID');
+          // Don't reload page since no new credits were added
+          return;
+        }
+        
         // Refresh user data to get updated credits/membership
         window.location.reload();
+      } else {
+        // Handle error cases
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Verification failed');
       }
     } catch (error) {
       console.error('Failed to verify purchase:', error);

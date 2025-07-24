@@ -610,6 +610,14 @@ Changelog:
   - IAP system now uses actual user.id.toString() for all RevenueCat operations
   - Fixed biometric authentication crash by replacing all toast notifications with native notification system
   - Corrected TypeScript errors in biometric service for production-ready code
+- July 24, 2025. Configured IAP system to allow multiple purchases of the same product per user
+  - Modified duplicate transaction logic to allow repeat purchases while preventing double-processing of same transaction ID
+  - Enhanced transaction ID generation to create unique identifiers for each purchase attempt
+  - Updated server-side logic to handle repeat transactions gracefully without blocking legitimate new purchases
+  - Added proper client-side handling for cached RevenueCat transaction responses
+  - Mobile IAP system now prevents development mode fallback and always uses real RevenueCat transactions
+  - Users can now purchase multiple $25, $50, or $100 credit packages without restrictions
+  - System still prevents double-processing of the exact same RevenueCat transaction ID for fraud protection
 ```
 
 ## User Preferences

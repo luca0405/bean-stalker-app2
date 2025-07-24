@@ -58,6 +58,11 @@ class IAPService {
       const loadedOfferings = await SandboxForceOverride.aggressiveOfferingsReload();
       this.offerings = loadedOfferings;
       
+      // Verify we have products available
+      if (loadedOfferings.length === 0) {
+        throw new Error('No RevenueCat offerings available. Check App Store Connect and RevenueCat Dashboard.');
+      }
+      
       this.isInitialized = true;
       
       return true;
@@ -116,10 +121,10 @@ class IAPService {
       return [];
     }
 
-    // Development mode - return mock products (web only)
-    const isDevelopmentMode = !Capacitor.isNativePlatform();
+    // Only use development mode on actual web platform, never on mobile
+    const isWebPlatform = !Capacitor.isNativePlatform();
     
-    if (isDevelopmentMode) {
+    if (isWebPlatform) {
 
       return [
         {
@@ -161,8 +166,13 @@ class IAPService {
       ];
     }
 
-    // Production mode - use RevenueCat
+    // Mobile platform - use real RevenueCat products
     const products: IAPProduct[] = [];
+
+    // If no offerings loaded, try to load them
+    if (this.offerings.length === 0) {
+      await this.loadOfferings();
+    }
 
     for (const offering of this.offerings) {
       for (const packageObj of offering.availablePackages) {
@@ -180,6 +190,11 @@ class IAPService {
       }
     }
 
+    // If still no products, something is wrong with RevenueCat configuration
+    if (products.length === 0) {
+      throw new Error('No RevenueCat products available. Check App Store Connect and RevenueCat Dashboard configuration.');
+    }
+
     return products;
   }
 
@@ -195,10 +210,10 @@ class IAPService {
       return { success: false, productId, error: 'Service not initialized' };
     }
 
-    // Development mode - simulate successful purchase (web only)
-    const isDevelopmentMode = !Capacitor.isNativePlatform();
+    // Only simulate purchases on web platform - mobile always uses real RevenueCat
+    const isWebPlatform = !Capacitor.isNativePlatform();
     
-    if (isDevelopmentMode) {
+    if (isWebPlatform) {
       console.log(`IAP: Simulating purchase for ${productId}`);
       
       // Simulate processing delay
@@ -216,7 +231,7 @@ class IAPService {
       };
     }
 
-    // Production mode - use RevenueCat
+    // Mobile platform - always use real RevenueCat IAP system
     try {
       // Find the package for this product
       let targetPackage: PurchasesPackage | null = null;
@@ -232,7 +247,23 @@ class IAPService {
       }
 
       if (!targetPackage) {
-        throw new Error(`Product ${productId} not found`);
+        // If product not found, try to reload offerings once
+        await this.loadOfferings();
+        
+        // Search again after reload
+        for (const offering of this.offerings) {
+          for (const packageObj of offering.availablePackages) {
+            if (packageObj.product.identifier === productId) {
+              targetPackage = packageObj;
+              break;
+            }
+          }
+          if (targetPackage) break;
+        }
+        
+        if (!targetPackage) {
+          throw new Error(`Product ${productId} not available in RevenueCat offerings. Check App Store Connect and RevenueCat Dashboard.`);
+        }
       }
 
       // Make the purchase
@@ -240,11 +271,21 @@ class IAPService {
         aPackage: targetPackage 
       });
 
+      // Generate a unique transaction ID for each purchase attempt to allow multiple purchases
+      // Use RevenueCat transaction ID if available, otherwise generate unique ID with timestamp
+      const transactionId = result.transaction?.transactionIdentifier || 
+                           result.transaction?.revenueCatId || 
+                           `rc_${productId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
       return {
         success: true,
         productId,
-        transactionId: result.customerInfo.originalAppUserId,
-        receipt: JSON.stringify(result.customerInfo)
+        transactionId,
+        receipt: JSON.stringify({
+          customerInfo: result.customerInfo,
+          transaction: result.transaction,
+          purchaseDate: new Date().toISOString()
+        })
       };
     } catch (error: any) {
       console.error('IAP: Purchase failed', error);
@@ -282,9 +323,8 @@ class IAPService {
   }
 
   isAvailable(): boolean {
-    // Available when properly initialized (web dev mode or native platform)
-    const isDevelopmentMode = !Capacitor.isNativePlatform();
-    return this.isInitialized && (isDevelopmentMode || Capacitor.isNativePlatform());
+    // Available when properly initialized 
+    return this.isInitialized;
   }
 
   // Convert credit amount to product ID

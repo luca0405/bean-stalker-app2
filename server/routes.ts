@@ -323,6 +323,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { productId, transactionId, receipt, platform } = req.body;
       const userId = req.user?.id;
       
+      console.log(`📱 IAP Verification Request: Product=${productId}, Transaction=${transactionId}, User=${userId}`);
+      
       if (!productId || !transactionId || !userId) {
         return res.status(400).json({ message: "Missing required fields" });
       }
@@ -335,10 +337,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid receipt" });
       }
 
-      // Check if this transaction has already been processed
+      // Check if this exact transaction ID has already been processed to prevent double-processing the same RevenueCat transaction
+      // But allow multiple separate purchases of the same product
       const existingTransaction = await storage.getCreditTransactionByTransactionId(transactionId);
       if (existingTransaction) {
-        return res.status(400).json({ message: "Transaction already processed" });
+        console.log(`🔄 Duplicate transaction ID detected: ${transactionId} for user ${userId}`);
+        console.log(`📱 Previous transaction: ${JSON.stringify(existingTransaction)}`);
+        
+        // For the same exact transaction ID, we return success but don't add credits again
+        // This handles RevenueCat caching/retry scenarios
+        const user = await storage.getUser(userId);
+        const { password, ...userWithoutPassword } = user;
+        
+        return res.json({ 
+          success: true, 
+          user: userWithoutPassword,
+          creditsAdded: 0,
+          message: "Transaction already processed - no additional credits added",
+          isRepeatTransaction: true
+        });
       }
 
       const user = await storage.getUser(userId);
