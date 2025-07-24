@@ -150,13 +150,10 @@
     overscroll-behavior: contain;
   }
 
-  /* Native mobile - NO smooth scrolling */
+  /* Native mobile - disable smooth scrolling */
   .capacitor .smooth-scroll,
-  .native-mobile .smooth-scroll,
-  .capacitor [data-scroll="smooth"],
-  .native-mobile [data-scroll="smooth"] {
+  .native-mobile .smooth-scroll {
     scroll-behavior: auto !important;
-    -webkit-scroll-behavior: auto !important;
   }
 
   /* Native Mobile Scrolling - NO smooth scrolling for better performance */
@@ -168,14 +165,15 @@
     will-change: auto !important;
   }
 
-  /* Capacitor/Native Mobile - Disable ALL smooth scrolling */
-  .capacitor .mobile-scroll,
-  .native-mobile .mobile-scroll,
+  /* Native mobile only - disable smooth scrolling */
+  .capacitor,
+  .native-mobile {
+    scroll-behavior: auto !important;
+  }
+  
   .capacitor *,
   .native-mobile * {
     scroll-behavior: auto !important;
-    -webkit-scroll-behavior: auto !important;
-    -webkit-overflow-scrolling: touch !important;
   }
 
   /* Apply to main content areas - Web only */
@@ -187,44 +185,21 @@
     overscroll-behavior: contain;
   }
 
-  /* Native mobile main content - NO smooth scrolling */
+  /* Native mobile main content - disable smooth scrolling only */
   .capacitor main,
-  .native-mobile main,
-  .capacitor .main-content,
-  .native-mobile .main-content,
-  .capacitor .page-content,
-  .native-mobile .page-content {
+  .native-mobile main {
     scroll-behavior: auto !important;
-    -webkit-scroll-behavior: auto !important;
-    -webkit-overflow-scrolling: touch !important;
+    -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
 
-  /* Native Mobile-First Header Positioning */
+  /* Header positioning - SIMPLE AND RELIABLE */
   header {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     z-index: 9998 !important;
-    transform: none !important;
-    will-change: auto !important;
-    contain: none !important;
-  }
-
-  /* Capacitor Native App Fixes */
-  .capacitor header {
-    position: fixed !important;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
-  }
-
-  /* Remove ALL transforms from containers that can break fixed positioning */
-  body, html, #root, .main-container, .page-container, main, .mobile-scroll {
-    transform: none !important;
-    will-change: auto !important;
-    isolation: auto !important;
-    contain: none !important;
   }
 
   /* iOS specific scrolling improvements */
@@ -284,23 +259,16 @@
     -webkit-backface-visibility: hidden;
   }
 
-  /* Native Mobile Bottom Navigation - Fixed Positioning */
+  /* Bottom navigation - RESTORE ORIGINAL WORKING VERSION */
   .bottom-nav-container {
     position: fixed !important;
     bottom: calc(24px + env(safe-area-inset-bottom, 0px));
     left: 50%;
-    z-index: 9999 !important;
-    will-change: auto !important;
-    /* Use margins instead of transform for centering in native apps */
-    margin-left: -95px; /* Half width of nav container */
-    transform: none !important;
-  }
-
-  /* Capacitor-specific bottom nav fixes */
-  .capacitor .bottom-nav-container {
-    position: fixed !important;
-    -webkit-transform: none !important;
-    transform: none !important;
+    transform: translateX(-50%) translateZ(0);
+    z-index: 9999;
+    will-change: auto;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
 
   /* Mobile scrolling utilities - no smooth scrolling */
