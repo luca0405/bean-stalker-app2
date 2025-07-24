@@ -77,11 +77,11 @@ export default function MenuPage() {
   }, [refreshMenu, notifySuccess, notifyError]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 mobile-scroll">
       <AppHeader />
       
-      <div className="flex-1 overflow-y-auto scrollable">
-        <main className="p-4 max-w-6xl mx-auto main-content-with-header">
+      <div className="flex-1 overflow-y-auto mobile-scroll">
+        <main className="p-4 max-w-6xl mx-auto main-content-with-header mobile-scroll">
           {/* Enhanced Header Section */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 mb-6 shadow-sm border border-white/20">
             <div className="flex justify-between items-center">

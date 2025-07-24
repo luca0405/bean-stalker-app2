@@ -34,8 +34,12 @@ export default function OrdersPage() {
     isRefetching,
   } = useQuery<Order[], Error>({
     queryKey: ["/api/orders"],
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false, // Disable excessive refetching to improve scroll performance
     refetchOnMount: true,
+    refetchInterval: false, // Completely disable polling
+    refetchOnReconnect: false, // Don't refetch on network reconnect
+    staleTime: 10 * 60 * 1000, // Consider data fresh for 10 minutes
+    gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
   });
 
   const sortedOrders = [...orders].sort(
@@ -66,11 +70,11 @@ export default function OrdersPage() {
   }, [queryClient]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary">
+    <div className="min-h-screen flex flex-col bg-secondary mobile-scroll">
       <AppHeader />
 
-      <div className="flex-1 overflow-y-auto scrollable">
-        <main className="p-5 main-content-with-header">
+      <div className="flex-1 overflow-y-auto mobile-scroll">
+        <main className="p-5 main-content-with-header mobile-scroll">
           <div className="flex justify-between items-center mb-4">
             <h1 className="font-semibold text-2xl text-primary">Order History</h1>
             <Button 

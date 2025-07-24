@@ -106,8 +106,8 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <AppHeader />
       
-      <main className="pt-safe pb-24 px-5">
-        <div className="max-w-2xl mx-auto py-6">
+      <main className="pb-24 px-5 main-content-with-header">
+        <div className="max-w-2xl mx-auto py-2">
           <div className="flex items-center justify-between mb-6">
             <h1 className="font-semibold text-2xl text-primary">Profile Settings</h1>
           </div>

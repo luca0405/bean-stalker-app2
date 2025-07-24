@@ -53,7 +53,17 @@ export function BottomNav() {
   }
 
   return (
-    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+    <div 
+      className="fixed left-1/2 z-[9999]" 
+      style={{ 
+        position: 'fixed',
+        bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 9999,
+        pointerEvents: 'auto'
+      }}
+    >
       <nav className="bg-green-800 backdrop-blur-xl border border-green-700/50 rounded-full shadow-2xl px-4 py-2">
         <div className="flex items-center space-x-2">
           {navItems.map((item) => {

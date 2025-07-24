@@ -8,8 +8,8 @@
   }
 
   html {
-    /* Enable smooth scrolling globally */
-    scroll-behavior: smooth;
+    /* Disable smooth scrolling to fix fixed positioning */
+    scroll-behavior: auto;
     /* Improve scrolling on iOS Safari */
     -webkit-overflow-scrolling: touch;
     /* Prevent overscroll bounce on iOS */
@@ -26,61 +26,189 @@
     overscroll-behavior: none;
     /* Ensure body takes full height */
     min-height: 100vh;
-    /* Enable GPU acceleration for smooth scrolling */
-    transform: translate3d(0, 0, 0);
+    /* Remove transform that breaks fixed positioning */
+    position: static;
   }
 
-  /* Smooth scrolling for all scrollable elements */
+  /* Optimized scrolling for all scrollable elements */
   * {
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
+    scroll-behavior: auto; /* Disable smooth scrolling globally for better performance */
   }
 
   /* Fix main app scrolling */
   #root {
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
     overscroll-behavior: none;
-    /* Enable GPU acceleration */
-    transform: translate3d(0, 0, 0);
     /* Ensure full height */
     min-height: 100vh;
+    /* Remove transforms that break fixed positioning */
+    position: static;
   }
 
   /* Main content areas */
   main, .main-content {
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
     overscroll-behavior: none;
-    /* Enable GPU acceleration for smooth scrolling */
-    transform: translate3d(0, 0, 0);
+    /* Remove transforms that can break fixed positioning */
+    position: static;
   }
 
-  /* Enhanced scrolling for mobile containers */
+  /* Enhanced scrolling for mobile containers - optimized for performance */
   .scrollable {
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
+    scroll-behavior: auto; /* Disable smooth scrolling for better performance */
     overscroll-behavior: none;
-    transform: translate3d(0, 0, 0);
+    contain: layout style paint; /* Optimize rendering performance */
+    will-change: auto; /* Remove will-change to prevent excessive GPU usage */
   }
 
-  /* Fixed header compensation for pages */
+  /* Fixed header compensation for pages - DEFINITIVE FIX */
   .main-content-with-header {
-    padding-top: calc(32px + env(safe-area-inset-top, 0px) + 80px);
+    padding-top: calc(env(safe-area-inset-top, 20px) + 100px) !important; /* Reduced to 100px header clearance */
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important; /* Add space for bottom nav */
+  }
+
+  /* Popup containers should NOT have header compensation */
+  .popup-container,
+  .popup-content,
+  [role="dialog"],
+  [data-radix-dialog-content],
+  [data-radix-dialog-overlay],
+  .dialog-content {
+    padding-top: 0 !important; /* Reset header padding for popups */
+  }
+
+  /* Ensure full-screen popups appear above header and floating menu */
+  .popup-container {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 10000 !important; /* Higher than header (9998) and floating menu (9999) */
+  }
+
+  /* All dialog components should have high z-index */
+  [role="dialog"],
+  [data-radix-dialog-content],
+  [data-radix-dialog-overlay] {
+    z-index: 10000 !important;
+  }
+
+  /* Product Detail Modal should appear above floating menu */
+  .product-detail-modal,
+  .product-modal-overlay,
+  .product-modal-content {
+    z-index: 10000 !important;
+  }
+
+  /* Cart Dialog full-screen styling */
+  [data-radix-dialog-content].popup-container {
+    width: 95vw !important;
+    max-width: 1024px !important;
+    height: 95vh !important;
+    max-height: 95vh !important;
+    margin: auto !important;
+  }
+
+  /* iOS-style native select styling */
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+  
+  /* Ensure modal scrolling works properly */
+  .product-modal-content {
+    position: relative;
+    z-index: 10000;
+  }
+
+  /* Global smooth scrolling for entire app */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Smooth scrolling for all scrollable containers */
+  * {
+    scroll-behavior: smooth;
+  }
+
+  /* Enhanced mobile scrolling */
+  .smooth-scroll,
+  [data-scroll="smooth"] {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Smooth momentum scrolling for mobile - removed transform to avoid breaking fixed positioning */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior-y: contain;
+    /* Removed transform: translate3d(0, 0, 0) as it breaks fixed positioning */
+  }
+
+  /* Apply to main content areas */
+  main,
+  .main-content,
+  .page-content {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Ensure app header stays truly fixed across ALL pages */
+  header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 9998 !important;
+    transform: none !important; /* Remove any transforms that break fixed positioning */
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Prevent page containers from creating stacking contexts that break fixed positioning */
+  .main-container,
+  .page-container,
+  main {
+    transform: none !important; /* Remove any transforms that create stacking contexts */
+    will-change: auto !important;
+    isolation: auto !important;
+  }
+
+  /* Force header to be fixed relative to viewport, not any parent container */
+  body > div:first-child header,
+  #root header,
+  [data-reactroot] header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 9998 !important;
   }
 
   /* iOS specific scrolling improvements */
   @supports (-webkit-touch-callout: none) {
     body {
-      /* iOS Safari specific improvements */
-      -webkit-transform: translate3d(0, 0, 0);
+      /* iOS Safari specific improvements - remove transforms that break fixed positioning */
       -webkit-backface-visibility: hidden;
       -webkit-perspective: 1000;
     }
     
     .scrollable, main {
-      /* Enable hardware acceleration on iOS */
-      -webkit-transform: translate3d(0, 0, 0);
+      /* iOS scrolling without transforms that break fixed positioning */
       -webkit-backface-visibility: hidden;
       -webkit-perspective: 1000;
     }
@@ -120,9 +248,29 @@
     width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
   }
 
-  /* Mobile smooth scrolling utilities */
+  /* Ensure fixed elements stay truly fixed */
+  .fixed-element {
+    position: fixed !important;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Bottom navigation specific fixes */
+  .bottom-nav-container {
+    position: fixed !important;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%) translateZ(0);
+    z-index: 9999;
+    will-change: auto;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Mobile scrolling utilities - no smooth scrolling */
   .smooth-scroll {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
@@ -166,7 +314,7 @@
     background: linear-gradient(to bottom right, rgb(248 250 252), rgb(241 245 249));
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
   }
 
   /* Dropdown menus need higher z-index than popups */

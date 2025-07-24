@@ -3179,17 +3179,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         apiKeyConfigured: !!process.env.VITE_REVENUECAT_API_KEY,
         bundleId: 'com.beanstalker.member',
         expectedProducts: [
-          'com.beanstalker.credit25',
-          'com.beanstalker.credit50', 
-          'com.beanstalker.credit100',
+          'com.beanstalker.credits25',
+          'com.beanstalker.credits50', 
+          'com.beanstalker.credits100',
           'com.beanstalker.membership69'
         ],
         configuration: {
           webhookUrl: 'https://member.beanstalker.com.au/api/revenuecat/webhook',
           creditStructure: {
-            'com.beanstalker.credit25': { purchase: 25, credits: 29.50, bonus: 4.50 },
-            'com.beanstalker.credit50': { purchase: 50, credits: 59.90, bonus: 9.90 },
-            'com.beanstalker.credit100': { purchase: 100, credits: 120.70, bonus: 20.70 },
+            'com.beanstalker.credits25': { purchase: 25, credits: 29.50, bonus: 4.50 },
+            'com.beanstalker.credits50': { purchase: 50, credits: 59.90, bonus: 9.90 },
+            'com.beanstalker.credits100': { purchase: 100, credits: 120.70, bonus: 20.70 },
             'com.beanstalker.membership69': { purchase: 69, credits: 69, bonus: 0 }
           }
         },

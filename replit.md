@@ -633,6 +633,29 @@ Changelog:
   - Only checks for duplicates on actual RevenueCat transaction IDs to prevent genuine fraud
   - Added comprehensive debug logging for IAP purchase tracking and verification
   - Users can now successfully purchase multiple $25, $50, or $100 credit packages without restrictions
+  - System still prevents double-processing of the exact same RevenueCat transaction ID for fraud protection
+- July 24, 2025. Product ID mismatch and excessive API requests completely resolved
+  - Fixed critical server-side RevenueCat webhook handler supporting new Product IDs with "credits" plural form
+  - Confirmed working: com.beanstalker.credits25 → 29.5 credits, com.beanstalker.credits50 → 59.9 credits, com.beanstalker.credits100 → 120.7 credits
+  - Eliminated excessive /api/orders requests causing scrolling performance degradation by disabling iOS notification context polling
+  - Disabled push notification context polling that was triggering hundreds of API requests per minute
+  - Updated React Query configurations with proper caching and disabled automatic refetching
+  - Credits now update immediately in Available Balance after IAP purchases via proper webhook processing
+  - Fixed mobile app performance issues by removing continuous background API polling
+- July 24, 2025. Header overlap definitively fixed across all pages with forced CSS and popup exclusions
+  - Root cause: Tailwind CSS padding classes were overriding main-content-with-header class
+  - Implemented !important CSS declaration to force 100px header clearance across all pages
+  - Removed ALL conflicting Tailwind padding classes (pt-6, pt-8) from main elements
+  - Applied main-content-with-header class to ALL pages: home, menu, orders, cart, admin, profile, favorites
+  - CSS now calculates: padding-top = safe-area-inset-top(20px) + 100px = 120px total header clearance
+  - Fixed header covering "Our Menu" text, "Hi Username" text, and all page headers definitively
+  - Added CSS exclusions for popup containers to prevent header padding on full-screen dialogs
+  - Popup containers (.popup-container, [role="dialog"], [data-radix-dialog-content]) now start from screen top
+  - Fixed Buy Credits, Send Credits, Profile, and Favorites popups being pushed down by header padding
+  - Enhanced z-index hierarchy: popups (10000) > floating menu (9999) > header (9998)
+  - All full-screen popups now display above both header and floating menu with proper layering
+  - Floating menu positioning maintained with proper safe area support
+  - All pages have consistent header spacing while popups display full-screen without interference $50, or $100 credit packages without restrictions
   - Fixed client-side notification handling for repeat transaction scenarios with native notifications
 ```
 
@@ -641,4 +664,5 @@ Changelog:
 ```
 Preferred communication style: Simple, everyday language.
 Typography: Manrope font family across the entire application.
+Native mobile-first approach: All UI components must use native HTML elements (select, input, button, etc.) instead of custom React components to ensure proper mobile functionality and avoid z-index/overlay issues.
 ```

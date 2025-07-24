@@ -35,8 +35,10 @@ export default function HomePage() {
   const { data: orders = [] } = useQuery<Order[], Error>({
     queryKey: ["/api/orders"],
     refetchOnWindowFocus: false,
-    refetchOnMount: true,
+    refetchOnMount: false, // Completely disable automatic loading
     refetchInterval: false, // Completely disable automatic polling - let notifications handle updates
+    staleTime: Infinity, // Never consider stale - only update via notifications
+    enabled: false, // Start disabled, only fetch when manually triggered
   });
 
   // Fetch favorites for the popup
@@ -67,6 +69,14 @@ export default function HomePage() {
     },
   });
   
+  // Manually trigger orders fetch only when needed
+  useEffect(() => {
+    if (user) {
+      // Only fetch once on mount, then rely on notifications for updates
+      queryClient.fetchQuery({ queryKey: ["/api/orders"] });
+    }
+  }, [user]);
+
   // Add an effect to register and handle service worker message events for notifications
   useEffect(() => {
     if (!user) return;
@@ -181,10 +191,10 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 mobile-scroll">
       <AppHeader />
       
-      <main className="flex-1 px-6 py-8 max-w-7xl mx-auto w-full main-content-with-header">
+      <main className="flex-1 px-6 max-w-7xl mx-auto w-full main-content-with-header mobile-scroll">
         {/* Welcome Section */}
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-gray-900 mb-1">Hi, {user?.fullName || user?.username}</h1>

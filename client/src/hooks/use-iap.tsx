@@ -3,7 +3,7 @@ import { iapService, IAPProduct, PurchaseResult } from '@/services/iap-service';
 import { useAuth } from './use-auth';
 import { useToast } from './use-toast';
 import { useNativeNotifications } from './use-native-notifications';
-import { apiRequest } from '@/lib/queryClient';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 interface IAPContextType {
   isInitialized: boolean;
@@ -120,8 +120,9 @@ export function IAPProvider({ children }: { children: ReactNode }) {
           return;
         }
         
-        // Refresh user data to get updated credits/membership
-        window.location.reload();
+        // Refresh user data to get updated credits/membership using React Query
+        await queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+        notifySuccess("Purchase Successful!", `Credits have been added to your account!`);
       } else {
         // Handle error cases
         const errorData = await response.json();

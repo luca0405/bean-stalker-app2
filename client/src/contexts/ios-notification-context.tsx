@@ -195,9 +195,10 @@ export function useIOSNotificationService() {
       try {
         console.log('Checking for order updates via in-app notifications');
         
-        // Check for new order updates
-        const response = await apiRequest('GET', `/api/orders`);
-        const orders = await response.json();
+        // TEMPORARILY DISABLED - excessive API requests causing performance issues
+        // const response = await apiRequest('GET', `/api/orders`);
+        // const orders = await response.json();
+        const orders = []; // Empty array to prevent polling
         
         if (!orders || orders.length === 0) {
           // No orders to process, but still mark first load as complete

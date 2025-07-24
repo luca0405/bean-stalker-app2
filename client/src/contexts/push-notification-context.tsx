@@ -233,23 +233,24 @@ export function PushNotificationProvider({ children }: { children: ReactNode }) 
             window.clearInterval(pollingIntervalRef.current);
           }
           
+          // TEMPORARILY DISABLED - excessive API requests causing performance issues
           // Poll every 30 seconds for 60 seconds to further reduce server load
-          let pollCount = 0;
-          pollingIntervalRef.current = window.setInterval(() => {
-            if (pollCount < 2) { // 2 * 30 seconds = 60 seconds
-              console.log('Polling orders (notification triggered) - 30s interval');
-              queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
-              if (orderId) {
-                queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
-              }
-              pollCount++;
-            } else {
-              if (pollingIntervalRef.current) {
-                window.clearInterval(pollingIntervalRef.current);
-                pollingIntervalRef.current = null;
-              }
-            }
-          }, 3000);
+          // let pollCount = 0;
+          // pollingIntervalRef.current = window.setInterval(() => {
+          //   if (pollCount < 2) { // 2 * 30 seconds = 60 seconds
+          //     console.log('Polling orders (notification triggered) - 30s interval');
+          //     queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+          //     if (orderId) {
+          //       queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
+          //     }
+          //     pollCount++;
+          //   } else {
+          //     if (pollingIntervalRef.current) {
+          //       window.clearInterval(pollingIntervalRef.current);
+          //       pollingIntervalRef.current = null;
+          //     }
+          //   }
+          // }, 3000);
         } else {
           // For non-order notifications, show a standard native notification
           notifySuccess(event.data.title || 'Notification', event.data.body || 'You have a new notification');

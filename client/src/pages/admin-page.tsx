@@ -1690,7 +1690,7 @@ export default function AdminPage() {
     <div className="min-h-screen flex flex-col bg-secondary w-full">
       <AppHeader />
 
-      <main className="flex-1 p-5 container mx-auto max-w-5xl">
+      <main className="flex-1 p-5 container mx-auto max-w-5xl main-content-with-header">
         <div className="flex items-center justify-between mb-4">
           <h1 className="font-semibold text-2xl text-primary">Admin Dashboard</h1>
         </div>
