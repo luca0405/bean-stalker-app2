@@ -546,6 +546,21 @@ Changelog:
   - Updated Transaction History component to show all transactions without max-height limits
   - Fixed Favorites popup to display all items without scroll container restrictions
   - Optimized user experience by eliminating nested scroll areas and utilizing popup-level scrolling
+- July 24, 2025. Mobile app product image loading issue completely resolved
+  - Updated menu storage to use actual available images instead of placeholder paths
+  - Fixed static file serving with CORS headers for mobile app compatibility
+  - Added Capacitor environment detection and absolute URL handling for native apps
+  - Implemented smart fallback strategy: server images → base64 SVG icons → category-specific fallbacks
+  - Created base64 SVG icons that work reliably on all mobile platforms (coffee and breakfast icons)
+  - Enhanced error handling with platform-specific fallback strategies
+  - Server image updates now load on native mobile with automatic fallback for reliability
+- July 24, 2025. RevenueCat native vs web platform issue investigation initiated
+  - Created comprehensive RevenueCat diagnostic tool for real-time native app troubleshooting
+  - Root cause identified: Web uses development mode (simulated IAP) while native needs real RevenueCat SDK
+  - Key issues: API key propagation, user ID mapping, sandbox account configuration, bundle ID matching
+  - Diagnostic shows platform detection, payment capability, customer info, and offerings status
+  - Common solutions: verify sandbox Apple ID, check VITE_REVENUECAT_API_KEY, ensure bundle ID matches RevenueCat app
+  - Enhanced Buy Credits page with native-only diagnostic component for real-time debugging
 ```
 
 ## User Preferences

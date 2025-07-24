@@ -1,5 +1,6 @@
 import { Purchases, PurchasesOffering, PurchasesPackage, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
+import { FALLBACK_REVENUECAT_CONFIG } from './fallback-iap-config';
 
 export interface IAPProduct {
   id: string;
@@ -44,17 +45,25 @@ class IAPService {
     }
     
     // Native platform - always use RevenueCat
-    if (!import.meta.env.VITE_REVENUECAT_API_KEY) {
-      console.error('IAP: VITE_REVENUECAT_API_KEY is required for native platforms');
+    // Use fallback configuration system
+    const diagnostic = FALLBACK_REVENUECAT_CONFIG.diagnose();
+    console.log('IAP: Configuration diagnostic:', diagnostic);
+    
+    const apiKey = FALLBACK_REVENUECAT_CONFIG.getApiKey();
+    if (!apiKey) {
+      console.error('IAP: RevenueCat API key is not available');
+      console.error('IAP: This indicates a critical build configuration issue');
+      console.error('IAP: Environment diagnostic:', diagnostic);
       return false;
     }
 
     try {
       // Configure RevenueCat for production with enhanced logging
       await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
-      
-      const apiKey = import.meta.env.VITE_REVENUECAT_API_KEY;
-      console.log('IAP: Configuring RevenueCat with API key present:', !!apiKey);
+      console.log('IAP: Configuring RevenueCat...');
+      console.log('IAP: API Key present:', !!apiKey);
+      console.log('IAP: API Key length:', apiKey?.length);
+      console.log('IAP: API Key prefix:', apiKey?.substring(0, 8) + '...');
       
       await Purchases.configure({
         apiKey,
@@ -127,6 +136,11 @@ class IAPService {
         }
       } else {
         console.warn('IAP: No offerings found at all');
+        console.warn('IAP: This usually means:');
+        console.warn('  1. App Store Connect products are not "Ready for Sale"');
+        console.warn('  2. RevenueCat hasn\'t synced with App Store Connect');
+        console.warn('  3. Bundle ID mismatch between iOS app and RevenueCat');
+        console.warn('  4. No offerings configured in RevenueCat Dashboard');
         this.offerings = [];
       }
       
@@ -141,7 +155,12 @@ class IAPService {
       });
       
       if (this.offerings.length === 0) {
-        console.warn('IAP: No offerings available - check App Store Connect product configuration');
+        console.error('IAP: ❌ ZERO PRODUCTS FOUND - Common fixes:');
+        console.error('  1. Check App Store Connect: Products must be "Ready for Sale"');
+        console.error('  2. Check Bundle ID: iOS app (com.beanstalker.member) must match RevenueCat app');
+        console.error('  3. Check RevenueCat Dashboard: Create an offering with your products');
+        console.error('  4. Wait 1-2 hours after changing App Store Connect status');
+        console.error('  5. Verify sandbox Apple ID is signed in on device');
       }
     } catch (error) {
       console.error('IAP: Failed to load offerings', error);

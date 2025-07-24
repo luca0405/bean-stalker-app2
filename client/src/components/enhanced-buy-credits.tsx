@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Capacitor } from '@capacitor/core';
 import { useIAP } from '@/hooks/use-iap';
 import { useToast } from '@/hooks/use-toast';
-import { RevenueCatDiagnostic } from '@/components/revenuecat-diagnostic';
+import { RevenueCatTroubleshooter } from '@/components/revenuecat-troubleshooter';
 
 import { formatCurrency } from '@/lib/utils';
 import { CreditCard, ShoppingBag, Star, Gift, Smartphone } from 'lucide-react';
@@ -199,14 +199,14 @@ export function EnhancedBuyCredits() {
         </Card>
       </motion.div>
 
-      {/* RevenueCat Diagnostic - Only show on native platforms for debugging */}
+      {/* RevenueCat Troubleshooter - Only show on native platforms for debugging */}
       {isNative && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.4 }}
         >
-          <RevenueCatDiagnostic />
+          <RevenueCatTroubleshooter />
         </motion.div>
       )}
 

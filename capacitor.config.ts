@@ -39,6 +39,10 @@ const config: CapacitorConfig = {
       enabled: true,
     },
   },
+  ios: {
+    // Ensure App Transport Security allows image loading
+    contentInset: 'automatic'
+  },
 };
 
 export default config;

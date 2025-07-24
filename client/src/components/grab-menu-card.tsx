@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { getMobileCompatibleImageUrl } from "@/utils/mobile-image-utils";
 
 interface GrabMenuCardProps {
   item: MenuItem;
@@ -15,6 +16,9 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // Get mobile-compatible image URL using utility function  
+  const imageUrl = getMobileCompatibleImageUrl(item.imageUrl, item.category);
 
   const { data: favoriteStatus } = useQuery({
     queryKey: ['/api/favorites', item.id],
@@ -100,24 +104,37 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
     >
       {/* Product Image */}
       <div className="aspect-square w-full bg-gray-100 relative overflow-hidden">
-        {item.imageUrl ? (
-          <img 
-            src={item.imageUrl} 
-            alt={item.name}
-            className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-            onError={(e) => {
-              console.log(`Failed to load image: ${item.imageUrl} for ${item.name}`);
-              // Hide the broken image and show fallback
-              (e.target as HTMLImageElement).style.display = 'none';
-              if (e.target?.parentElement) {
-                const fallback = e.target.parentElement.querySelector('.image-fallback');
-                if (fallback) {
-                  (fallback as HTMLElement).style.display = 'flex';
-                }
+        <img 
+          src={imageUrl} 
+          alt={item.name}
+          className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+          onError={(e) => {
+            const isCapacitor = !!(window as any).Capacitor;
+            console.log(`Failed to load image: ${imageUrl} for ${item.name}`);
+            console.log(`Platform info: protocol=${window.location.protocol}, hostname=${window.location.hostname}, isCapacitor=${isCapacitor}`);
+            
+            // For native apps, fallback to appropriate category icon
+            if (isCapacitor && !imageUrl.startsWith('data:')) {
+              const fallbackIcon = item.category?.includes('breakfast') || item.category?.includes('lunch') 
+                ? getMobileCompatibleImageUrl(null, 'breakfast')
+                : getMobileCompatibleImageUrl(null, 'coffee');
+              (e.target as HTMLImageElement).src = fallbackIcon;
+              return;
+            }
+            
+            // Hide the broken image and show fallback
+            (e.target as HTMLImageElement).style.display = 'none';
+            if (e.target?.parentElement) {
+              const fallback = e.target.parentElement.querySelector('.image-fallback');
+              if (fallback) {
+                (fallback as HTMLElement).style.display = 'flex';
               }
-            }}
-          />
-        ) : null}
+            }
+          }}
+          onLoad={() => {
+            console.log(`Successfully loaded image: ${imageUrl} for ${item.name}`);
+          }}
+        />
         <div 
           className={`h-full w-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700 image-fallback ${item.imageUrl ? 'hidden' : ''}`}
         >
