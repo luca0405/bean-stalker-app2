@@ -2,6 +2,7 @@ import { Purchases, PurchasesOffering, PurchasesPackage, LOG_LEVEL } from '@reve
 import { Capacitor } from '@capacitor/core';
 import { FALLBACK_REVENUECAT_CONFIG } from './fallback-iap-config';
 import { SANDBOX_IAP_CONFIG } from './sandbox-iap-override';
+import { SandboxForceOverride } from './sandbox-force-override';
 
 export interface IAPProduct {
   id: string;
@@ -35,8 +36,6 @@ class IAPService {
   };
 
   async initialize(): Promise<boolean> {
-    // Force development mode for native platform when env shows production
-    // This enables sandbox IAP testing even when build shows prod:true
     const isWebPlatform = !Capacitor.isNativePlatform();
     
     if (isWebPlatform) {
@@ -45,57 +44,26 @@ class IAPService {
       return true;
     }
     
-    // Force sandbox mode for native iOS testing
-    console.log('IAP: Native platform detected - forcing sandbox mode for testing');
-    console.log('IAP: Environment mode:', import.meta.env.MODE);
-    console.log('IAP: Environment prod:', import.meta.env.PROD);
-    console.log('IAP: Overriding to sandbox mode for RevenueCat testing');
+    // ===== COMPREHENSIVE SANDBOX FORCE OVERRIDE =====
+    console.log('🔥 IAP: IMPLEMENTING COMPREHENSIVE SANDBOX FORCE OVERRIDE');
+    console.log('🔥 IAP: This completely bypasses ALL environment detection');
     
-    // Native platform - always use RevenueCat
-    // Use fallback configuration system
-    const diagnostic = FALLBACK_REVENUECAT_CONFIG.diagnose();
-    console.log('IAP: Configuration diagnostic:', diagnostic);
-    
-    const apiKey = FALLBACK_REVENUECAT_CONFIG.getApiKey();
-    if (!apiKey) {
-      console.error('IAP: RevenueCat API key is not available');
-      console.error('IAP: This indicates a critical build configuration issue');
-      console.error('IAP: Environment diagnostic:', diagnostic);
-      return false;
-    }
-
     try {
-      // Configure RevenueCat with sandbox override
-      await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
-      
-      // Use sandbox configuration override
-      const sandboxConfig = SANDBOX_IAP_CONFIG.getRevenueCatConfig();
-      const envDebug = SANDBOX_IAP_CONFIG.debugEnvironment();
-      
-      console.log('IAP: Environment debug:', envDebug);
-      console.log('IAP: Using sandbox override configuration');
-      
-      await Purchases.configure(sandboxConfig);
-      console.log('IAP: RevenueCat configured in SANDBOX mode with user ID 32');
-
-      // Check if In-App Purchases are available on device
-      const canMakePayments = await Purchases.canMakePayments();
-      console.log('IAP: Device can make payments:', canMakePayments);
-      
-      if (!canMakePayments) {
-        console.error('IAP: Device cannot make payments - IAP restricted or not available');
+      // Use comprehensive sandbox force override
+      const initSuccess = await SandboxForceOverride.initializeForcesSandbox();
+      if (!initSuccess) {
+        console.error('🔥 IAP: Sandbox force initialization failed');
         return false;
       }
-
-      // Get available offerings
-      await this.loadOfferings();
+      
+      // Use aggressive offerings reload
+      const loadedOfferings = await SandboxForceOverride.aggressiveOfferingsReload();
+      this.offerings = loadedOfferings;
       
       this.isInitialized = true;
-      console.log('IAP: Service initialized successfully with', this.offerings.length, 'offerings');
-      
-      // Force reload offerings to ensure fresh data
-      console.log('IAP: Force reloading offerings to check for updates...');
-      await this.loadOfferings();
+      console.log('🔥 IAP: SANDBOX FORCE COMPLETE');
+      console.log('🔥 IAP: Final offerings loaded:', this.offerings.length);
+      console.log('🔥 IAP: Debug environment:', SandboxForceOverride.getDebugEnvironment());
       
       return true;
     } catch (error) {
