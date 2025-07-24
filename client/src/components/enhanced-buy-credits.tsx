@@ -6,6 +6,7 @@ import { Capacitor } from '@capacitor/core';
 import { useIAP } from '@/hooks/use-iap';
 import { useToast } from '@/hooks/use-toast';
 import { RevenueCatTroubleshooter } from '@/components/revenuecat-troubleshooter';
+import { RevenueCatForceReload } from '@/components/revenuecat-force-reload';
 
 import { formatCurrency } from '@/lib/utils';
 import { CreditCard, ShoppingBag, Star, Gift, Smartphone } from 'lucide-react';
@@ -207,6 +208,17 @@ export function EnhancedBuyCredits() {
           transition={{ delay: 0.4 }}
         >
           <RevenueCatTroubleshooter />
+        </motion.div>
+      )}
+
+      {/* Force Reload Component - Additional debugging */}
+      {isNative && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          <RevenueCatForceReload />
         </motion.div>
       )}
 

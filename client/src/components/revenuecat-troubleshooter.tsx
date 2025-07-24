@@ -62,12 +62,16 @@ export function RevenueCatTroubleshooter() {
       if (Capacitor.isNativePlatform() && apiKey) {
         try {
           await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+          console.log('🔧 Configuring RevenueCat with API key:', apiKey.substring(0, 12) + '...');
           await Purchases.configure({
             apiKey,
             appUserID: '32', // Set the specific user ID immediately
           });
           results.initialization = { success: true };
           console.log('✅ RevenueCat configured with user ID 32');
+          
+          // Wait a moment for initialization to complete
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (error) {
           results.initialization = { success: false, error: String(error) };
           results.errors.push(`SDK initialization failed: ${error}`);
@@ -101,10 +105,14 @@ export function RevenueCatTroubleshooter() {
           results.warnings.push(`Customer info error: ${error}`);
         }
 
-        // Step 5: Offerings
+        // Step 5: Offerings  
         setStep(5);
         try {
+          console.log('🎁 Fetching offerings from RevenueCat...');
           const offerings = await Purchases.getOfferings();
+          console.log('🎁 Raw offerings response received');
+          console.log('🎁 Full offerings object:', JSON.stringify(offerings, null, 2));
+          
           results.offerings = {
             hasCurrentOffering: !!offerings.current,
             currentOfferingId: offerings.current?.identifier,

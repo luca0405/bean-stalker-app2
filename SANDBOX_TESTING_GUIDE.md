@@ -1,127 +1,94 @@
-# Sandbox Testing Guide - No Review Required
+# Sandbox IAP Testing Guide
 
-## Testing IAP Without Apple Review
+## How to Test In-App Purchases in TestFlight
 
-You can test your `com.beanstalker.member` product immediately using Apple's Sandbox environment - no review submission needed!
+### 1. Sandbox Apple ID Setup
+1. **Create Sandbox Apple ID**:
+   - Go to App Store Connect → Users & Access → Sandbox Testers
+   - Create a new sandbox Apple ID (use different email from real Apple ID)
+   - Note: Don't use your real Apple ID for sandbox testing
 
-### Step 1: Create Sandbox Product (No Review)
-1. Go to App Store Connect → My Apps → Bean Stalker → Features → In-App Purchases
-2. Create product with ID: `com.beanstalker.member`
-3. Set all required fields (name, description, price)
-4. **Important**: Do NOT click "Submit for Review"
-5. Product status will show "Ready to Submit" - this is perfect for testing
+2. **Sign into Sandbox Account**:
+   - On your iPhone: Settings → App Store → Sandbox Account → Sign In
+   - Use the sandbox Apple ID you just created
+   - Keep your real Apple ID signed in to regular App Store
 
-### Step 2: Create Sandbox Test Account
-1. In App Store Connect, go to **Users and Access**
-2. Click **Sandbox Testers** tab
-3. Click **"+"** to create new tester
-4. Fill in details:
-   - **Email**: Use a NEW email (not associated with any Apple ID)
-   - **Password**: Create secure password
-   - **First/Last Name**: Any name
-   - **Country**: Australia (to match your AUD pricing)
-   - **Date of Birth**: 18+ years old
+### 2. TestFlight App Installation
+1. **Install from TestFlight**:
+   - Download latest Bean Stalker build from TestFlight
+   - Ensure you're testing the Debug build (not Release)
 
-### Step 3: Configure Your Device for Testing
-**On your iOS device/simulator:**
-1. Go to **Settings → App Store**
-2. Sign out of your regular Apple ID
-3. Scroll down to **Sandbox Account**
-4. Sign in with your new sandbox test account
+2. **Verify Sandbox Environment**:
+   - IAP purchases should show sandbox pricing
+   - "Sandbox" should appear in purchase dialogs
 
-### Step 4: Build and Install App
-```bash
-# Build the app
-npm run build
+### 3. Making Sandbox Purchases
+1. **Test Credit Packages**:
+   - Open Buy Credits page in Bean Stalker app
+   - Select any credit package ($25, $50, $100, or $69 membership)
+   - Tap "Purchase" button
 
-# Sync with iOS
-npx cap sync ios
+2. **Sandbox Purchase Flow**:
+   - iOS will show purchase dialog with sandbox account
+   - Confirm purchase (no real money charged)
+   - Purchase should complete and credits added to account
 
-# Open in Xcode
-npx cap open ios
-```
+### 4. Debugging IAP Issues
+1. **Force Reload RevenueCat**:
+   - Use "Force Reload RevenueCat" button in Buy Credits page
+   - This retries offerings fetch multiple times
+   - Check console logs for detailed error messages
 
-### Step 5: Test Purchase Flow
-1. Run app on device (not simulator for real IAP testing)
-2. Navigate to registration or buy credits
-3. Attempt to purchase `com.beanstalker.member`
-4. iOS will show sandbox purchase dialog
-5. Complete purchase with sandbox account
+2. **Troubleshooter**:
+   - Use "RevenueCat Troubleshooter" for comprehensive diagnostics
+   - Shows API key status, offerings, and specific error details
 
-## What Happens During Sandbox Testing
+### 5. Common Issues & Solutions
 
-### Expected Behavior
-- Purchase dialog shows "Environment: Sandbox"
-- No real money is charged
-- Purchase completes successfully
-- RevenueCat receives test transaction data
-- App receives purchase confirmation
+**"0 Products Found"**:
+- Ensure you're using Debug build (not Release)
+- Check sandbox Apple ID is signed in
+- Wait 1-2 hours after changing App Store Connect product status
+- Products must be "Ready to Submit" in App Store Connect
 
-### Debugging Sandbox Issues
-**If purchase fails:**
-1. Check Xcode console for error messages
-2. Verify product ID matches exactly: `com.beanstalker.member`
-3. Ensure sandbox account country matches product availability
-4. Confirm RevenueCat API key is configured
+**Purchase Dialog Doesn't Appear**:
+- Sign out and back into sandbox Apple ID
+- Restart Bean Stalker app
+- Check App Store → Sandbox Account settings
 
-**Common Sandbox Errors:**
-- "Product not found": Product may not be created yet
-- "Cannot connect": Check sandbox account setup
-- "Purchase failed": Review product configuration
+**Products Show Wrong Prices**:
+- You're likely in production mode instead of sandbox
+- Ensure Debug build configuration is used
 
-## Environment Setup for Testing
+### 6. Current Product Configuration
+Your RevenueCat products:
+- `com.beanstalker.credit25` - $25 credits (+$4.50 bonus)
+- `com.beanstalker.credit50` - $50 credits (+$9.90 bonus)  
+- `com.beanstalker.credit100` - $100 credits (+$20.70 bonus)
+- `com.beanstalker.membership69` - $69 premium membership
 
-### Required Environment Variables
-```bash
-# Add to your Replit environment
-VITE_REVENUECAT_API_KEY=rcv_xxx... # From RevenueCat dashboard
-```
+### 7. Verifying Successful Purchases
+1. **Bean Stalker App**:
+   - Check Available Balance on home page
+   - Credits should update immediately after purchase
 
-### RevenueCat Dashboard Setup
-1. Sign up at revenuecat.com
-2. Create new app with bundle ID: `com.beanstalker.app`
-3. Add product: `com.beanstalker.member`
-4. Copy API key for environment variable
+2. **RevenueCat Dashboard**:
+   - Go to RevenueCat → Customers → Find your user ID (32)
+   - Purchase events should appear in real-time
 
-## Testing Checklist
+3. **App Store Connect**:
+   - Sandbox purchases appear in App Store Connect → Analytics
+   - May take a few minutes to show up
 
-### ✅ Before Testing
-- [ ] Product created in App Store Connect (status: "Ready to Submit")
-- [ ] Sandbox test account created
-- [ ] Device signed out of regular Apple ID
-- [ ] Device signed into sandbox account
-- [ ] RevenueCat API key added to environment
-- [ ] App built and installed on device
+### 8. Build Configuration Status
+✅ **Current Build**: Debug configuration for sandbox testing
+✅ **API Key**: Hardcoded fallback active (appl_owLmakOcTeYJOJoxJgScSQZtUQA)
+✅ **User ID**: Automatically mapped to "32" for testing
+✅ **Environment**: Sandbox mode enabled for IAP testing
 
-### ✅ During Testing
-- [ ] Purchase dialog appears with "Sandbox" label
-- [ ] Transaction completes without errors
-- [ ] App receives purchase confirmation
-- [ ] RevenueCat dashboard shows test transaction
-- [ ] User account updated with premium status
-
-## Advantages of Sandbox Testing
-
-### No Review Wait Time
-- Test immediately after product creation
-- Iterate quickly on purchase flow
-- Debug issues without delays
-
-### Safe Testing Environment
-- No real money involved
-- Unlimited test purchases
-- Full IAP functionality testing
-
-### Real Transaction Flow
-- Authentic purchase experience
-- RevenueCat integration testing
-- Receipt validation testing
-
-## Next Steps After Successful Testing
-
-1. **Fix any issues** found during sandbox testing
-2. **Document working purchase flow**
-3. **Prepare for TestFlight** when ready for broader testing
-4. **Submit for review** only when completely satisfied
-
-Your app is technically ready for sandbox testing right now - just create the product and sandbox account!
+### Next Steps
+1. Deploy updated Debug build to TestFlight
+2. Sign into sandbox Apple ID on test device
+3. Test purchases using sandbox account
+4. Verify credits are added to Bean Stalker account
+5. Check RevenueCat dashboard for purchase events

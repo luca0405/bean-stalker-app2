@@ -1,6 +1,7 @@
 import { Purchases, PurchasesOffering, PurchasesPackage, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
 import { FALLBACK_REVENUECAT_CONFIG } from './fallback-iap-config';
+import { SANDBOX_IAP_CONFIG } from './sandbox-iap-override';
 
 export interface IAPProduct {
   id: string;
@@ -34,15 +35,21 @@ class IAPService {
   };
 
   async initialize(): Promise<boolean> {
-    // Only use development mode when not on native platform
-    // Always use RevenueCat on iOS/Android even during development
-    const isDevelopmentMode = !Capacitor.isNativePlatform();
+    // Force development mode for native platform when env shows production
+    // This enables sandbox IAP testing even when build shows prod:true
+    const isWebPlatform = !Capacitor.isNativePlatform();
     
-    if (isDevelopmentMode) {
+    if (isWebPlatform) {
       console.log('IAP: Running in web development mode - simulating IAP functionality');
       this.isInitialized = true;
       return true;
     }
+    
+    // Force sandbox mode for native iOS testing
+    console.log('IAP: Native platform detected - forcing sandbox mode for testing');
+    console.log('IAP: Environment mode:', import.meta.env.MODE);
+    console.log('IAP: Environment prod:', import.meta.env.PROD);
+    console.log('IAP: Overriding to sandbox mode for RevenueCat testing');
     
     // Native platform - always use RevenueCat
     // Use fallback configuration system
@@ -58,18 +65,18 @@ class IAPService {
     }
 
     try {
-      // Configure RevenueCat for production with enhanced logging
+      // Configure RevenueCat with sandbox override
       await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
-      console.log('IAP: Configuring RevenueCat...');
-      console.log('IAP: API Key present:', !!apiKey);
-      console.log('IAP: API Key length:', apiKey?.length);
-      console.log('IAP: API Key prefix:', apiKey?.substring(0, 8) + '...');
       
-      await Purchases.configure({
-        apiKey,
-        appUserID: undefined, // Will be set when user logs in
-      });
-      console.log('IAP: RevenueCat configured successfully');
+      // Use sandbox configuration override
+      const sandboxConfig = SANDBOX_IAP_CONFIG.getRevenueCatConfig();
+      const envDebug = SANDBOX_IAP_CONFIG.debugEnvironment();
+      
+      console.log('IAP: Environment debug:', envDebug);
+      console.log('IAP: Using sandbox override configuration');
+      
+      await Purchases.configure(sandboxConfig);
+      console.log('IAP: RevenueCat configured in SANDBOX mode with user ID 32');
 
       // Check if In-App Purchases are available on device
       const canMakePayments = await Purchases.canMakePayments();
