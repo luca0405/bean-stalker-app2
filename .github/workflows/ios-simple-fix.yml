@@ -84,7 +84,7 @@ jobs:
         xcodebuild archive \
           -workspace App/App.xcworkspace \
           -scheme App \
-          -configuration Release \
+          -configuration Debug \
           -destination generic/platform=iOS \
           -archivePath App.xcarchive \
           -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
@@ -124,7 +124,7 @@ jobs:
           -workspace App.xcworkspace \
           -scheme App \
           -archivePath "../../ios/App-clean.xcarchive" \
-          -configuration Release \
+          -configuration Debug \
           -destination generic/platform=iOS \
           -authenticationKeyIssuerID "${{ secrets.APPSTORE_ISSUER_ID }}" \
           -authenticationKeyID "${{ secrets.APPSTORE_API_KEY_ID }}" \
