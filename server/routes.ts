@@ -2105,7 +2105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const { menuItemId } = req.body;
+      const { menuItemId, selectedSize, selectedOptions, customName } = req.body;
       
       if (!menuItemId) {
         return res.status(400).json({ message: "Menu item ID is required" });
@@ -2117,15 +2117,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Menu item not found" });
       }
       
-      // Check if already favorited
-      const isAlreadyFavorite = await storage.isFavorite(userId, menuItemId);
-      if (isAlreadyFavorite) {
-        return res.status(400).json({ message: "Item is already in favorites" });
-      }
-      
       const favorite = await storage.addFavorite({
         userId,
-        menuItemId
+        menuItemId,
+        selectedSize: selectedSize || null,
+        selectedOptions: selectedOptions || null,
+        customName: customName || null
       });
       
       res.status(201).json(favorite);
@@ -2135,24 +2132,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/favorites/:menuItemId", async (req, res) => {
+  app.delete("/api/favorites/:favoriteId", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
     
     try {
       const userId = req.user!.id;
-      const menuItemId = parseInt(req.params.menuItemId);
+      const favoriteId = parseInt(req.params.favoriteId);
       
-      if (isNaN(menuItemId)) {
-        return res.status(400).json({ message: "Invalid menu item ID" });
+      if (isNaN(favoriteId)) {
+        return res.status(400).json({ message: "Invalid favorite ID" });
       }
       
-      // Check if it's a favorite first
-      const isFavorite = await storage.isFavorite(userId, menuItemId);
-      if (!isFavorite) {
-        return res.status(404).json({ message: "Item is not in favorites" });
-      }
-      
-      await storage.removeFavorite(userId, menuItemId);
+      await storage.removeFavorite(userId, favoriteId);
       res.status(200).json({ message: "Favorite removed successfully" });
     } catch (error) {
       console.error("Error removing favorite:", error);
@@ -2196,7 +2187,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!isAlreadyFavorite) {
           await storage.addFavorite({
             userId,
-            menuItemId: item.id
+            menuItemId: item.id,
+            selectedSize: null,
+            selectedOptions: null,
+            customName: null
           });
           addedItems.push(item);
         }

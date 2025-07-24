@@ -2,11 +2,8 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart-context";
 import { MenuItem, MenuItemOption, CartItemOption } from "@shared/schema";
-import { Heart } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -24,9 +21,6 @@ interface OptionWithChildren extends MenuItemOption {
 
 export function MenuItemCard({ item }: MenuItemCardProps) {
   const { addToCart } = useCart();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
   const [selectedSize, setSelectedSize] = useState<'small' | 'medium' | 'large'>('small');
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   
@@ -64,82 +58,7 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
     }
   }, [flavorOptions]);
   
-  const { data: favoriteStatus } = useQuery({
-    queryKey: ['/api/favorites', item.id],
-    queryFn: async () => {
-      if (!user) return { isFavorite: false };
-      try {
-        const res = await apiRequest('GET', `/api/favorites/${item.id}`);
-        return await res.json();
-      } catch (error) {
-        return { isFavorite: false };
-      }
-    },
-    enabled: !!user // Only run if user is logged in
-  });
 
-  const addFavoriteMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/favorites', { menuItemId: item.id });
-      return res.json();
-    },
-    onSuccess: () => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item.id] });
-      toast({
-        title: "Added to favorites",
-        description: `${item.name} has been added to your favorites.`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to add favorite",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-
-  const removeFavoriteMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('DELETE', `/api/favorites/${item.id}`);
-      return res.json();
-    },
-    onSuccess: () => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item.id] });
-      toast({
-        title: "Removed from favorites",
-        description: `${item.name} has been removed from your favorites.`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to remove favorite",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-  
-  const toggleFavorite = () => {
-    if (!user) {
-      toast({
-        title: "Login required",
-        description: "Please log in to add items to favorites.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (favoriteStatus?.isFavorite) {
-      removeFavoriteMutation.mutate();
-    } else {
-      addFavoriteMutation.mutate();
-    }
-  };
   
   // Get all selected options with their price adjustments
   const getSelectedOptionsWithPrices = (): CartItemOption[] => {
@@ -216,20 +135,7 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
       options: optionsList
     });
     
-    // Show confirmation message with selected options
-    let message = `Added ${item.name}`;
-    if (item.hasSizes) message += ` (${selectedSize})`;
-    
-    // Add option descriptions to the confirmation message
-    if (optionsList.length > 0) {
-      const optionText = optionsList.map(opt => `${opt.value}`).join(', ');
-      message += ` with ${optionText}`;
-    }
-    
-    toast({
-      title: "Added to cart",
-      description: message
-    });
+    // Cart context will handle the notification, so no need to notify here
   };
 
   return (
@@ -245,17 +151,6 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
           <div className="h-full w-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700">
             <span className="text-xs font-medium text-center px-2">No Image Available</span>
           </div>
-        )}
-        {user && (
-          <button 
-            onClick={toggleFavorite}
-            className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white transition-colors"
-            aria-label={favoriteStatus?.isFavorite ? "Remove from favorites" : "Add to favorites"}
-          >
-            <Heart 
-              className={`h-5 w-5 ${favoriteStatus?.isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} 
-            />
-          </button>
         )}
       </div>
       <CardContent className="p-3">

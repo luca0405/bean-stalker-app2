@@ -6,7 +6,7 @@ import { ProductDetailModal } from "@/components/product-detail-modal";
 import { useMenu } from "@/contexts/menu-context";
 import { Loader2, RefreshCw } from "lucide-react";
 import { formatCategoryName } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { Button } from "@/components/ui/button";
 import { MenuItem } from "@shared/schema";
 
@@ -15,7 +15,7 @@ export default function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
 
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
@@ -70,24 +70,17 @@ export default function MenuPage() {
   const handleRefresh = useCallback(async () => {
     try {
       await refreshMenu();
-      toast({
-        title: "Menu Updated",
-        description: "Latest menu items loaded",
-      });
+      notifySuccess("Menu Updated", "Latest menu items loaded");
     } catch (error) {
-      toast({
-        title: "Refresh Failed",
-        description: "Could not refresh menu items",
-        variant: "destructive",
-      });
+      notifyError("Refresh Failed", "Could not refresh menu items");
     }
-  }, [refreshMenu, toast]);
+  }, [refreshMenu, notifySuccess, notifyError]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
       <AppHeader />
       
-      <div className="flex-1 overflow-y-auto scroll-container momentum-scroll">
+      <div className="flex-1 overflow-y-auto scroll-container momentum-scroll main-content">
         <main className="p-4 max-w-6xl mx-auto">
           {/* Enhanced Header Section */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 mb-6 shadow-sm border border-white/20">
@@ -129,11 +122,11 @@ export default function MenuPage() {
                 // When "all" is selected, show sections for each category
                 Array.from(groupedItems.entries()).map(([category, items]) => (
                   <div key={category} className="mb-8">
-                    <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-4 mb-4 shadow-sm">
-                      <h2 className="font-bold text-xl text-white">
+                    <div className="bg-white border-2 border-orange-200 rounded-xl p-4 mb-4 shadow-sm">
+                      <h2 className="font-bold text-xl text-gray-900">
                         {formatCategoryName(category)}
                       </h2>
-                      <p className="text-green-100 text-sm">{items.length} items available</p>
+                      <p className="text-gray-600 text-sm">{items.length} items available</p>
                     </div>
                     {/* Grab-style 2-column grid */}
                     <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -149,11 +142,11 @@ export default function MenuPage() {
                 ))
               ) : (
                 <div>
-                  <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-4 mb-4 shadow-sm">
-                    <h2 className="font-bold text-xl text-white">
+                  <div className="bg-white border-2 border-orange-200 rounded-xl p-4 mb-4 shadow-sm">
+                    <h2 className="font-bold text-xl text-gray-900">
                       {formatCategoryName(selectedCategory)}
                     </h2>
-                    <p className="text-green-100 text-sm">{filteredItems.length} items available</p>
+                    <p className="text-gray-600 text-sm">{filteredItems.length} items available</p>
                   </div>
                   {/* Grab-style 2-column grid for selected category */}
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">

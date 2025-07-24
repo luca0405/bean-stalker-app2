@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, Users, CheckCircle, AlertCircle, Coffee, Timer } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 
 interface KitchenOrder {
   id: number;
@@ -22,7 +22,7 @@ interface KitchenOrder {
 }
 
 export default function KitchenDisplayPage() {
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const queryClient = useQueryClient();
   
   const { data: orders = [], isLoading } = useQuery<KitchenOrder[]>({
@@ -46,17 +46,10 @@ export default function KitchenDisplayPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/kitchen/orders"] });
-      toast({
-        title: "Order Updated",
-        description: "Order status has been updated successfully.",
-      });
+      notifySuccess("Order Updated", "Order status has been updated successfully.");
     },
     onError: () => {
-      toast({
-        title: "Update Failed",
-        description: "Failed to update order status.",
-        variant: "destructive",
-      });
+      notifyError("Update Failed", "Failed to update order status.");
     },
   });
 

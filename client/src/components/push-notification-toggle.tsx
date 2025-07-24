@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Bell, BellOff, AlertCircle, Info, HelpCircle, CheckCircle2, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { useNativeNotifications } from '@/hooks/use-native-notifications';
 import { useIOSNotificationService } from '@/contexts/ios-notification-context';
 import {
   Tooltip,
@@ -174,7 +174,7 @@ const checkServiceWorker = async () => {
 
 // iOS Alternative Notification UI Components
 function IOSNotificationToggle() {
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const {
     enabled: useAlternative,
     enableNotifications,
@@ -195,23 +195,15 @@ function IOSNotificationToggle() {
   
   // Demo notification for iOS
   const showDemoNotification = () => {
-    toast({
-      title: "Order Status Updated",
-      description: "Your order #1234 is now ready for pickup!",
-      variant: "default",
-    });
+    notifySuccess("Order Status Updated", "Your order #1234 is now ready for pickup!");
   };
 
   // Notification when enabled
   useEffect(() => {
     if (useAlternative && isIosDevice) {
-      toast({
-        title: "In-App Notifications Active",
-        description: "You'll now receive order updates while the app is open.",
-        duration: 3000,
-      });
+      notifySuccess("In-App Notifications Active", "You'll now receive order updates while the app is open.");
     }
-  }, [useAlternative, isIosDevice, toast]);
+  }, [useAlternative, isIosDevice]);
 
   const cardTitle = isIosDevice ? "In-App Notifications (Recommended)" : "In-App Notifications";
   const badgeLabel = isIosDevice ? "Required for iOS" : "Alternative";
@@ -284,7 +276,7 @@ function IOSNotificationToggle() {
 // Special component just for admin users - forces a push notification subscription on mount
 export function AdminPushNotificationToggle() {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const { 
     isSupported, 
     isSubscribed, 
@@ -342,33 +334,20 @@ export function AdminPushNotificationToggle() {
         // First check if browser supports notifications
         const browserInfo = detectBrowser();
         if (browserInfo.isiOSSafari) {
-          toast({
-            title: "Not Supported",
-            description: "Push notifications are not supported in iOS Safari. Please use the in-app notifications instead.",
-            duration: 6000,
-          });
+          notifyError("Not Supported", "Push notifications are not supported in iOS Safari. Please use the in-app notifications instead.");
           return;
         }
         
         // If the user previously denied permission, we need to show instructions
         if (isPermissionDenied) {
-          toast({
-            title: "Permission Required",
-            description: 
-              "You previously denied notification permission. Please update your browser settings to allow notifications from this site.",
-            duration: 6000,
-          });
+          notifyError("Permission Required", "You previously denied notification permission. Please update your browser settings to allow notifications from this site.");
           return;
         }
         
         // Add a timeout to prevent getting stuck in loading state
         const subscribeTimeout = setTimeout(() => {
           console.log('Subscription attempt timed out');
-          toast({
-            title: "Subscription Failed",
-            description: "The subscription attempt took too long. Please try again.",
-            duration: 6000,
-          });
+          notifyError("Subscription Failed", "The subscription attempt took too long. Please try again.");
         }, 5000);
         
         // Check current permission status first
@@ -378,11 +357,7 @@ export function AdminPushNotificationToggle() {
             subscribe()
               .catch(err => {
                 console.error('Error subscribing to notifications:', err);
-                toast({
-                  title: "Subscription Failed",
-                  description: "There was a problem enabling notifications. Please try again.",
-                  variant: "destructive",
-                });
+                notifyError("Subscription Failed", "There was a problem enabling notifications. Please try again.");
               })
               .finally(() => clearTimeout(subscribeTimeout));
           } else if (Notification.permission !== 'denied') {
@@ -392,39 +367,23 @@ export function AdminPushNotificationToggle() {
                 if (permission === 'granted') {
                   subscribe().catch(err => {
                     console.error('Error subscribing after permission granted:', err);
-                    toast({
-                      title: "Subscription Failed",
-                      description: "There was a problem enabling notifications after permission was granted.",
-                      variant: "destructive",
-                    });
+                    notifyError("Subscription Failed", "There was a problem enabling notifications after permission was granted.");
                   });
                 } else {
-                  toast({
-                    title: "Permission Denied",
-                    description: "You need to allow notification permission to receive updates.",
-                    variant: "destructive",
-                  });
+                  notifyError("Permission Denied", "You need to allow notification permission to receive updates.");
                 }
               })
               .finally(() => clearTimeout(subscribeTimeout));
           }
         } else {
           // Notifications not supported in this browser
-          toast({
-            title: "Not Supported",
-            description: "Your browser doesn't support web notifications.",
-            variant: "destructive",
-          });
+          notifyError("Not Supported", "Your browser doesn't support web notifications.");
           clearTimeout(subscribeTimeout);
         }
       }
     } catch (error) {
       console.error('Error toggling admin notifications:', error);
-      toast({
-        title: "Error",
-        description: "There was a problem with the notification system.",
-        variant: "destructive",
-      });
+      notifyError("Error", "There was a problem with the notification system.");
     }
   };
   
@@ -503,7 +462,7 @@ export function PushNotificationToggle({ className }: { className?: string }) {
     subscribe, 
     unsubscribe 
   } = usePushNotifications();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
 
   const [browserInfo] = useState(detectBrowser());
   const [isInstalled, setIsInstalled] = useState(false);

@@ -28,6 +28,20 @@
     scroll-behavior: smooth;
   }
 
+  /* Fix main app scrolling */
+  #root {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+  }
+
+  /* Main content areas */
+  main, .main-content {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+  }
+
   /* Enhanced scrolling for mobile containers */
   .scrollable {
     -webkit-overflow-scrolling: touch;
@@ -116,6 +130,30 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
+  }
+
+  /* Dropdown menus need higher z-index than popups */
+  [data-radix-select-content] {
+    z-index: 150 !important;
+  }
+
+  [data-radix-dropdown-content] {
+    z-index: 150 !important;
+  }
+
+  /* Select dropdown content */
+  .select-content {
+    z-index: 150 !important;
+  }
+
+  /* Fix for shadcn Select component in modals */
+  [data-radix-popper-content-wrapper] {
+    z-index: 150 !important;
+  }
+
+  /* Specific override for Select component portals */
+  [data-radix-portal] [data-radix-select-content] {
+    z-index: 150 !important;
   }
 
   /* Popup content with safe area */

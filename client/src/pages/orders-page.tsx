@@ -20,12 +20,12 @@ import {
 } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { Button } from "@/components/ui/button";
 
 export default function OrdersPage() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   
   const {
     data: orders = [],
@@ -59,18 +59,11 @@ export default function OrdersPage() {
   const handleRefresh = useCallback(async () => {
     try {
       await queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      toast({
-        title: "Orders Updated",
-        description: "Latest order information loaded",
-      });
+      notifySuccess("Orders Updated", "Latest order information loaded");
     } catch (error) {
-      toast({
-        title: "Refresh Failed",
-        description: "Could not refresh order information",
-        variant: "destructive",
-      });
+      notifyError("Refresh Failed", "Could not refresh order information");
     }
-  }, [queryClient, toast]);
+  }, [queryClient]);
 
   return (
     <div className="min-h-screen flex flex-col bg-secondary">

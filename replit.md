@@ -569,6 +569,47 @@ Changelog:
   - Created comprehensive Force Reload component with multiple retry attempts for offerings fetch
   - Enhanced troubleshooting with immediate user ID mapping to "32" during RevenueCat initialization
   - Added detailed sandbox testing guide for proper TestFlight IAP testing workflow
+- July 24, 2025. Comprehensive sandbox force override system implemented to bypass production mode detection
+  - Created SandboxForceOverride class that completely ignores all environment variables and build configurations
+  - Implemented aggressive offerings reload with 8 retry attempts and increasing delays
+  - Added comprehensive debug logging with detailed package information
+  - System now forces sandbox mode regardless of any build settings showing production mode
+  - Enhanced IAP service to use complete sandbox override for native platforms
+  - Ready for GitHub Actions deployment with guaranteed sandbox functionality
+- July 24, 2025. Native notification system implementation completed replacing all popup toast notifications
+  - Created comprehensive native-notification-service.ts and use-native-notifications.ts hook for browser-native notifications
+  - Systematically converted ALL components from toast popup notifications to native browser notifications
+  - Enhanced user experience with system-level notifications instead of in-app popups providing better visibility and persistence
+  - Updated all key components: send-credits, auth-page, favorites-list, membership-page, kitchen-display, menu-item, buy-credits, cart-context
+  - Converted core application files: grab-menu-card, orders-page, home-page, profile-page, auth-page-new components
+  - Eliminated all 135+ toast() function calls and 23+ useToast imports throughout the entire application
+  - Native notifications provide permission handling, fallback support, and work across all platforms including mobile
+  - Improved notification management with proper error handling and user-friendly messaging system
+  - Complete native notification overhaul provides superior mobile experience with persistent system-level alerts
+  - Fixed final toast references in product-detail-modal.tsx, send-credits-page.tsx, and admin-page.tsx
+  - All "toast is not defined" runtime errors completely resolved across entire application codebase
+  - Fixed duplicate cart notifications by removing notifications from individual components (product-detail-modal, menu-item)
+  - Cart context now handles all "added to cart" notifications as single source of truth preventing duplicate alerts
+- July 24, 2025. Menu page category styling updated to match home page design consistency
+  - Changed product category headers from green gradient backgrounds to white with orange borders
+  - Updated styling to match "Order Your Favorites" card design (border-2 border-orange-200)
+  - Changed text colors from white/green to gray for better readability on white backgrounds
+  - Maintained rounded corners and shadow effects for consistent visual hierarchy
+- July 24, 2025. Home page favorites popup completely fixed with comprehensive data display
+  - Resolved "$NaN" price display issue by adding proper null checking for menu item prices
+  - Fixed favorites data structure handling to support both direct and nested menuItem properties
+  - Updated display to show custom names, selected sizes, and all selected options including flavors
+  - Enhanced option display with proper formatting: "Large size • Oat milk, Vanilla syrup, Extra shot"
+  - Updated cart functionality to preserve custom names, sizes, and complete option arrays when adding favorites
+  - Added fallback to "Default options" when no customizations are present
+  - Complete favorites integration now displays actual product names, correct prices, and full customization details
+- July 24, 2025. RevenueCat user ID system updated to be completely dynamic instead of hardcoded
+  - Fixed SandboxForceOverride to not hardcode user ID "32" during initialization
+  - Updated IAP service to properly set user ID based on actual logged-in user
+  - RevenueCat webhook handler already correctly processes dynamic app_user_id from webhooks
+  - IAP system now uses actual user.id.toString() for all RevenueCat operations
+  - Fixed biometric authentication crash by replacing all toast notifications with native notification system
+  - Corrected TypeScript errors in biometric service for production-ready code
 ```
 
 ## User Preferences

@@ -11,7 +11,7 @@ import { useCart } from "@/contexts/cart-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 
 interface ProductDetailModalProps {
   item: MenuItem | null;
@@ -27,7 +27,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   const { addToCart } = useCart();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const [selectedSize, setSelectedSize] = useState<'small' | 'medium' | 'large'>('small');
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
@@ -63,6 +63,34 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     enabled: !!user && !!item
   });
 
+  // Add to favorites mutation
+  const addToFavoritesMutation = useMutation({
+    mutationFn: async () => {
+      if (!item) throw new Error('No item selected');
+      
+      const response = await apiRequest('POST', '/api/favorites', {
+        menuItemId: item.id,
+        selectedSize: item.hasSizes ? selectedSize : null,
+        selectedOptions: Object.keys(selectedOptions).length > 0 ? selectedOptions : null,
+        customName: null // Could be extended to allow custom names
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to add to favorites');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item?.id] });
+      notifySuccess("Added to favorites", "Item has been saved to your favorites with selected options.");
+    },
+    onError: (error: any) => {
+      notifyError("Error", error.message || "Failed to add item to favorites.");
+    }
+  });
+
   // Reset state when modal opens/closes or item changes
   useEffect(() => {
     if (isOpen && item) {
@@ -93,10 +121,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
       queryClient.invalidateQueries({ queryKey: ['/api/favorites', item?.id] });
-      toast({
-        title: "Added to favorites",
-        description: `${item?.name} has been added to your favorites.`,
-      });
+      notifySuccess("Added to favorites", `${item?.name} has been added to your favorites.`);
     }
   });
 
@@ -109,20 +134,13 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
       queryClient.invalidateQueries({ queryKey: ['/api/favorites', item?.id] });
-      toast({
-        title: "Removed from favorites",
-        description: `${item?.name} has been removed from your favorites.`,
-      });
+      notifySuccess("Removed from favorites", `${item?.name} has been removed from your favorites.`);
     }
   });
 
   const toggleFavorite = () => {
     if (!user) {
-      toast({
-        title: "Login required",
-        description: "Please log in to add items to favorites.",
-        variant: "destructive",
-      });
+      notifyError("Login required", "Please log in to add items to favorites.");
       return;
     }
 
@@ -204,20 +222,18 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
       });
     }
     
-    let message = `Added ${quantity}x ${item.name}`;
-    if (item.hasSizes) message += ` (${selectedSize})`;
-    
-    if (optionsList.length > 0) {
-      const optionText = optionsList.map(opt => `${opt.value}`).join(', ');
-      message += ` with ${optionText}`;
-    }
-    
-    toast({
-      title: "Added to cart",
-      description: message
-    });
+    // Cart context will handle the notification, so no need to notify here
     
     onClose();
+  };
+
+  const handleSaveToFavorites = () => {
+    if (!user) {
+      notifyError("Login required", "Please log in to save favorites.");
+      return;
+    }
+    
+    addToFavoritesMutation.mutate();
   };
 
   if (!item) return null;
@@ -225,7 +241,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -277,11 +293,12 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                 {/* Heart Icon */}
                 {user && (
                   <button 
-                    onClick={toggleFavorite}
-                    className="absolute top-4 right-4 p-2 bg-white/90 rounded-full shadow-md hover:bg-white transition-colors"
+                    onClick={handleSaveToFavorites}
+                    disabled={addToFavoritesMutation.isPending}
+                    className="absolute top-4 right-4 p-2 bg-white/90 rounded-full shadow-md hover:bg-white transition-colors disabled:opacity-50"
                   >
                     <Heart 
-                      className={`h-5 w-5 ${favoriteStatus?.isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} 
+                      className={`h-5 w-5 text-red-500 hover:fill-red-500 transition-colors`} 
                     />
                   </button>
                 )}
@@ -367,7 +384,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                           <SelectTrigger>
                             <SelectValue placeholder={`Choose ${parentOption.name}`} />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="z-[150]">
                             {parentOption.children?.map((childOption) => (
                               <SelectItem key={childOption.id} value={childOption.name}>
                                 <div className="flex justify-between w-full">
@@ -401,7 +418,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                           <SelectTrigger>
                             <SelectValue placeholder="Choose Flavor" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="z-[150]">
                             {flavorOptions
                               .filter(opt => !opt.isParent && !opt.parentId)
                               .map((option) => (
@@ -456,14 +473,26 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
 
             </div>
 
-            {/* Sticky Add to Cart Footer */}
-            <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 p-6 z-10">
+            {/* Sticky Footer with Add to Cart and Save to Favorites */}
+            <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 p-6 z-10 space-y-3">
               <Button 
                 onClick={handleAddToCart} 
                 className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 h-auto rounded-xl shadow-lg"
               >
                 Add to Cart • ${(getPrice() * quantity).toFixed(2)}
               </Button>
+              
+              {user && (
+                <Button 
+                  onClick={handleSaveToFavorites}
+                  disabled={addToFavoritesMutation.isPending}
+                  variant="outline"
+                  className="w-full py-2 h-auto rounded-xl border-green-600 text-green-600 hover:bg-green-50"
+                >
+                  <Heart className="h-4 w-4 mr-2" />
+                  {addToFavoritesMutation.isPending ? 'Saving...' : 'Save to Favorites'}
+                </Button>
+              )}
             </div>
           </motion.div>
         </div>

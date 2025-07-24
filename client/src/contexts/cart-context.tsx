@@ -1,6 +1,6 @@
 import { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { CartItem, CartItemOption } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 
 interface CartContextType {
   cart: CartItem[];
@@ -70,20 +70,16 @@ const loadCartFromStorage = (): CartItem[] => {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
 
   // Load cart from localStorage on mount
   useEffect(() => {
     const savedCart = loadCartFromStorage();
     if (savedCart.length > 0) {
       setCart(savedCart);
-      toast({
-        title: "Cart restored",
-        description: `${savedCart.length} item${savedCart.length > 1 ? 's' : ''} restored from your previous session`,
-        duration: 3000,
-      });
+      notifySuccess("Cart restored", `${savedCart.length} item${savedCart.length > 1 ? 's' : ''} restored from your previous session`);
     }
-  }, [toast]);
+  }, [notifySuccess]);
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
@@ -118,10 +114,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? ` with ${newItem.option}`
             : '';
             
-        toast({
-          title: "Cart updated",
-          description: `Increased ${newItem.name}${sizeLabel}${optionsLabel} quantity.`,
-        });
+        notifySuccess("Cart updated", `Increased ${newItem.name}${sizeLabel}${optionsLabel} quantity.`);
         
         return updatedCart;
       } else {
@@ -133,10 +126,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? ` with ${newItem.option}`
             : '';
             
-        toast({
-          title: "Item added to cart",
-          description: `${newItem.name}${sizeLabel}${optionsLabel} has been added to your cart.`,
-        });
+        notifySuccess("Item added to cart", `${newItem.name}${sizeLabel}${optionsLabel} has been added to your cart.`);
         
         return [...prevCart, newItem];
       }
@@ -187,10 +177,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? ` with ${removedItem.option}`
             : '';
             
-        toast({
-          title: "Item removed",
-          description: `${removedItem.name}${sizeLabel}${optionsLabel} has been removed from your cart.`,
-        });
+        notifySuccess("Item removed", `${removedItem.name}${sizeLabel}${optionsLabel} has been removed from your cart.`);
       }
       
       return updatedCart;

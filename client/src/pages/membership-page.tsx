@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Star, Crown, CreditCard } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -16,7 +16,7 @@ declare global {
 
 export default function MembershipPage() {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const queryClient = useQueryClient();
   const [isProcessing, setIsProcessing] = useState(false);
   const [payments, setPayments] = useState<any>(null);
@@ -30,17 +30,10 @@ export default function MembershipPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      toast({
-        title: "Membership Activated!",
-        description: `Welcome to Bean Stalker Premium! AUD$69 has been added to your account.`,
-      });
+      notifySuccess("Membership Activated!", "Welcome to Bean Stalker Premium! AUD$69 has been added to your account.");
     },
     onError: (error: any) => {
-      toast({
-        title: "Membership Signup Failed",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      });
+      notifyError("Membership Signup Failed", error.message || "Please try again");
     },
   });
 
@@ -86,11 +79,7 @@ export default function MembershipPage() {
 
   const handlePayment = async () => {
     if (!payments) {
-      toast({
-        title: "Payment Error",
-        description: "Payment system not ready. Please try again.",
-        variant: "destructive",
-      });
+      notifyError("Payment Error", "Payment system not ready. Please try again.");
       return;
     }
 
@@ -105,18 +94,10 @@ export default function MembershipPage() {
       if (result.status === 'OK') {
         membershipSignupMutation.mutate(result.token);
       } else {
-        toast({
-          title: "Payment Error",
-          description: result.errors?.[0]?.message || "Payment failed",
-          variant: "destructive",
-        });
+        notifyError("Payment Error", result.errors?.[0]?.message || "Payment failed");
       }
     } catch (error) {
-      toast({
-        title: "Payment Error",
-        description: "Failed to process payment. Please try again.",
-        variant: "destructive",
-      });
+      notifyError("Payment Error", "Failed to process payment. Please try again.");
     } finally {
       setIsProcessing(false);
     }

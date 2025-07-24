@@ -32,7 +32,7 @@ import { useBiometricAuth } from "@/hooks/use-biometric-auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "../lib/queryClient";
 
@@ -51,7 +51,7 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export default function ProfilePage() {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
 
   
   const {
@@ -83,17 +83,10 @@ export default function ProfilePage() {
       // Update the user data in the cache
       queryClient.setQueryData(["/api/user"], updatedUser);
       
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully.",
-      });
+      notifySuccess("Profile updated", "Your profile has been updated successfully.");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Update failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      notifyError("Update failed", error.message);
     },
   });
 

@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
+import { useNativeNotifications } from '@/hooks/use-native-notifications';
 import { useAuth } from '@/hooks/use-auth';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -128,7 +128,7 @@ export function useIOSNotifications() {
 
 // Standalone hook that can be used without a provider
 export function useIOSNotificationService() {
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const { user } = useAuth();
   
   // Check if we're on iOS and log the result
@@ -325,16 +325,7 @@ export function useIOSNotificationService() {
             }
             
             // Make iOS notifications more prominent and long-lasting
-            toast({
-              title: `${coffeeIcon}Order #${order.id} Update`,
-              description: statusMessage,
-              // Make iOS notifications stay longer and be more prominent
-              duration: isIOSDevice ? 10000 : 5000,
-              // Use a different variant for iOS to make it more noticeable
-              variant: isIOSDevice ? "destructive" : "default",
-              // Add a distinctive class name for styling
-              className: isIOSDevice ? "ios-notification" : "",
-            });
+            notifySuccess(`${coffeeIcon}Order #${order.id} Update`, statusMessage);
             
             // Log the notification for debugging
             console.log(`In-app notification shown for order #${order.id}:`, {
@@ -373,7 +364,7 @@ export function useIOSNotificationService() {
     
     // Clean up on unmount or when dependencies change  
     return () => {};
-  }, [enabled, user, toast, lastSeenOrderUpdate, isFirstLoad, lastKnownOrderStatuses]);
+  }, [enabled, user, lastSeenOrderUpdate, isFirstLoad, lastKnownOrderStatuses]);
 
   const enableNotifications = () => setEnabled(true);
   const disableNotifications = () => setEnabled(false);

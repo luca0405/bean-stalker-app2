@@ -4,13 +4,13 @@ import { useBiometricAuth } from "@/hooks/use-biometric-auth";
 import { Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function AuthPageMobile() {
   const { user, loginMutation, registerMutation } = useAuth();
-  const { toast } = useToast();
+  const { notifyError, notifySuccess } = useNativeNotifications();
   const {
     biometricState,
     authenticateWithBiometrics,
@@ -42,21 +42,14 @@ export default function AuthPageMobile() {
     e.preventDefault();
     
     if (!loginData.username || !loginData.password) {
-      toast({
-        title: "Please fill in all fields",
-        variant: "destructive",
-      });
+      notifyError("Please fill in all fields", "Username and password are required");
       return;
     }
 
     try {
       await loginMutation.mutateAsync(loginData);
     } catch (error: any) {
-      toast({
-        title: "Login failed",
-        description: error.message || "Please check your credentials",
-        variant: "destructive",
-      });
+      notifyError("Login failed", error.message || "Please check your credentials");
     }
   };
 
@@ -64,11 +57,7 @@ export default function AuthPageMobile() {
     try {
       await authenticateWithBiometrics();
     } catch (error: any) {
-      toast({
-        title: "Biometric authentication failed",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      });
+      notifyError("Biometric authentication failed", error.message || "Please try again");
     }
   };
 

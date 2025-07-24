@@ -7,7 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { AdminPushNotificationToggle } from "@/components/push-notification-toggle";
 import { QRScanner, type QRCodeResult } from "@/utils/qr-scanner";
 import { 
@@ -70,7 +70,7 @@ export default function AdminPage() {
   console.log("AdminPage rendering");
   const { user } = useAuth();
   const [_, navigate] = useLocation();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const [activeTab, setActiveTab] = useState("orders");
   
   console.log("Active tab:", activeTab);
@@ -174,10 +174,7 @@ export default function AdminPage() {
                                     (navigator as any).msGetUserMedia;
                                     
           if (legacyGetUserMedia) {
-            toast({
-              title: "Legacy Browser Detected",
-              description: "Using compatibility mode for camera access. For best results, please update your browser.",
-            });
+            notifySuccess("Legacy Browser Detected", "Using compatibility mode for camera access. For best results, please update your browser.");
           } else {
             throw new Error(
               "Your browser doesn't support camera access. Please try using a modern browser like Chrome, Firefox, or Safari."
@@ -228,10 +225,7 @@ export default function AdminPage() {
         
         console.log("QR scanner started successfully");
         setScannerActive(true);
-        toast({
-          title: "Scanner Active",
-          description: "Camera is now scanning for QR codes.",
-        });
+        notifySuccess("Scanner Active", "Camera is now scanning for QR codes.");
       } catch (error: any) {
         console.error("QR scanner error:", error);
         
@@ -280,29 +274,17 @@ export default function AdminPage() {
           const isSafari = navigator.userAgent.indexOf("Safari") > -1 && !isChrome;
           
           if (isChrome) {
-            toast({
-              title: "Camera Permission Help",
-              description: "In Chrome, click the camera icon in the address bar and select 'Allow'.",
-            });
+            notifySuccess("Camera Permission Help", "In Chrome, click the camera icon in the address bar and select 'Allow'.");
           } else if (isFirefox) {
-            toast({
-              title: "Camera Permission Help",
-              description: "In Firefox, click the camera icon in the address bar and choose 'Remember this decision'.",
-            });
+            notifySuccess("Camera Permission Help", "In Firefox, click the camera icon in the address bar and choose 'Remember this decision'.");
           } else if (isSafari) {
-            toast({
-              title: "Camera Permission Help",
-              description: "In Safari, go to Preferences > Websites > Camera and allow access for this site.",
-            });
+            notifySuccess("Camera Permission Help", "In Safari, go to Preferences > Websites > Camera and allow access for this site.");
           }
         }
         
         // Automatically retry once for transient errors
         if (error.message?.includes("Could not access camera") || error.message?.includes("Video element")) {
-          toast({
-            title: "Auto-retry",
-            description: "We'll try to access your camera again in 2 seconds...",
-          });
+          notifySuccess("Auto-retry", "We'll try to access your camera again in 2 seconds...");
           
           // Clean up before retry
           if (qrScannerRef.current) {
@@ -648,10 +630,7 @@ export default function AdminPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       setClearDataDialog(false);
-      toast({
-        title: "Users Cleared",
-        description: "All non-admin users have been removed from the system.",
-      });
+      notifySuccess("Users Cleared", "All non-admin users have been removed from the system.");
     },
     onError: (error: Error) => {
       toast({
@@ -672,10 +651,7 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/orders/detailed"] });
       setClearDataDialog(false);
-      toast({
-        title: "Orders Cleared",
-        description: "All orders have been removed from the system.",
-      });
+      notifySuccess("Orders Cleared", "All orders have been removed from the system.");
     },
     onError: (error: Error) => {
       toast({
@@ -696,10 +672,7 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/menu"] });
       setMenuItemDialog(false);
       resetMenuItemForm();
-      toast({
-        title: "Menu Item Created",
-        description: "The menu item has been successfully added."
-      });
+      notifySuccess("Menu Item Created", "The menu item has been successfully added.");
     },
     onError: (error: Error) => {
       toast({
@@ -720,10 +693,7 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/menu"] });
       setMenuItemDialog(false);
       resetMenuItemForm();
-      toast({
-        title: "Menu Item Updated",
-        description: "The menu item has been successfully updated."
-      });
+      notifySuccess("Menu Item Updated", "The menu item has been successfully updated.");
     },
     onError: (error: Error) => {
       toast({
@@ -741,10 +711,7 @@ export default function AdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu"] });
-      toast({
-        title: "Menu Item Deleted",
-        description: "The menu item has been successfully deleted."
-      });
+      notifySuccess("Menu Item Deleted", "The menu item has been successfully deleted.");
     },
     onError: (error: Error) => {
       toast({
@@ -781,10 +748,7 @@ export default function AdminPage() {
         imageUrl: data.imageUrl
       }));
       
-      toast({
-        title: "Image Uploaded",
-        description: "Image was uploaded successfully."
-      });
+      notifySuccess("Image Uploaded", "Image was uploaded successfully.");
     },
     onError: (error: Error) => {
       toast({
@@ -806,10 +770,7 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/categories"] });
       setCategoryDialog(false);
       resetCategoryForm();
-      toast({
-        title: "Category Created",
-        description: "The menu category has been successfully added."
-      });
+      notifySuccess("Category Created", "The menu category has been successfully added.");
     },
     onError: (error: Error) => {
       toast({
@@ -831,10 +792,7 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/categories"] });
       setCategoryDialog(false);
       resetCategoryForm();
-      toast({
-        title: "Category Updated",
-        description: "The menu category has been successfully updated."
-      });
+      notifySuccess("Category Updated", "The menu category has been successfully updated.");
     },
     onError: (error: Error) => {
       toast({
@@ -874,10 +832,7 @@ export default function AdminPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/menu/categories"] });
-      toast({
-        title: "Category Deleted",
-        description: "The menu category has been successfully deleted."
-      });
+      notifySuccess("Category Deleted", "The menu category has been successfully deleted.");
     },
     onError: (error: Error) => {
       toast({
@@ -899,10 +854,7 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       setNewUserDialog(false);
       resetNewUserForm();
-      toast({
-        title: "User Created",
-        description: "The new user has been successfully created."
-      });
+      notifySuccess("User Created", "The new user has been successfully created.");
     },
     onError: (error: Error) => {
       toast({
@@ -965,10 +917,7 @@ export default function AdminPage() {
       });
       
       // Offer retry option
-      toast({
-        title: "Try Again",
-        description: "You can try scanning again or manually search for the user in the Users tab.",
-      });
+      notifySuccess("Try Again", "You can try scanning again or manually search for the user in the Users tab.");
       
       // Reset the scanner state after error
       if (qrScannerRef.current) {
@@ -1309,11 +1258,7 @@ export default function AdminPage() {
           })
           .catch(err => {
             console.error("Error fetching menu item options:", err);
-            toast({
-              title: "Error",
-              description: "Failed to load menu item options",
-              variant: "destructive"
-            });
+            notifyError("Error", "Failed to load menu item options");
           });
       } else {
         // Reset options
@@ -1345,11 +1290,7 @@ export default function AdminPage() {
   // Add a new menu item option
   const handleAddOption = () => {
     if (!optionForm.name) {
-      toast({
-        title: "Invalid Option",
-        description: "Please enter a name for the option",
-        variant: "destructive"
-      });
+      notifyError("Invalid Option", "Please enter a name for the option");
       return;
     }
     
@@ -1427,11 +1368,7 @@ export default function AdminPage() {
         });
       } catch (err) {
         console.error("Error deleting option:", err);
-        toast({
-          title: "Error",
-          description: "Failed to delete option from database",
-          variant: "destructive"
-        });
+        notifyError("Error", "Failed to delete option from database");
       }
     }
   };
@@ -1484,10 +1421,7 @@ export default function AdminPage() {
         // Refetch the menu items to force a reload
         menuItemsQuery.refetch();
         
-        toast({
-          title: "Options Removed",
-          description: "All options have been removed from this item"
-        });
+        notifySuccess("Options Removed", "All options have been removed from this item");
         
         return;
       }
@@ -1659,11 +1593,7 @@ export default function AdminPage() {
       });
     } catch (error) {
       console.error("Error saving menu item options:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save options",
-        variant: "destructive"
-      });
+      notifyError("Error", "Failed to save options");
     }
   };
   
@@ -2736,10 +2666,7 @@ export default function AdminPage() {
                             
                             // If we're editing an existing menu item, clear from database immediately
                             if (selectedMenuItem?.id && menuItemOptions.some(o => o.id)) {
-                              toast({
-                                title: "Clearing Options",
-                                description: "Removing all options for this item..."
-                              });
+                              notifySuccess("Clearing Options", "Removing all options for this item...");
                               
                               // We'll let saveMenuItemOptions handle the actual deletion when form is saved
                             }

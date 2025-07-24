@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -85,7 +85,7 @@ type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError, notifyInfo } = useNativeNotifications();
   const [_, navigate] = useLocation();
   const [forgotDialogOpen, setForgotDialogOpen] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -161,19 +161,12 @@ export default function AuthPage() {
       return await res.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Password reset link sent",
-        description: "If your email is registered, you will receive a password reset link shortly.",
-      });
+      notifyInfo("Password reset link sent", "If your email is registered, you will receive a password reset link shortly.");
       setResetSent(true);
       forgotForm.reset();
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send reset link. Please try again later.",
-        variant: "destructive",
-      });
+      notifyError("Error", error.message || "Failed to send reset link. Please try again later.");
     },
   });
 
@@ -184,10 +177,7 @@ export default function AuthPage() {
       return await res.json();
     },
     onSuccess: () => {
-      toast({
-        title: "Password reset successful",
-        description: "Your password has been reset. You can now log in with your new password.",
-      });
+      notifySuccess("Password reset successful", "Your password has been reset. You can now log in with your new password.");
       // Clear the token from URL
       window.history.replaceState({}, document.title, window.location.pathname);
       // Switch to login tab
@@ -195,11 +185,7 @@ export default function AuthPage() {
       resetPasswordForm.reset();
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to reset password. The link may be expired or invalid.",
-        variant: "destructive",
-      });
+      notifyError("Error", error.message || "Failed to reset password. The link may be expired or invalid.");
     },
   });
 
@@ -209,11 +195,7 @@ export default function AuthPage() {
   
   const onResetPasswordSubmit = async (data: ResetPasswordFormValues) => {
     if (!resetToken) {
-      toast({
-        title: "Error",
-        description: "Reset token is missing. Please use the link from your email.",
-        variant: "destructive",
-      });
+      notifyError("Error", "Reset token is missing. Please use the link from your email.");
       return;
     }
     

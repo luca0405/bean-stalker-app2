@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { AppHeader } from "@/components/app-header";
 
 export default function CartPage() {
@@ -22,7 +22,7 @@ export default function CartPage() {
   } = useCart();
   const { user } = useAuth();
   const [location, setLocation] = useLocation();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const serviceFee = 0;
@@ -34,48 +34,29 @@ export default function CartPage() {
     },
     onSuccess: (data) => {
       clearCart();
-      toast({
-        title: "Order Placed Successfully!",
-        description: `Your order #${data.id} has been submitted to the kitchen.`,
-      });
+      notifySuccess("Order Placed Successfully!", `Your order #${data.id} has been submitted to the kitchen.`);
       setLocation("/orders");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Order Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      notifyError("Order Failed", error.message);
     },
   });
 
   const handlePlaceOrder = async () => {
     if (!user) {
-      toast({
-        title: "Please log in",
-        description: "You need to be logged in to place an order.",
-        variant: "destructive",
-      });
+      notifyError("Please log in", "You need to be logged in to place an order.");
       return;
     }
 
     if (cart.length === 0) {
-      toast({
-        title: "Cart is empty",
-        description: "Add some items to your cart first.",
-        variant: "destructive",
-      });
+      notifyError("Cart is empty", "Add some items to your cart first.");
       return;
     }
 
     const total = calculateTotal();
     
     if (user.credits < total) {
-      toast({
-        title: "Insufficient credits",
-        description: `You need $${total.toFixed(2)} in credits but only have $${user.credits.toFixed(2)}.`,
-        variant: "destructive",
-      });
+      notifyError("Insufficient credits", `You need $${total.toFixed(2)} in credits but only have $${user.credits.toFixed(2)}.`);
       return;
     }
 
@@ -291,7 +272,7 @@ export default function CartPage() {
         </main>
 
         {/* Sticky Footer - Place Order */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 p-4 z-[60]">
+        <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 p-4 z-[100]">
           <div className="max-w-2xl mx-auto">
             <Button
               onClick={handlePlaceOrder}

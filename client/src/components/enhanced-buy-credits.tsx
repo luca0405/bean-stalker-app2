@@ -4,9 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Capacitor } from '@capacitor/core';
 import { useIAP } from '@/hooks/use-iap';
-import { useToast } from '@/hooks/use-toast';
-import { RevenueCatTroubleshooter } from '@/components/revenuecat-troubleshooter';
-import { RevenueCatForceReload } from '@/components/revenuecat-force-reload';
+import { useNativeNotifications } from '@/hooks/use-native-notifications';
+
 
 import { formatCurrency } from '@/lib/utils';
 import { CreditCard, ShoppingBag, Star, Gift, Smartphone } from 'lucide-react';
@@ -29,7 +28,7 @@ export function EnhancedBuyCredits() {
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { purchaseProduct, isAvailable: iapAvailable, isLoading: iapLoading } = useIAP();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const isNative = Capacitor.isNativePlatform();
 
   const handlePurchase = async (creditPackage: CreditPackage) => {
@@ -40,18 +39,10 @@ export function EnhancedBuyCredits() {
       // Process IAP purchase through App Store
       const result = await purchaseProduct(creditPackage.id);
       if (result.success) {
-        toast({
-          title: "Purchase Successful!",
-          description: `${formatCurrency(creditPackage.amount + (creditPackage.bonus || 0))} credits added to your account.`,
-        });
+        notifySuccess("Purchase Successful!", `${formatCurrency(creditPackage.amount + (creditPackage.bonus || 0))} credits added to your account.`);
       }
     } catch (error) {
-      console.error('App Store purchase failed:', error);
-      toast({
-        title: "Purchase Failed",
-        description: "Please try again or contact support if the issue persists.",
-        variant: "destructive",
-      });
+      notifyError("Purchase Failed", "Please try again or contact support if the issue persists.");
     } finally {
       setIsProcessing(false);
       setSelectedPackage(null);
@@ -200,27 +191,7 @@ export function EnhancedBuyCredits() {
         </Card>
       </motion.div>
 
-      {/* RevenueCat Troubleshooter - Only show on native platforms for debugging */}
-      {isNative && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4 }}
-        >
-          <RevenueCatTroubleshooter />
-        </motion.div>
-      )}
 
-      {/* Force Reload Component - Additional debugging */}
-      {isNative && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          <RevenueCatForceReload />
-        </motion.div>
-      )}
 
     </div>
   );

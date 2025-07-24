@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { biometricService } from '@/services/biometric-service';
 import { useAuth } from '@/hooks/use-auth';
-import { useToast } from '@/hooks/use-toast';
+import { useNativeNotifications } from '@/hooks/use-native-notifications';
 
 export interface BiometricAuthState {
   isAvailable: boolean;
@@ -12,7 +12,7 @@ export interface BiometricAuthState {
 
 export function useBiometricAuth() {
   const { loginMutation } = useAuth();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   
   const [biometricState, setBiometricState] = useState<BiometricAuthState>({
     isAvailable: false,
@@ -55,20 +55,12 @@ export function useBiometricAuth() {
   const authenticateWithBiometrics = async (): Promise<boolean> => {
     try {
       if (!biometricState.isAvailable) {
-        toast({
-          title: "Biometric Authentication Unavailable",
-          description: "Please use your username and password",
-          variant: "destructive",
-        });
+        notifyError("Biometric Authentication Unavailable", "Please use your username and password");
         return false;
       }
 
       if (!biometricState.hasStoredCredentials) {
-        toast({
-          title: "No Biometric Login Set Up",
-          description: "Sign in with password first to enable biometric login",
-          variant: "destructive",
-        });
+        notifyError("No Biometric Login Set Up", "Sign in with password first to enable biometric login");
         return false;
       }
 
@@ -83,10 +75,7 @@ export function useBiometricAuth() {
         });
 
         const authType = getBiometricDisplayName(biometricState.biometricType);
-        toast({
-          title: "Authentication Successful",
-          description: `Signed in with ${authType}`,
-        });
+        notifySuccess("Authentication Successful", `Signed in with ${authType}`);
 
         return true;
       }
@@ -102,11 +91,7 @@ export function useBiometricAuth() {
         errorMessage = 'Biometric authentication not available';
       }
 
-      toast({
-        title: "Authentication Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      notifyError("Authentication Failed", errorMessage);
 
       return false;
     }
@@ -127,20 +112,13 @@ export function useBiometricAuth() {
         }));
 
         const authType = getBiometricDisplayName(biometricState.biometricType);
-        toast({
-          title: "Biometric Login Enabled",
-          description: `You can now sign in with ${authType}`,
-        });
+        notifySuccess("Biometric Login Enabled", `You can now sign in with ${authType}`);
       }
 
       return success;
     } catch (error) {
       console.error('Failed to setup biometric auth:', error);
-      toast({
-        title: "Setup Failed",
-        description: "Could not enable biometric authentication",
-        variant: "destructive",
-      });
+      notifyError("Setup Failed", "Could not enable biometric authentication");
       return false;
     }
   };
@@ -155,20 +133,13 @@ export function useBiometricAuth() {
           hasStoredCredentials: false 
         }));
 
-        toast({
-          title: "Biometric Login Disabled",
-          description: "Biometric authentication has been turned off",
-        });
+        notifySuccess("Biometric Login Disabled", "Biometric authentication has been turned off");
       }
 
       return success;
     } catch (error) {
       console.error('Failed to disable biometric auth:', error);
-      toast({
-        title: "Error",
-        description: "Could not disable biometric authentication",
-        variant: "destructive",
-      });
+      notifyError("Error", "Could not disable biometric authentication");
       return false;
     }
   };

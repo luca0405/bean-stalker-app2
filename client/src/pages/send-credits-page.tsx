@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -22,7 +22,7 @@ interface ShareCreditsResponse {
 
 export default function SendCreditsPage() {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [showSMSPreview, setShowSMSPreview] = useState(false);
@@ -74,17 +74,10 @@ export default function SendCreditsPage() {
       setSmsDetails(data);
       setCustomMessage(getEditableMessage(data.smsMessage)); // Initialize with just editable part
       setShowSMSPreview(true);
-      toast({
-        title: "Credit Share Ready",
-        description: "Verification code generated. Send the SMS to complete sharing.",
-      });
+      notifySuccess("Credit Share Ready", "Verification code generated. Send the SMS to complete sharing.");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Share Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      notifyError("Share Failed", error.message);
     },
   });
 
@@ -99,10 +92,7 @@ export default function SendCreditsPage() {
     // Open SMS app
     window.location.href = smsUrl;
     
-    toast({
-      title: "SMS App Opened",
-      description: "Complete the transfer by sending the text message.",
-    });
+    notifySuccess("SMS App Opened", "Complete the transfer by sending the text message.");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -110,29 +100,17 @@ export default function SendCreditsPage() {
     
     const creditAmount = parseFloat(amount);
     if (!phoneNumber || !creditAmount) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter phone number and amount.",
-        variant: "destructive",
-      });
+      notifyError("Missing Information", "Please enter phone number and amount.");
       return;
     }
 
     if (creditAmount <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Amount must be greater than $0.",
-        variant: "destructive",
-      });
+      notifyError("Invalid Amount", "Amount must be greater than $0.");
       return;
     }
 
     if (!user || creditAmount > user.credits) {
-      toast({
-        title: "Insufficient Credits",
-        description: "You don't have enough credits for this transfer.",
-        variant: "destructive",
-      });
+      notifyError("Insufficient Credits", "You don't have enough credits for this transfer.");
       return;
     }
 

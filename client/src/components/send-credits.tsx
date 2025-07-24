@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ interface SendCreditsProps {
 }
 
 export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsProps = {}) {
-  const { toast } = useToast();
+  const { notifySuccess, notifyError, notifyWarning } = useNativeNotifications();
   const { user } = useAuth();
   const [internalOpen, setInternalOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState<string>("");
@@ -49,27 +49,16 @@ export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsPro
     onSuccess: (data) => {
       if (data && data.id) {
         setRecipientInfo(data);
-        toast({
-          title: "User found",
-          description: `Found user: ${data.username}`,
-        });
+        notifySuccess("User found", `Found user: ${data.username}`);
       } else {
         setRecipientInfo(null);
-        toast({
-          title: "User not found",
-          description: "No user with that phone number was found",
-          variant: "destructive",
-        });
+        notifyError("User not found", "No user with that phone number was found");
       }
       setIsSearching(false);
     },
     onError: (error: Error) => {
       setRecipientInfo(null);
-      toast({
-        title: "Lookup failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      notifyError("Lookup failed", error.message);
       setIsSearching(false);
     },
   });
@@ -92,10 +81,10 @@ export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsPro
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/credit-transactions"] });
       
-      toast({
-        title: "Credits sent successfully",
-        description: `${formatCurrency(amount)} has been sent to ${recipientInfo?.username}.`,
-      });
+      notifySuccess(
+        "Credits sent successfully",
+        `${formatCurrency(amount)} has been sent to ${recipientInfo?.username}.`
+      );
       
       // Reset form and close dialog
       setPhoneNumber("");
@@ -105,11 +94,7 @@ export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsPro
       setOpen(false);
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to send credits",
-        description: error.message,
-        variant: "destructive",
-      });
+      notifyError("Failed to send credits", error.message);
     },
   });
   
@@ -131,11 +116,7 @@ export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsPro
   
   const handleLookupUser = () => {
     if (!phoneNumber || phoneNumber.replace(/\D/g, "").length < 10) {
-      toast({
-        title: "Invalid phone number",
-        description: "Please enter a valid phone number",
-        variant: "destructive",
-      });
+      notifyError("Invalid phone number", "Please enter a valid phone number");
       return;
     }
     
@@ -145,29 +126,17 @@ export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsPro
   
   const handleSubmit = () => {
     if (!recipientInfo) {
-      toast({
-        title: "Missing recipient",
-        description: "Please look up a valid phone number first",
-        variant: "destructive",
-      });
+      notifyError("Missing recipient", "Please look up a valid phone number first");
       return;
     }
     
     if (!amount || amount <= 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Please enter a valid amount greater than 0",
-        variant: "destructive",
-      });
+      notifyError("Invalid amount", "Please enter a valid amount greater than 0");
       return;
     }
     
     if (amount > (user?.credits || 0)) {
-      toast({
-        title: "Insufficient credits",
-        description: "You don't have enough credits to complete this transaction",
-        variant: "destructive",
-      });
+      notifyError("Insufficient credits", "You don't have enough credits to complete this transaction");
       return;
     }
     

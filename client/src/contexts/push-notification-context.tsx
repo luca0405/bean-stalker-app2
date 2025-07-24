@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useIOSNotificationService } from './ios-notification-context';
-import { useToast } from '@/hooks/use-toast';
+import { useNativeNotifications } from '@/hooks/use-native-notifications';
 import { useAuth } from '@/hooks/use-auth';
 import { queryClient } from '@/lib/queryClient';
 
@@ -24,7 +24,7 @@ const PushNotificationContext = createContext<PushNotificationContextType>({
  */
 export function PushNotificationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const [isReady, setIsReady] = useState(false);
   const notificationCache = useRef<Set<string>>(new Set());
   const pollingIntervalRef = useRef<number | null>(null);
@@ -215,29 +215,17 @@ export function PushNotificationProvider({ children }: { children: ReactNode }) 
                   statusMessage = 'Your order is being prepared.';
                 }
                 
-                // Show a more detailed toast notification
-                toast({
-                  title: `Order #${order.id} Update`,
-                  description: statusMessage,
-                  duration: 5000
-                });
+                // Show a more detailed native notification
+                notifySuccess(`Order #${order.id} Update`, statusMessage);
               })
               .catch(error => {
                 console.error('Error fetching order details:', error);
                 // Fallback to general notification if fetch fails
-                toast({
-                  title: event.data.title || 'Order Update',
-                  description: event.data.body || 'Your order status has been updated.',
-                  duration: 5000
-                });
+                notifySuccess(event.data.title || 'Order Update', event.data.body || 'Your order status has been updated.');
               });
           } else {
-            // Show a general toast notification for order updates without specific ID
-            toast({
-              title: event.data.title || 'Order Update',
-              description: event.data.body || 'Your order status has been updated.',
-              duration: 5000
-            });
+            // Show a general native notification for order updates without specific ID
+            notifySuccess(event.data.title || 'Order Update', event.data.body || 'Your order status has been updated.');
           }
           
           // Start polling for a minute to ensure any updates are caught
@@ -263,16 +251,12 @@ export function PushNotificationProvider({ children }: { children: ReactNode }) 
             }
           }, 3000);
         } else {
-          // For non-order notifications, show a standard toast
-          toast({
-            title: event.data.title || 'Notification',
-            description: event.data.body || 'You have a new notification',
-            duration: 5000
-          });
+          // For non-order notifications, show a standard native notification
+          notifySuccess(event.data.title || 'Notification', event.data.body || 'You have a new notification');
         }
       }
     }
-  }, [toast, queryClient, user]);
+  }, [notifySuccess, queryClient, user]);
   
   // Listen for service worker messages about new notifications
   useEffect(() => {

@@ -4,7 +4,7 @@ import { Heart } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotifications } from "@/hooks/use-native-notifications";
 import { getMobileCompatibleImageUrl } from "@/utils/mobile-image-utils";
 
 interface GrabMenuCardProps {
@@ -15,7 +15,7 @@ interface GrabMenuCardProps {
 export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
 
   // Get mobile-compatible image URL using utility function  
   const imageUrl = getMobileCompatibleImageUrl(item.imageUrl, item.category);
@@ -42,17 +42,10 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
       queryClient.invalidateQueries({ queryKey: ['/api/favorites', item.id] });
-      toast({
-        title: "Added to favorites",
-        description: `${item.name} has been added to your favorites.`,
-      });
+      notifySuccess("Added to favorites", `${item.name} has been added to your favorites.`);
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to add favorite",
-        description: error.message,
-        variant: "destructive",
-      });
+      notifyError("Failed to add favorite", error.message);
     }
   });
 
@@ -64,17 +57,10 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
       queryClient.invalidateQueries({ queryKey: ['/api/favorites', item.id] });
-      toast({
-        title: "Removed from favorites",
-        description: `${item.name} has been removed from your favorites.`,
-      });
+      notifySuccess("Removed from favorites", `${item.name} has been removed from your favorites.`);
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to remove favorite",
-        description: error.message,
-        variant: "destructive",
-      });
+      notifyError("Failed to remove favorite", error.message);
     }
   });
 
@@ -82,11 +68,7 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
     e.stopPropagation(); // Prevent card click
     
     if (!user) {
-      toast({
-        title: "Login required",
-        description: "Please log in to add items to favorites.",
-        variant: "destructive",
-      });
+      notifyError("Login required", "Please log in to add items to favorites.");
       return;
     }
 
@@ -115,7 +97,13 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
             
             // For native apps, fallback to appropriate category icon
             if (isCapacitor && !imageUrl.startsWith('data:')) {
-              const fallbackIcon = item.category?.includes('breakfast') || item.category?.includes('lunch') 
+              const fallbackIcon = item.category?.includes('breakfast') || 
+                                   item.category?.includes('lunch') || 
+                                   item.category?.includes('food') || 
+                                   item.category?.includes('sandwich') || 
+                                   item.category?.includes('panini') ||
+                                   item.category?.includes('bagel') ||
+                                   item.category?.includes('toast')
                 ? getMobileCompatibleImageUrl(null, 'breakfast')
                 : getMobileCompatibleImageUrl(null, 'coffee');
               (e.target as HTMLImageElement).src = fallbackIcon;
@@ -123,11 +111,14 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
             }
             
             // Hide the broken image and show fallback
-            (e.target as HTMLImageElement).style.display = 'none';
-            if (e.target?.parentElement) {
-              const fallback = e.target.parentElement.querySelector('.image-fallback');
+            const imgElement = e.target as HTMLImageElement;
+            imgElement.style.display = 'none';
+            if (imgElement.parentElement) {
+              const fallback = imgElement.parentElement.querySelector('.image-fallback');
               if (fallback) {
                 (fallback as HTMLElement).style.display = 'flex';
+                (fallback as HTMLElement).classList.remove('hidden');
+                (fallback as HTMLElement).classList.add('flex');
               }
             }
           }}
@@ -136,11 +127,22 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
           }}
         />
         <div 
-          className={`h-full w-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700 image-fallback ${item.imageUrl ? 'hidden' : ''}`}
+          className={`absolute inset-0 w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center image-fallback ${item.imageUrl ? 'hidden' : 'flex'}`}
         >
-          <span className="text-sm font-medium text-center px-3">
-            {item.imageUrl ? 'Image Loading...' : 'No Image'}
-          </span>
+          <img 
+            src={item.category?.includes('breakfast') || 
+                 item.category?.includes('lunch') || 
+                 item.category?.includes('food') || 
+                 item.category?.includes('sandwich') || 
+                 item.category?.includes('panini') ||
+                 item.category?.includes('bagel') ||
+                 item.category?.includes('toast')
+              ? getMobileCompatibleImageUrl(null, 'breakfast')
+              : getMobileCompatibleImageUrl(null, 'coffee')} 
+            alt={`${item.name} fallback icon`}
+            className="w-20 h-20"
+            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
+          />
         </div>
         
         {/* Heart Icon */}

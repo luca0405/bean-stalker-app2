@@ -28,7 +28,6 @@ export function IAPProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (user && isInitialized) {
-      console.log('IAP Hook: Setting user ID for RevenueCat:', user.id.toString());
       iapService.setUserID(user.id.toString());
     }
   }, [user, isInitialized]);
@@ -44,7 +43,7 @@ export function IAPProvider({ children }: { children: ReactNode }) {
         setProducts(availableProducts);
       }
     } catch (error) {
-      console.error('Failed to initialize IAP:', error);
+      // IAP initialization failed
     } finally {
       setIsLoading(false);
     }

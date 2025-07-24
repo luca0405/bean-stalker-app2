@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Loader2, DollarSign, CreditCard } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useNativeNotifications } from '@/hooks/use-native-notifications';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 declare global {
@@ -23,7 +23,7 @@ const CREDIT_PACKAGES = [
 
 export function BuyCredits() {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { notifySuccess, notifyError } = useNativeNotifications();
   const isMobile = useIsMobile();
   const [selectedPackage, setSelectedPackage] = useState<typeof CREDIT_PACKAGES[0]>(CREDIT_PACKAGES[0]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -44,14 +44,10 @@ export function BuyCredits() {
       return config;
     } catch (error) {
       console.error('Failed to load Square configuration:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load payment configuration',
-        variant: 'destructive',
-      });
+      notifyError('Error', 'Failed to load payment configuration');
       return null;
     }
-  }, [toast]);
+  }, []);
 
   // Load Square configuration on component mount
   useEffect(() => {
@@ -84,11 +80,7 @@ export function BuyCredits() {
           script.onerror = () => {
             reject(new Error('Failed to load Square SDK'));
             if (isComponentMounted) {
-              toast({
-                title: 'Error',
-                description: 'Failed to load payment system',
-                variant: 'destructive',
-              });
+              notifyError('Error', 'Failed to load payment system');
             }
           };
           document.body.appendChild(script);
@@ -116,11 +108,7 @@ export function BuyCredits() {
         } catch (error) {
           console.error('Failed to initialize Square payment:', error);
           if (isComponentMounted) {
-            toast({
-              title: 'Payment Setup Failed',
-              description: 'Could not initialize the payment system',
-              variant: 'destructive',
-            });
+            notifyError('Payment Setup Failed', 'Could not initialize the payment system');
           }
         }
       }
@@ -138,7 +126,7 @@ export function BuyCredits() {
         });
       }
     };
-  }, [squareConfig, toast, cardPaymentRef]);
+  }, [squareConfig, cardPaymentRef]);
 
   const handleSelectPackage = (pkg: typeof CREDIT_PACKAGES[0]) => {
     setSelectedPackage(pkg);
@@ -146,11 +134,7 @@ export function BuyCredits() {
 
   const handlePayment = async () => {
     if (!squarePaymentRef.current) {
-      toast({
-        title: 'Payment Error',
-        description: 'Payment system not initialized',
-        variant: 'destructive',
-      });
+      notifyError('Payment Error', 'Payment system not initialized');
       return;
     }
 
@@ -170,10 +154,7 @@ export function BuyCredits() {
         const paymentResult = await response.json();
         
         if (paymentResult.success) {
-          toast({
-            title: 'Payment Successful',
-            description: `Successfully added ${selectedPackage.receive.toFixed(2)} credits to your account!`,
-          });
+          notifySuccess('Payment Successful', `Successfully added ${selectedPackage.receive.toFixed(2)} credits to your account!`);
           
           // Refresh user data to show updated credits
           queryClient.invalidateQueries({ queryKey: ['/api/user'] });
@@ -185,11 +166,7 @@ export function BuyCredits() {
       }
     } catch (error) {
       console.error('Payment processing error:', error);
-      toast({
-        title: 'Payment Failed',
-        description: error instanceof Error ? error.message : 'Failed to process payment',
-        variant: 'destructive',
-      });
+      notifyError('Payment Failed', error instanceof Error ? error.message : 'Failed to process payment');
     } finally {
       setLoading(false);
     }
