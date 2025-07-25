@@ -12,6 +12,10 @@
     scroll-behavior: smooth;
     /* Improve scrolling on iOS Safari */
     -webkit-overflow-scrolling: touch;
+    /* Fill iPhone screen completely */
+    height: 100vh;
+    height: 100dvh;
+    width: 100vw;
   }
 
   body {
@@ -20,18 +24,36 @@
     -webkit-overflow-scrolling: touch;
     /* Improve touch responsiveness */
     touch-action: manipulation;
-    /* Fix viewport on mobile - prevent overscroll */
+    /* Fill iPhone screen completely - no black bars */
     height: 100vh;
-    height: 100dvh; /* Dynamic viewport height for modern mobile browsers */
+    height: 100dvh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
     overflow: hidden;
+    /* iPhone specific fixes */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
   
   #root {
     height: 100%;
+    width: 100%;
     overflow: auto;
-    /* Ensure content fills the viewport properly */
+    /* Fill entire screen on iPhone */
     min-height: 100vh;
     min-height: 100dvh;
+    min-width: 100vw;
+    /* Prevent content from going under the floating navigation */
+    box-sizing: border-box;
+    /* iPhone safe area integration */
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
   }
 
   /* Smooth scrolling for all scrollable elements */
@@ -45,6 +67,11 @@
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
     overscroll-behavior: contain;
+  }
+
+  /* Safe area handling for floating navigation */
+  .with-floating-nav {
+    padding-bottom: max(env(safe-area-inset-bottom, 16px), 96px);
   }
 }
 
@@ -87,6 +114,11 @@
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
+  
+  /* Safe area handling for iPhone navigation overlap */
+  .mobile-safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom, 16px), 96px);
+  }
 
   .momentum-scroll {
     -webkit-overflow-scrolling: touch;
@@ -114,6 +146,15 @@
 
   .scroll-container::-webkit-scrollbar {
     display: none; /* Chrome, Safari */
+  }
+
+  /* iPhone viewport fix - ensure full screen coverage */
+  .iphone-fullscreen {
+    min-height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    width: 100vw;
+    background: linear-gradient(to bottom right, rgb(248 250 252), rgb(241 245 249), rgb(236 253 245));
   }
 
   /* Full screen popup container */

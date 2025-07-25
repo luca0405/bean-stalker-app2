@@ -227,10 +227,10 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 iphone-fullscreen">
       <AppHeader />
       
-      <main className="flex-1 px-6 py-8 max-w-7xl mx-auto w-full scroll-container momentum-scroll">
+      <main className="flex-1 px-6 py-8 pb-32 max-w-7xl mx-auto w-full scroll-container momentum-scroll">
         {/* Welcome Section */}
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-gray-900 mb-1">Hi, {user?.fullName || user?.username}</h1>
