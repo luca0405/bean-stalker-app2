@@ -9,6 +9,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useNativeNotification } from "@/services/native-notification-service";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useIAP } from "@/hooks/use-iap";
+import { Capacitor } from '@capacitor/core';
 import {
   Form,
   FormControl,
@@ -86,6 +88,8 @@ type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
   const { notify } = useNativeNotification();
+  const { purchaseProduct, isAvailable: iapAvailable, isLoading: iapLoading } = useIAP();
+  const isNative = Capacitor.isNativePlatform();
   const [_, navigate] = useLocation();
   const [forgotDialogOpen, setForgotDialogOpen] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -221,6 +225,44 @@ export default function AuthPage() {
       token: resetToken,
       newPassword: data.newPassword,
     });
+  };
+
+  const onRegisterSubmit = async (data: RegisterFormValues) => {
+    const { joinPremium, confirmPassword, ...userData } = data;
+    
+    if (joinPremium && isNative) {
+      // Use RevenueCat for premium membership on native platforms
+      try {
+        notify({
+          title: "Processing Membership",
+          description: "Please complete the payment in the App Store...",
+        });
+        
+        const result = await purchaseProduct('com.beanstalker.membership69');
+        if (result.success) {
+          // Membership payment successful - register user
+          await registerMutation.mutateAsync(userData);
+          notify({
+            title: "Premium Membership Activated!",
+            description: "Your account has been created with $69 credit. Welcome to Bean Stalker Premium!",
+          });
+        }
+      } catch (error) {
+        console.error('Premium membership purchase failed:', error);
+        notify({
+          title: "Payment Failed",
+          description: "Premium membership purchase failed. Please try again or contact support.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // Regular registration without premium membership
+      try {
+        await registerMutation.mutateAsync(userData);
+      } catch (error) {
+        // Error handling is done in the mutation
+      }
+    }
   };
 
   return (

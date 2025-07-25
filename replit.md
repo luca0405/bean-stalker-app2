@@ -671,6 +671,19 @@ Changelog:
   - Used overflowY: 'scroll' with WebkitOverflowScrolling: 'touch' for native momentum scrolling
   - Separated WebView container layer from CSS scrolling layer for proper native touch gesture handling
   - All pages now use identical native scrolling approach: fixed inset-0 with explicit touch properties
+- July 25, 2025. Fixed RevenueCat premium membership integration in authentication
+  - Updated auth-page-mobile.tsx to use RevenueCat IAP for "Join Premium $69" button instead of old Square system
+  - Native iOS users now get proper App Store payment popup for membership purchases
+  - Confirmed registration correctly provides $69 credit (not $100) - server logic was already correct
+  - Premium membership flow: RevenueCat payment → user registration → $69 credit activation
+  - Both IAP credit packages and membership now use consistent RevenueCat native payment system
+- July 25, 2025. Implemented native iOS scrolling behavior with hidden scrollbars for authentic app experience
+  - Added global CSS rules to hide all scrollbars throughout the app (*::-webkit-scrollbar { display: none; })
+  - Created native-page-scroll CSS class with proper iOS momentum scrolling and touch behavior
+  - Updated all main pages (Home, Menu, Orders, Favorites, Profile) to use native scrolling approach
+  - App now scrolls like authentic native iOS apps (Facebook, Instagram) with no visible scrollbars
+  - Maintains smooth momentum scrolling, bounce behavior, and touch-optimized gesture handling
+  - iOS build synced and ready for TestFlight with true native app scrolling experience
 ```
 
 ## User Preferences

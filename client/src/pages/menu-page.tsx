@@ -85,14 +85,7 @@ export default function MenuPage() {
 
   return (
     <div 
-      className="fixed inset-0 bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30" 
-      style={{ 
-        overflowY: 'scroll',
-        WebkitOverflowScrolling: 'touch',
-        touchAction: 'pan-y',
-        height: '100vh',
-        width: '100vw'
-      }}
+      className="fixed inset-0 bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 native-page-scroll"
     >
       <AppHeader />
       

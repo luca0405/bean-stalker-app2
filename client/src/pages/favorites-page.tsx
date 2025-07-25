@@ -5,14 +5,7 @@ import { FavoritesList } from "@/components/favorites-list";
 export default function FavoritesPage() {
   return (
     <div 
-      className="fixed inset-0 bg-secondary" 
-      style={{ 
-        overflowY: 'scroll',
-        WebkitOverflowScrolling: 'touch',
-        touchAction: 'pan-y',
-        height: '100vh',
-        width: '100vw'
-      }}
+      className="fixed inset-0 bg-secondary native-page-scroll"
     >
       <AppHeader />
       

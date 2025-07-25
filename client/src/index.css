@@ -108,7 +108,7 @@
     user-select: none;
   }
 
-  /* Scrollable container with momentum */
+  /* Native iOS scrolling behavior - NO SCROLLBARS ANYWHERE */
   .scroll-container {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
@@ -119,6 +119,42 @@
 
   .scroll-container::-webkit-scrollbar {
     display: none; /* Chrome, Safari */
+  }
+
+  /* Hide ALL scrollbars globally for native iOS feel */
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  *::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, iOS WebView */
+    width: 0px;
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-track {
+    display: none;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    display: none;
+  }
+
+  /* Native iOS page scrolling */
+  .native-page-scroll {
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .native-page-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0px;
+    background: transparent;
   }
 
   .iphone-fullscreen {
