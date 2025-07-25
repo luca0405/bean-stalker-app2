@@ -73,7 +73,16 @@ export default function OrdersPage() {
   }, [queryClient, notify]);
 
   return (
-    <div className="min-h-screen bg-secondary overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-secondary" 
+      style={{ 
+        overflowY: 'scroll',
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        height: '100vh',
+        width: '100vw'
+      }}
+    >
       <AppHeader />
 
       <main className="p-5 pb-32">

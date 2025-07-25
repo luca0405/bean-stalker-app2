@@ -665,6 +665,12 @@ Changelog:
   - Updated CAPBridgeViewController+Fullscreen.swift to enable bounce scrolling (bounces = true, alwaysBounceVertical = true)
   - All pages now properly scrollable while maintaining fullscreen display and status bar visibility
   - Native iOS scrolling behavior restored with proper bounce effects for smooth user experience
+- July 25, 2025. Implemented pure native iOS touch scrolling solution
+  - Disabled WKWebView scrolling completely (isScrollEnabled = false) to prevent interference
+  - Applied direct CSS touch handling with touchAction: 'pan-y' for explicit vertical scrolling
+  - Used overflowY: 'scroll' with WebkitOverflowScrolling: 'touch' for native momentum scrolling
+  - Separated WebView container layer from CSS scrolling layer for proper native touch gesture handling
+  - All pages now use identical native scrolling approach: fixed inset-0 with explicit touch properties
 ```
 
 ## User Preferences

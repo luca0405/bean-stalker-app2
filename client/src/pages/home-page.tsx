@@ -227,7 +227,16 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30" 
+      style={{ 
+        overflowY: 'scroll',
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        height: '100vh',
+        width: '100vw'
+      }}
+    >
       <AppHeader />
       
       <main className="px-6 py-8 pb-32 max-w-7xl mx-auto w-full">

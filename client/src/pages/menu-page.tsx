@@ -84,7 +84,16 @@ export default function MenuPage() {
   }, [refreshMenu, notify]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30" 
+      style={{ 
+        overflowY: 'scroll',
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        height: '100vh',
+        width: '100vw'
+      }}
+    >
       <AppHeader />
       
       <main className="p-4 pb-32 max-w-6xl mx-auto">

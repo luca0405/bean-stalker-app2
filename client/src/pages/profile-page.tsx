@@ -110,7 +110,16 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 overflow-y-auto">
+    <div 
+      className="fixed inset-0 bg-gradient-to-br from-slate-50 to-slate-100" 
+      style={{ 
+        overflowY: 'scroll',
+        WebkitOverflowScrolling: 'touch',
+        touchAction: 'pan-y',
+        height: '100vh',
+        width: '100vw'
+      }}
+    >
       <AppHeader />
       
       <main className="px-5 pb-32">

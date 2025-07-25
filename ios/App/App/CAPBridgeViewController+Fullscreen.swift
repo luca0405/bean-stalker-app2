@@ -18,33 +18,28 @@ extension CAPBridgeViewController {
     }
     
     private func configureFullscreen() {
-        // Hide status bar
-        self.modalPresentationCapturesStatusBarAppearance = true
-        
-        // Configure WKWebView for fullscreen
+        // Configure WKWebView for native touch scrolling
         if let webView = self.webView {
             webView.frame = self.view.bounds
             webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
             webView.backgroundColor = UIColor.white
             webView.isOpaque = true
-            webView.scrollView.backgroundColor = UIColor.white
-            webView.scrollView.contentInsetAdjustmentBehavior = .never
-            webView.scrollView.automaticallyAdjustsScrollIndicatorInsets = false
-            webView.scrollView.bounces = true
-            webView.scrollView.alwaysBounceVertical = true
-            webView.scrollView.alwaysBounceHorizontal = false
             
-            // Remove any content insets
+            // CRITICAL: Disable WebView's own scrolling - let CSS handle it
+            webView.scrollView.isScrollEnabled = false
+            webView.scrollView.bounces = false
+            webView.scrollView.alwaysBounceVertical = false
+            webView.scrollView.alwaysBounceHorizontal = false
+            webView.scrollView.showsVerticalScrollIndicator = false
+            webView.scrollView.showsHorizontalScrollIndicator = false
+            
+            // Set content insets to zero
             webView.scrollView.contentInset = UIEdgeInsets.zero
             webView.scrollView.scrollIndicatorInsets = UIEdgeInsets.zero
+            webView.scrollView.contentInsetAdjustmentBehavior = .never
         }
         
-        // Configure view controller
-        self.edgesForExtendedLayout = []
-        self.extendedLayoutIncludesOpaqueBars = false
-        self.automaticallyAdjustsScrollViewInsets = false
-        
-        // Force view bounds
+        // Configure view controller for fullscreen
         self.view.frame = UIScreen.main.bounds
         self.view.backgroundColor = UIColor.white
     }
