@@ -57,16 +57,8 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-
-
-        // Wait for Capacitor to be ready on mobile
-        if (Capacitor.isNativePlatform()) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-
-        }
-        
-
+        // Native iOS app initialization
+        await new Promise(resolve => setTimeout(resolve, 500));
         setIsReady(true);
       } catch (error) {
         setAppError(error instanceof Error ? error.message : 'Unknown error');
@@ -78,7 +70,7 @@ function App() {
 
   if (appError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-800 to-green-900 flex items-center justify-center p-4">
+      <div className="iphone-fullscreen bg-gradient-to-br from-green-800 to-green-900 flex items-center justify-center p-4">
         <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 text-white text-center max-w-md">
           <h1 className="text-xl font-bold mb-4">App Error</h1>
           <p className="mb-4">{appError}</p>
@@ -95,7 +87,7 @@ function App() {
 
   if (!isReady) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-800 to-green-900 flex items-center justify-center">
+      <div className="iphone-fullscreen bg-gradient-to-br from-green-800 to-green-900 flex items-center justify-center">
         <div className="text-white text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p>Loading Bean Stalker...</p>
@@ -106,31 +98,33 @@ function App() {
 
   try {
     return (
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <IAPProvider>
-              <MenuProvider>
-                <CartProvider>
-                  <IOSNotificationProvider>
-                    <PushNotificationProvider>
-                      <AppUpdateProvider>
-                        <Router />
-                        <Toaster />
-                      </AppUpdateProvider>
-                    </PushNotificationProvider>
-                  </IOSNotificationProvider>
-                </CartProvider>
-              </MenuProvider>
-            </IAPProvider>
-          </AuthProvider>
-        </QueryClientProvider>
-      </ErrorBoundary>
+      <div className="iphone-fullscreen">
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <IAPProvider>
+                <MenuProvider>
+                  <CartProvider>
+                    <IOSNotificationProvider>
+                      <PushNotificationProvider>
+                        <AppUpdateProvider>
+                          <Router />
+                          <Toaster />
+                        </AppUpdateProvider>
+                      </PushNotificationProvider>
+                    </IOSNotificationProvider>
+                  </CartProvider>
+                </MenuProvider>
+              </IAPProvider>
+            </AuthProvider>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </div>
     );
   } catch (renderError) {
     console.error('App: Render error caught:', renderError);
     return (
-      <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
+      <div className="iphone-fullscreen bg-red-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-6 text-center max-w-md w-full">
           <h1 className="text-xl font-bold text-red-600 mb-2">Render Error</h1>
           <p className="text-gray-600 mb-4">{renderError instanceof Error ? renderError.message : String(renderError)}</p>

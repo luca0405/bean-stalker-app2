@@ -8,54 +8,53 @@
   }
 
   html {
-    /* Enable smooth scrolling globally */
+    /* Native iOS app base configuration */
     scroll-behavior: smooth;
-    /* Improve scrolling on iOS Safari */
     -webkit-overflow-scrolling: touch;
-    /* iPhone viewport fix - force full screen */
     height: 100%;
     width: 100%;
     margin: 0;
     padding: 0;
+    /* Prevent iOS zoom on input focus */
+    -webkit-text-size-adjust: 100%;
+    -webkit-touch-callout: none;
   }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    /* Enable momentum scrolling on mobile */
+    /* Native iOS app fullscreen configuration */
     -webkit-overflow-scrolling: touch;
-    /* Improve touch responsiveness */
     touch-action: manipulation;
-    /* iPhone viewport - eliminate black bars completely */
     height: 100vh !important;
     height: 100dvh !important;
-    height: -webkit-fill-available !important;
     width: 100vw !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden;
-    /* Force full screen on iOS */
+    overflow: hidden !important;
+    /* Force native fullscreen positioning */
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
+    background-color: var(--background) !important;
   }
   
   #root {
+    /* Native iOS app root container - force fullscreen */
     height: 100vh !important;
     height: 100dvh !important;
-    height: -webkit-fill-available !important;
     width: 100vw !important;
-    overflow: auto;
-    /* Prevent content from going under the floating navigation */
-    box-sizing: border-box;
-    /* iPhone safe area integration - only for content padding */
-    padding-top: env(safe-area-inset-top, 0);
-    padding-left: env(safe-area-inset-left, 0);
-    padding-right: env(safe-area-inset-right, 0);
-    /* Don't add bottom safe area - let floating nav handle it */
+    overflow: auto !important;
+    box-sizing: border-box !important;
     margin: 0 !important;
-    position: relative;
+    position: relative !important;
+    /* Native safe area handling */
+    padding-top: env(safe-area-inset-top) !important;
+    padding-left: env(safe-area-inset-left) !important;
+    padding-right: env(safe-area-inset-right) !important;
+    /* Eliminate any black space */
+    background-color: var(--background) !important;
   }
 
   /* Smooth scrolling for all scrollable elements */
@@ -150,26 +149,25 @@
     display: none; /* Chrome, Safari */
   }
 
-  /* Native iOS app fullscreen configuration */
+  /* Native iOS app fullscreen class - eliminate all black bars */
   .iphone-fullscreen {
-    min-height: 100vh !important;
-    min-height: 100dvh !important;
     height: 100vh !important;
     height: 100dvh !important;
     width: 100vw !important;
     margin: 0 !important;
     padding: 0 !important;
-    /* Native app specific optimizations */
-    position: relative;
-    overflow-x: hidden;
+    position: relative !important;
+    overflow-x: hidden !important;
     /* Hardware acceleration for native performance */
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
-    /* Native safe area handling */
-    padding-top: env(safe-area-inset-top, 0);
-    padding-bottom: env(safe-area-inset-bottom, 0);
-    padding-left: env(safe-area-inset-left, 0);
-    padding-right: env(safe-area-inset-right, 0);
+    -webkit-transform: translateZ(0) !important;
+    transform: translateZ(0) !important;
+    /* Force background fill */
+    background-color: var(--background) !important;
+    /* Native safe area integration */
+    padding-top: env(safe-area-inset-top) !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    padding-left: env(safe-area-inset-left) !important;
+    padding-right: env(safe-area-inset-right) !important;
   }
 
   /* Full screen popup container */

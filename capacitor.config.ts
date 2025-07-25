@@ -25,6 +25,9 @@ const config: CapacitorConfig = {
       showSpinner: false,
       splashFullScreen: true,
       splashImmersive: true,
+      androidSplashResourceName: "splash",
+      androidScaleType: "CENTER_CROP",
+      iosSpinnerStyle: "small",
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
@@ -40,13 +43,17 @@ const config: CapacitorConfig = {
     },
   },
   ios: {
-    // Ensure App Transport Security allows image loading
-    contentInset: 'automatic',
     // Native iOS fullscreen configuration
+    contentInset: 'automatic',
     scrollEnabled: true,
     allowsLinkPreview: false,
-    // Force status bar handling for fullscreen
-    backgroundColor: '#1B3C2A'
+    backgroundColor: '#1B3C2A',
+    // Disable web view scrolling bounce for native feel
+    allowsBackForwardNavigationGestures: false,
+    // Native keyboard behavior
+    keyboardDisplayRequiresUserAction: false,
+    // Native viewport configuration
+    limitsNavigationsToAppBoundDomains: false
   },
 };
 
