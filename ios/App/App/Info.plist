@@ -45,6 +45,12 @@
         </array>
         <key>UIViewControllerBasedStatusBarAppearance</key>
         <true/>
+        <key>UIStatusBarHidden</key>
+        <false/>
+        <key>UIStatusBarStyle</key>
+        <string>UIStatusBarStyleLightContent</string>
+        <key>UIRequiresFullScreen</key>
+        <true/>
         <key>NSAppTransportSecurity</key>
         <dict>
                 <key>NSAllowsArbitraryLoads</key>

@@ -41,7 +41,12 @@ const config: CapacitorConfig = {
   },
   ios: {
     // Ensure App Transport Security allows image loading
-    contentInset: 'automatic'
+    contentInset: 'automatic',
+    // Native iOS fullscreen configuration
+    scrollEnabled: true,
+    allowsLinkPreview: false,
+    // Force status bar handling for fullscreen
+    backgroundColor: '#1B3C2A'
   },
 };
 

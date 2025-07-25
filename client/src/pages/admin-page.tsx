@@ -1750,14 +1750,24 @@ export default function AdminPage() {
 
   if (ordersLoading || usersLoading || menuItemsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center iphone-fullscreen" style={{ 
+        height: '-webkit-fill-available',
+        width: '100vw',
+        margin: 0,
+        padding: 0 
+      }}>
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary w-full">
+    <div className="flex flex-col bg-secondary w-full iphone-fullscreen" style={{ 
+      height: '-webkit-fill-available',
+      width: '100vw',
+      margin: 0,
+      padding: 0 
+    }}>
       <AppHeader />
 
       <main className="flex-1 p-5 container mx-auto max-w-5xl">

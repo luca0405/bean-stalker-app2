@@ -224,7 +224,12 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-secondary flex flex-col items-center justify-center p-6">
+    <div className="bg-secondary flex flex-col items-center justify-center p-6 iphone-fullscreen" style={{ 
+      height: '-webkit-fill-available',
+      width: '100vw',
+      margin: 0,
+      padding: 0 
+    }}>
       <div className="w-full max-w-md flex flex-col items-center mb-8">
         <img src="/images/bean-stalker-logo.png" alt="Bean Stalker Logo" className="w-40 h-auto" />
       </div>

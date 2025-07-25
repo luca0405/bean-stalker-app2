@@ -86,7 +86,12 @@ export default function AdminCreditVerification() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="bg-gradient-to-br from-slate-50 to-slate-100 p-4 iphone-fullscreen" style={{ 
+      height: '-webkit-fill-available',
+      width: '100vw',
+      margin: 0,
+      padding: 0 
+    }}>
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <motion.div

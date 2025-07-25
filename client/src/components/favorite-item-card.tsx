@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useNativeNotification } from "@/services/native-notification-service";
 import { formatCurrency } from "@/lib/utils";
+import { getMobileCompatibleImageUrl } from "@/utils/mobile-image-utils";
 
 interface FavoriteItemCardProps {
   item: MenuItem & { favoriteId: number; selectedSize?: string; selectedOptions?: CartItemOption[]; customName?: string };
@@ -104,20 +105,50 @@ export function FavoriteItemCard({ item }: FavoriteItemCardProps) {
     removeFavoriteMutation.mutate();
   };
 
+  // Get mobile-compatible image URL
+  const imageUrl = getMobileCompatibleImageUrl(item.imageUrl, item.category);
+
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-all duration-200 border-0 bg-white/90 backdrop-blur-sm">
       <div className="h-32 sm:h-36 w-full bg-muted relative overflow-hidden">
-        {item.imageUrl ? (
-          <img 
-            src={item.imageUrl} 
-            alt={item.name}
-            className="w-full h-full object-cover object-center hover:scale-105 transition-transform duration-200"
-          />
-        ) : (
-          <div className="h-full w-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700">
-            <span className="text-xs font-medium text-center px-2">No Image Available</span>
-          </div>
-        )}
+        <img 
+          src={imageUrl} 
+          alt={item.name}
+          className="w-full h-full object-cover object-center hover:scale-105 transition-transform duration-200"
+          onError={(e) => {
+            const isCapacitor = !!(window as any).Capacitor;
+            console.log(`Failed to load image: ${imageUrl} for ${item.name}`);
+            
+            // For native apps, fallback to appropriate category icon
+            if (isCapacitor && !imageUrl.startsWith('data:')) {
+              const fallbackIcon = item.category?.includes('breakfast') || item.category?.includes('lunch') 
+                ? getMobileCompatibleImageUrl(null, 'breakfast')
+                : getMobileCompatibleImageUrl(null, 'coffee');
+              (e.target as HTMLImageElement).src = fallbackIcon;
+              return;
+            }
+            
+            // Hide the broken image and show fallback
+            (e.target as HTMLImageElement).style.display = 'none';
+            const imgElement = e.target as HTMLImageElement;
+            if (imgElement.parentElement) {
+              const fallback = imgElement.parentElement.querySelector('.image-fallback');
+              if (fallback) {
+                (fallback as HTMLElement).style.display = 'flex';
+              }
+            }
+          }}
+          onLoad={() => {
+            console.log(`Successfully loaded image: ${imageUrl} for ${item.name}`);
+          }}
+        />
+        <div 
+          className={`absolute inset-0 bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700 image-fallback ${item.imageUrl ? 'hidden' : ''}`}
+        >
+          <span className="text-xs font-medium text-center px-2">
+            {item.imageUrl ? 'Image Loading...' : 'No Image'}
+          </span>
+        </div>
         {user && (
           <button 
             onClick={handleRemoveFavorite}

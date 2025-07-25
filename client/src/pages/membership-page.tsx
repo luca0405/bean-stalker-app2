@@ -124,7 +124,12 @@ export default function MembershipPage() {
 
   if (!user) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 iphone-fullscreen" style={{ 
+        height: '-webkit-fill-available',
+        width: '100vw',
+        margin: 0,
+        padding: 0 
+      }}>
         <Card>
           <CardContent className="p-8 text-center">
             <p>Please log in to access membership features.</p>
@@ -136,7 +141,12 @@ export default function MembershipPage() {
 
   if (user.isMember) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 iphone-fullscreen" style={{ 
+        height: '-webkit-fill-available',
+        width: '100vw',
+        margin: 0,
+        padding: 0 
+      }}>
         <Card className="border-yellow-200 bg-gradient-to-br from-yellow-50 to-amber-50">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
@@ -162,7 +172,12 @@ export default function MembershipPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 iphone-fullscreen" style={{ 
+      height: '-webkit-fill-available',
+      width: '100vw',
+      margin: 0,
+      padding: 0 
+    }}>
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-4">Join Bean Stalker Premium</h1>

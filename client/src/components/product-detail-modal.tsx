@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useNativeNotification } from "@/services/native-notification-service";
+import { getMobileCompatibleImageUrl } from "@/utils/mobile-image-utils";
 
 interface ProductDetailModalProps {
   item: MenuItem | null;
@@ -277,17 +278,44 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
               {/* Product Image and Info */}
               <div className="relative z-0">
                 <div className="aspect-video w-full bg-gray-100 rounded-2xl overflow-hidden mb-4">
-                  {item.imageUrl ? (
-                    <img 
-                      src={item.imageUrl} 
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700">
-                      <span className="text-lg font-medium">No Image Available</span>
-                    </div>
-                  )}
+                  <img 
+                    src={getMobileCompatibleImageUrl(item.imageUrl, item.category)} 
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const isCapacitor = !!(window as any).Capacitor;
+                      console.log(`Failed to load image for ${item.name}`);
+                      
+                      // For native apps, fallback to appropriate category icon
+                      if (isCapacitor && !item.imageUrl?.startsWith('data:')) {
+                        const fallbackIcon = item.category?.includes('breakfast') || item.category?.includes('lunch') 
+                          ? getMobileCompatibleImageUrl(null, 'breakfast')
+                          : getMobileCompatibleImageUrl(null, 'coffee');
+                        (e.target as HTMLImageElement).src = fallbackIcon;
+                        return;
+                      }
+                      
+                      // Hide the broken image and show fallback
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const imgElement = e.target as HTMLImageElement;
+                      if (imgElement.parentElement) {
+                        const fallback = imgElement.parentElement.querySelector('.image-fallback');
+                        if (fallback) {
+                          (fallback as HTMLElement).style.display = 'flex';
+                        }
+                      }
+                    }}
+                    onLoad={() => {
+                      console.log(`Successfully loaded image for ${item.name}`);
+                    }}
+                  />
+                  <div 
+                    className={`absolute inset-0 bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700 image-fallback ${item.imageUrl ? 'hidden' : ''}`}
+                  >
+                    <span className="text-lg font-medium text-center px-3">
+                      {item.imageUrl ? 'Image Loading...' : 'No Image Available'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Heart Icon */}

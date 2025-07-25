@@ -70,10 +70,15 @@ export default function OrdersPage() {
         variant: "destructive",
       });
     }
-  }, [queryClient, toast]);
+  }, [queryClient, notify]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary">
+    <div className="flex flex-col bg-secondary iphone-fullscreen" style={{ 
+      height: '-webkit-fill-available',
+      width: '100vw',
+      margin: 0,
+      padding: 0 
+    }}>
       <AppHeader />
 
       <div className="flex-1 overflow-y-auto">

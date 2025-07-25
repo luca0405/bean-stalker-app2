@@ -89,7 +89,12 @@ export default function KitchenDisplayPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="bg-gray-50 p-6 iphone-fullscreen" style={{ 
+        height: '-webkit-fill-available',
+        width: '100vw',
+        margin: 0,
+        padding: 0 
+      }}>
         <div className="flex items-center justify-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
         </div>
@@ -98,7 +103,12 @@ export default function KitchenDisplayPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="bg-gray-50 p-6 iphone-fullscreen" style={{ 
+      height: '-webkit-fill-available',
+      width: '100vw',
+      margin: 0,
+      padding: 0 
+    }}>
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between">

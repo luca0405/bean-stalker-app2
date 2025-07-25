@@ -1,8 +1,10 @@
-# Bean Stalker - Coffee Shop PWA
+# Bean Stalker - Coffee Shop Native Mobile App
 
 ## Overview
 
-Bean Stalker is a full-stack Progressive Web Application (PWA) for a coffee shop, enabling customers to browse menus, place orders, manage credits, and receive notifications. The application supports both customer and admin interfaces with real-time order tracking and payment processing.
+Bean Stalker is a full-stack native mobile application for a coffee shop, built with Capacitor for iOS and Android deployment. The app enables customers to browse menus, place orders, manage credits, and receive notifications. The application supports both customer and admin interfaces with real-time order tracking and payment processing.
+
+**IMPORTANT: This is a NATIVE MOBILE APP, not a web application. All development decisions should prioritize native iOS/Android deployment via Capacitor, TestFlight, and App Store distribution.**
 
 ## System Architecture
 
@@ -53,11 +55,13 @@ The application follows a modern full-stack architecture with clear separation b
 - Real-time order status updates
 - Administrative notifications for new orders
 
-### PWA Features
-- Service Worker for offline functionality
-- App installation prompts
-- Responsive design for mobile-first experience
-- Safe area handling for notched devices
+### Native Mobile Features
+- Capacitor-based native iOS and Android apps
+- Native biometric authentication
+- Native push notifications via Capacitor Local Notifications
+- RevenueCat In-App Purchase integration
+- Native safe area handling for modern devices
+- TestFlight and App Store distribution ready
 
 ## Data Flow
 
@@ -121,7 +125,7 @@ The application supports multiple deployment targets:
 
 ```
 Changelog:
-- June 26, 2025. Initial setup
+- June 26, 2025. Initial setup as native mobile app with Capacitor
 - June 26, 2025. Square for Restaurants integration completed
   - Added Kitchen Display System with real-time order tracking
   - Implemented restaurant-specific order management
@@ -645,6 +649,12 @@ Changelog:
   - Updated storage interface and database methods to handle favorites with custom configurations
   - Favorites now preserve user's exact product preferences instead of just saving base menu items
   - Users can save their favorite Cappuccino with Almond Milk in Medium size and restore the exact same configuration later
+- July 25, 2025. Native iOS fullscreen configuration implemented for Capacitor app
+  - Updated iOS Info.plist with UIRequiresFullScreen and proper status bar handling for native fullscreen display
+  - Fixed Capacitor configuration with native iOS settings instead of web viewport configurations
+  - Updated CSS to use native safe area handling (env(safe-area-inset-*)) for proper iPhone notch/Dynamic Island support
+  - Created deployment documentation for native iOS fullscreen configuration ready for TestFlight builds
+  - IMPORTANT: Clarified project is NATIVE MOBILE APP built with Capacitor, not a web/PWA application
 ```
 
 ## User Preferences
@@ -652,4 +662,6 @@ Changelog:
 ```
 Preferred communication style: Simple, everyday language.
 Typography: Manrope font family across the entire application.
+Application Type: NATIVE MOBILE APP - Always prioritize native iOS/Android solutions over web-based approaches.
+Primary Deployment: TestFlight and App Store distribution via Capacitor framework.
 ```

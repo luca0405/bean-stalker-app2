@@ -110,7 +110,12 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="bg-gradient-to-br from-slate-50 to-slate-100 iphone-fullscreen" style={{ 
+      height: '-webkit-fill-available',
+      width: '100vw',
+      margin: 0,
+      padding: 0 
+    }}>
       <AppHeader />
       
       <main className="pt-safe pb-24 px-5">

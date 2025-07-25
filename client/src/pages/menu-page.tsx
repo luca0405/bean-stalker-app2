@@ -84,7 +84,12 @@ export default function MenuPage() {
   }, [refreshMenu, notify]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
+    <div className="flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 iphone-fullscreen" style={{ 
+      height: '-webkit-fill-available',
+      width: '100vw',
+      margin: 0,
+      padding: 0 
+    }}>
       <AppHeader />
       
       <div className="flex-1 overflow-y-auto scroll-container momentum-scroll">
