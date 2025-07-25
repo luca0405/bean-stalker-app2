@@ -73,16 +73,10 @@ export default function OrdersPage() {
   }, [queryClient, notify]);
 
   return (
-    <div className="flex flex-col bg-secondary iphone-fullscreen" style={{ 
-      height: '-webkit-fill-available',
-      width: '100vw',
-      margin: 0,
-      padding: 0 
-    }}>
+    <div className="min-h-screen bg-secondary overflow-y-auto">
       <AppHeader />
 
-      <div className="flex-1 overflow-y-auto">
-        <main className="p-5">
+      <main className="p-5 pb-32">
           <div className="flex justify-between items-center mb-4">
             <h1 className="font-semibold text-2xl text-primary">Order History</h1>
             <Button 
@@ -165,7 +159,6 @@ export default function OrdersPage() {
             </div>
           )}
         </main>
-      </div>
     </div>
   );
 }

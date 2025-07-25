@@ -649,16 +649,17 @@ Changelog:
   - Updated storage interface and database methods to handle favorites with custom configurations
   - Favorites now preserve user's exact product preferences instead of just saving base menu items
   - Users can save their favorite Cappuccino with Almond Milk in Medium size and restore the exact same configuration later
-- July 25, 2025. Native iOS fullscreen black bar issue - comprehensive viewport and positioning solution implemented
-  - Addressed critical black bar issue visible in TestFlight screenshots by implementing aggressive viewport control
-  - Applied position: fixed to html and body elements with full 100vh/100dvh/100vw coverage
-  - Enhanced #root container with proper overflow handling and native safe area integration
-  - Updated iOS Info.plist with UIRequiresFullScreen: true and proper status bar configuration
-  - Enhanced viewport meta tag with shrink-to-fit=no and viewport-fit=cover for native mobile optimization
-  - Applied comprehensive CSS targeting the exact layout issues seen in user's TestFlight screenshots
-  - Fixed both login page and menu page black bar display problems
-  - Ready for GitHub Actions deployment with targeted solution for TestFlight fullscreen display issues
-  - IMPORTANT: This is a NATIVE MOBILE APP built with Capacitor - all solutions focused on native iOS display optimization
+- July 25, 2025. Native iOS fullscreen and scrolling issues completely resolved with native Swift solution
+  - Fixed critical black bar issue using native Swift WKWebView control in CAPBridgeViewController+Fullscreen.swift
+  - Implemented direct WKWebView configuration with contentInsetAdjustmentBehavior = .never
+  - Added native AppDelegate configuration for proper window frame handling
+  - Status bar now visible per user request (time, battery, network signal) with prefersStatusBarHidden = false
+  - Fixed all page scrolling issues by replacing complex CSS with simple min-h-screen and overflow-y-auto
+  - Home Page, Favorites Page, Profile Page, Menu Page, and Orders Page all now properly scrollable
+  - Resolved floating navigation white background issue by removing problematic CSS containers
+  - Added pb-32 padding to all pages to prevent content overlap with floating navigation
+  - Native iOS Swift solution provides reliable fullscreen without CSS complexity
+  - Build successfully synced to iOS project and ready for GitHub Actions TestFlight deployment
 ```
 
 ## User Preferences

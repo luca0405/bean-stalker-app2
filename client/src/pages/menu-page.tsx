@@ -84,16 +84,10 @@ export default function MenuPage() {
   }, [refreshMenu, notify]);
 
   return (
-    <div className="flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 iphone-fullscreen" style={{ 
-      height: '-webkit-fill-available',
-      width: '100vw',
-      margin: 0,
-      padding: 0 
-    }}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 overflow-y-auto">
       <AppHeader />
       
-      <div className="flex-1 overflow-y-auto scroll-container momentum-scroll">
-        <main className="p-4 max-w-6xl mx-auto">
+      <main className="p-4 pb-32 max-w-6xl mx-auto">
           {/* Enhanced Header Section */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 mb-6 shadow-sm border border-white/20">
             <div className="flex justify-between items-center">
@@ -175,7 +169,6 @@ export default function MenuPage() {
             </>
           )}
         </main>
-      </div>
 
       {/* Product Detail Modal */}
       <ProductDetailModal

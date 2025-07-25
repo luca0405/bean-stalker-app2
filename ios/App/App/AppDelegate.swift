@@ -14,8 +14,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             application.windows.first?.overrideUserInterfaceStyle = .light
         }
         
-        // Hide status bar globally for true fullscreen
-        application.isStatusBarHidden = true
+        // Show status bar (user wants to see time, battery, signal)
+        application.isStatusBarHidden = false
         
         // Configure window for fullscreen
         if let window = window {

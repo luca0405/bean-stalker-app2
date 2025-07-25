@@ -4,15 +4,10 @@ import { FavoritesList } from "@/components/favorites-list";
 
 export default function FavoritesPage() {
   return (
-    <div className="flex flex-col bg-secondary iphone-fullscreen" style={{ 
-      height: '-webkit-fill-available',
-      width: '100vw',
-      margin: 0,
-      padding: 0 
-    }}>
+    <div className="min-h-screen bg-secondary overflow-y-auto">
       <AppHeader />
       
-      <main className="flex-1 p-5">
+      <main className="p-5 pb-32">
         <h1 className="font-semibold text-2xl mb-4 text-primary">My Favorites</h1>
         <FavoritesList />
       </main>

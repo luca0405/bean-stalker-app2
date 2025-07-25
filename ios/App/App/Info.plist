@@ -46,7 +46,7 @@
         <key>UIViewControllerBasedStatusBarAppearance</key>
         <true/>
         <key>UIStatusBarHidden</key>
-        <true/>
+        <false/>
         <key>UIRequiresFullScreen</key>
         <true/>
         <key>UILaunchStoryboardName</key>

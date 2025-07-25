@@ -49,9 +49,9 @@ extension CAPBridgeViewController {
         self.view.backgroundColor = UIColor.white
     }
     
-    // Hide status bar completely
+    // Show status bar (user wants to see time, battery, signal)
     override open var prefersStatusBarHidden: Bool {
-        return true
+        return false
     }
     
     override open var preferredStatusBarUpdateAnimation: UIStatusBarAnimation {
