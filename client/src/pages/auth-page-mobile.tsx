@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useBiometricAuth } from "@/hooks/use-biometric-auth";
 import { useIAP } from "@/hooks/use-iap";
@@ -10,6 +10,7 @@ import { useNativeNotification } from "@/services/native-notification-service";
 import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { deviceService } from "@/services/device-service";
 
 
 export default function AuthPageMobile() {
@@ -31,6 +32,8 @@ export default function AuthPageMobile() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
+  const [hasDeviceBinding, setHasDeviceBinding] = useState(false);
+  const [boundUsername, setBoundUsername] = useState("");
   
   const [registerData, setRegisterData] = useState({
     username: "",
@@ -40,6 +43,44 @@ export default function AuthPageMobile() {
     confirmPassword: "",
     joinPremium: true // Premium membership enabled by default
   });
+
+  // Check for existing device binding on component mount
+  useEffect(() => {
+    const checkDeviceBinding = async () => {
+      try {
+        const isDeviceBound = await deviceService.isDeviceBound();
+        setHasDeviceBinding(isDeviceBound);
+        
+        if (isDeviceBound) {
+          // Get the bound user's username
+          const boundUserId = await deviceService.getBoundUserId();
+          if (boundUserId) {
+            try {
+              // Fetch user data to get username
+              const response = await fetch(`/api/users/${boundUserId}`);
+              if (response.ok) {
+                const userData = await response.json();
+                setBoundUsername(userData.username);
+                setLoginData(prev => ({ ...prev, username: userData.username }));
+                console.log('Device bound to user:', userData.username);
+              }
+            } catch (error) {
+              console.error('Failed to fetch bound user data:', error);
+            }
+          }
+          console.log('Device has existing binding - hiding registration option');
+        }
+      } catch (error) {
+        console.error('Failed to check device binding:', error);
+        setHasDeviceBinding(false);
+      }
+    };
+
+    // Only check on native platforms where device binding is active
+    if (Capacitor.isNativePlatform()) {
+      checkDeviceBinding();
+    }
+  }, []);
 
   if (user) {
     return <Redirect to="/" />;
@@ -153,15 +194,15 @@ export default function AuthPageMobile() {
               description: "Now processing your premium membership payment...",
             });
             
-            // Set the user ID for RevenueCat before purchase
-            console.log('Setting RevenueCat user ID for new user before purchase:', newUser.id);
+            // Initialize RevenueCat with new user ID before purchase
+            console.log('Initializing RevenueCat with user ID for new user before purchase:', newUser.id);
             
-            // Explicitly set the user in RevenueCat before attempting purchase
+            // Explicitly initialize RevenueCat with the new user ID
             const { iapService } = await import('@/services/iap-service');
-            await iapService.setUserID(newUser.id.toString());
+            await iapService.initializeWithUserID(newUser.id.toString());
             
-            // Wait a moment for RevenueCat to process the user change
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Wait longer for RevenueCat to process the user initialization
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
             // Purchase the membership product
             const purchaseResult = await purchaseProduct('com.beanstalker.membership69');
@@ -268,17 +309,30 @@ export default function AuthPageMobile() {
             
             {isLogin ? (
               <form onSubmit={handleLogin} className="space-y-4">
-              {/* Username Input - exact styling from reference */}
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Username"
-                  value={loginData.username}
-                  onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-                  className="w-full pl-12 pr-4 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
-                />
-              </div>
+              {/* Username Input - hidden if device has binding, auto-filled */}
+              {!hasDeviceBinding && (
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Username"
+                    value={loginData.username}
+                    onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                    className="w-full pl-12 pr-4 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
+                  />
+                </div>
+              )}
+              
+              {/* Show bound username for device-bound login */}
+              {hasDeviceBinding && boundUsername && (
+                <div className="text-center p-4 bg-white/10 rounded-full border border-white/40">
+                  <div className="flex items-center justify-center space-x-2">
+                    <User className="h-5 w-5 text-green-400" />
+                    <span className="text-white font-medium">{boundUsername}</span>
+                  </div>
+                  <p className="text-xs text-gray-300 mt-1">Device Account</p>
+                </div>
+              )}
 
               {/* Password Input - exact styling from reference */}
               <div className="relative">
@@ -418,13 +472,25 @@ export default function AuthPageMobile() {
               <div className="text-white/90 text-sm">
                 {isLogin ? (
                   <>
-                    New user?{" "}
-                    <button 
-                      onClick={() => setIsLogin(!isLogin)}
-                      className="text-white hover:underline font-medium"
-                    >
-                      Become a Member
-                    </button>
+                    {/* Hide "Become a Member" if device already has a bound account */}
+                    {!hasDeviceBinding && (
+                      <>
+                        New user?{" "}
+                        <button 
+                          onClick={() => setIsLogin(!isLogin)}
+                          className="text-white hover:underline font-medium"
+                        >
+                          Become a Member
+                        </button>
+                      </>
+                    )}
+                    {hasDeviceBinding && (
+                      <div className="text-white/70 text-xs">
+                        This device is already registered to an account.
+                        <br />
+                        Use "Switch Account" in Profile to change accounts.
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>

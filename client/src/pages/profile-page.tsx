@@ -6,6 +6,7 @@ import { EnhancedBuyCredits } from "@/components/enhanced-buy-credits";
 import { SendCredits } from "@/components/send-credits";
 import { TransactionHistory } from "@/components/transaction-history";
 import { AccountSwitcher } from "@/components/account-switcher";
+import { DeviceBindingTest } from "@/components/device-binding-test";
 import AppInstallButton from "@/components/app-install-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -323,6 +324,27 @@ export default function ProfilePage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Account Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Account Management</CardTitle>
+              <CardDescription>
+                Manage your account settings and device binding
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium">Device Account</h4>
+                  <p className="text-sm text-muted-foreground">
+                    This device is bound to your account for secure transactions
+                  </p>
+                </div>
+                <AccountSwitcher />
+              </div>
+            </CardContent>
+          </Card>
           
           <Card>
             <CardHeader>
@@ -353,6 +375,11 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
           
+          {/* Device Binding Test (Development Only) */}
+          {import.meta.env.DEV && (
+            <DeviceBindingTest />
+          )}
+
           <TransactionHistory />
           
           <AppInstallButton />

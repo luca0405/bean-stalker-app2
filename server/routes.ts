@@ -1096,6 +1096,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get user data by ID (for device binding)
+  app.get("/api/users/:id", async (req, res) => {
+    try {
+      const userId = parseInt(req.params.id);
+      if (isNaN(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Return only safe user data (no password, credits, etc.)
+      const safeUserData = {
+        id: user.id,
+        username: user.username,
+        fullName: user.fullName
+      };
+      
+      res.json(safeUserData);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   // Admin Menu Management Routes
   // Get single menu item 
   app.get("/api/admin/menu/:menuItemId", isAdmin, async (req, res) => {

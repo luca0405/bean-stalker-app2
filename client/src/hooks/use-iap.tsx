@@ -27,7 +27,7 @@ export function IAPProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (user && isInitialized) {
+    if (user && 'id' in user && user.id && isInitialized) {
       console.log('IAP Hook: Setting user ID for RevenueCat:', user.id.toString());
       iapService.setUserID(user.id.toString()).catch(error => {
         console.error('IAP Hook: Failed to set user ID:', error);
