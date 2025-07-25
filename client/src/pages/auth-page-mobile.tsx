@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useNativeNotification } from "@/services/native-notification-service";
 import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export default function AuthPageMobile() {
   const { user, loginMutation, registerMutation } = useAuth();
@@ -129,30 +130,64 @@ export default function AuthPageMobile() {
       password: registerData.password
     };
 
-    if (registerData.joinPremium && isNative) {
-      // Use RevenueCat for premium membership on native platforms
-      try {
-        notify({
-          title: "Processing Premium Membership",
-          description: "Please complete the payment in the App Store...",
-        });
-        
-        const result = await purchaseProduct('com.beanstalker.membership69');
-        if (result.success) {
-          // Membership payment successful - register user
-          await registerMutation.mutateAsync(userData);
+    if (registerData.joinPremium) {
+      if (isNative) {
+        // Use RevenueCat for premium membership on native platforms
+        try {
           notify({
-            title: "Premium Membership Activated!",
-            description: "Your account has been created with $69 credit. Welcome to Bean Stalker Premium!",
+            title: "Processing Premium Membership",
+            description: "Please complete the payment in the App Store...",
+          });
+          
+          const result = await purchaseProduct('com.beanstalker.membership69');
+          if (result.success) {
+            // Membership payment successful - register user with premium membership endpoint
+            const response = await apiRequest('POST', '/api/register-with-membership', userData);
+            if (response.ok) {
+              // Reload user data and invalidate cache
+              await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+              notify({
+                title: "Premium Membership Activated!",
+                description: "Your account has been created with $69 credit. Welcome to Bean Stalker Premium!",
+              });
+            } else {
+              throw new Error('Registration failed after payment');
+            }
+          }
+        } catch (error: any) {
+          console.error('Premium membership purchase failed:', error);
+          notify({
+            title: "Payment Failed",
+            description: "Premium membership purchase failed. Please try again or contact support.",
+            variant: "destructive",
           });
         }
-      } catch (error: any) {
-        console.error('Premium membership purchase failed:', error);
-        notify({
-          title: "Payment Failed",
-          description: "Premium membership purchase failed. Please try again or contact support.",
-          variant: "destructive",
-        });
+      } else {
+        // Web platform - register with premium membership directly (mandatory premium)
+        try {
+          notify({
+            title: "Creating Premium Account",
+            description: "Setting up your premium membership with $69 credit...",
+          });
+          
+          const response = await apiRequest('POST', '/api/register-with-membership', userData);
+          if (response.ok) {
+            // Reload user data and invalidate cache
+            await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+            notify({
+              title: "Premium Membership Activated!",
+              description: "Your account has been created with $69 credit. Welcome to Bean Stalker Premium!",
+            });
+          } else {
+            throw new Error('Registration failed');
+          }
+        } catch (error: any) {
+          notify({
+            title: "Registration failed",
+            description: error.message || "Please try again",
+            variant: "destructive",
+          });
+        }
       }
     } else {
       // Regular registration without premium membership
@@ -160,7 +195,7 @@ export default function AuthPageMobile() {
         await registerMutation.mutateAsync(userData);
         notify({
           title: "Account created successfully!",
-          description: registerData.joinPremium ? "Your premium membership is active!" : "Welcome to Bean Stalker!",
+          description: "Welcome to Bean Stalker!",
         });
       } catch (error: any) {
         notify({
@@ -386,16 +421,18 @@ export default function AuthPageMobile() {
                 </div>
 
                 {/* Biometric Authentication with dynamic text based on device */}
-                {biometricState.isAvailable && (
+                {biometricState.isAvailable && !biometricState.isLoading && (
                   <Button
                     onClick={handleBiometricLogin}
-                    disabled={isAuthenticating}
+                    disabled={isAuthenticating || biometricState.isLoading}
                     className="w-full py-5 bg-green-700 hover:bg-green-800 border border-green-600 text-white font-medium rounded-full text-base flex items-center justify-center gap-3 shadow-lg"
                   >
                     <Fingerprint className="h-5 w-5" />
                     {isAuthenticating 
                       ? "Authenticating..." 
-                      : `Sign in with ${getBiometricDisplayName(biometricState.biometricType)}`
+                      : biometricState.isLoading
+                      ? "Checking availability..."
+                      : `Sign in with ${getBiometricDisplayName(biometricState.biometricType || 'biometric')}`
                     }
                   </Button>
                 )}

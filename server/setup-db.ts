@@ -39,7 +39,7 @@ async function main() {
         username: 'bs_admin',
         password: await hashPassword('BS2025@@'),
         email: 'admin@beanstalker.com',
-        credits: 100,
+        credits: 1000, // Admin gets more credits
         fullName: 'Admin User',
         phoneNumber: '123-456-7890',
         isAdmin: true
@@ -50,7 +50,7 @@ async function main() {
         username: 'user',
         password: await hashPassword('user123'),
         email: 'user@example.com',
-        credits: 50,
+        credits: 69, // Default premium membership credits
         fullName: 'Regular User',
         phoneNumber: '987-654-3210',
         isAdmin: false

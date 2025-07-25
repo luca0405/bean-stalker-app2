@@ -27,10 +27,25 @@ class BiometricService {
   async getBiometricType(): Promise<string> {
     try {
       const result = await NativeBiometric.isAvailable();
-      return String(result.biometryType) || 'unknown';
+      // Handle different possible return formats
+      const biometryType = result.biometryType;
+      
+      if (biometryType && typeof biometryType === 'string') {
+        return biometryType.toLowerCase();
+      } else if (biometryType && typeof biometryType === 'number') {
+        // Convert numeric codes to string types
+        switch (biometryType) {
+          case 1: return 'touchid';
+          case 2: return 'faceid';
+          case 3: return 'fingerprint';
+          default: return 'biometric';
+        }
+      }
+      
+      return 'biometric';
     } catch (error) {
       console.log('Could not determine biometric type:', error);
-      return 'unknown';
+      return 'biometric';
     }
   }
 
@@ -82,8 +97,10 @@ class BiometricService {
 
       // Perform biometric authentication
       console.log('BiometricService: Verifying identity...');
+      console.log('BiometricService: Authentication reason:', reason);
+      
       await NativeBiometric.verifyIdentity({
-        reason,
+        reason: reason || 'Use biometric authentication to access Bean Stalker',
         title: 'Bean Stalker Authentication',
         subtitle: 'Access your coffee account securely',
         description: 'Use your biometric authentication to sign in'
@@ -141,13 +158,22 @@ class BiometricService {
       return 'Use biometric authentication to access Bean Stalker';
     }
     
-    switch (biometricType.toLowerCase()) {
+    // Normalize the type and handle various formats
+    const normalizedType = biometricType.toString().toLowerCase().trim();
+    
+    switch (normalizedType) {
       case 'faceid':
+      case 'face_id':
+      case 'face id':
         return 'Use Face ID to access Bean Stalker';
       case 'touchid':
+      case 'touch_id':
+      case 'touch id':
         return 'Use Touch ID to access Bean Stalker';
       case 'fingerprint':
+      case 'fingerprint_sensor':
         return 'Use your fingerprint to access Bean Stalker';
+      case 'biometric':
       default:
         return 'Use biometric authentication to access Bean Stalker';
     }

@@ -78,13 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
-  // Initialize RevenueCat with user ID when user changes
+  // Initialize RevenueCat with dynamic user ID for sandbox testing
   useEffect(() => {
     if (user && Capacitor.isNativePlatform()) {
-      // Initialize RevenueCat with dynamic user ID
+      // Initialize with actual user ID for sandbox testing
       iapService.initializeWithUserID(user.id.toString()).then(success => {
         if (success) {
-          console.log('RevenueCat initialized with user ID:', user.id);
+          console.log('RevenueCat initialized for sandbox testing with user ID:', user.id);
         } else {
           console.error('Failed to initialize RevenueCat with user ID:', user.id);
         }
@@ -108,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Scroll to top after successful login
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
-      // Initialize RevenueCat with the logged-in user's ID
+      // Initialize RevenueCat after login with user's ID for sandbox testing
       if (Capacitor.isNativePlatform()) {
         iapService.initializeWithUserID(userData.id.toString()).then(success => {
           if (success) {
@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: `Welcome, ${userData.username}!`,
       });
       
-      // Initialize RevenueCat with the new user's ID
+      // Initialize RevenueCat after registration with new user's ID for sandbox testing
       if (Capacitor.isNativePlatform()) {
         iapService.initializeWithUserID(userData.id.toString()).then(success => {
           if (success) {

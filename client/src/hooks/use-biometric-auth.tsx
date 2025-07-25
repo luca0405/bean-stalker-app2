@@ -54,6 +54,13 @@ export function useBiometricAuth() {
 
   const authenticateWithBiometrics = async (): Promise<boolean> => {
     try {
+      console.log('Starting biometric authentication process...');
+      console.log('Biometric state:', {
+        isAvailable: biometricState.isAvailable,
+        biometricType: biometricState.biometricType,
+        hasStoredCredentials: biometricState.hasStoredCredentials
+      });
+
       if (!biometricState.isAvailable) {
         notify({
           title: "Biometric Authentication Unavailable",
@@ -72,10 +79,14 @@ export function useBiometricAuth() {
         return false;
       }
 
-      // Perform biometric authentication
+      // Perform biometric authentication with enhanced error handling
+      console.log('Calling biometric service authenticate...');
       const credentials = await biometricService.authenticateWithBiometrics();
+      console.log('Biometric authentication result:', credentials ? 'success' : 'failed');
       
-      if (credentials) {
+      if (credentials && credentials.username && credentials.password) {
+        console.log('Attempting login with biometric credentials...');
+        
         // Use existing login mutation with biometric credentials
         await loginMutation.mutateAsync({
           username: credentials.username,
@@ -89,21 +100,42 @@ export function useBiometricAuth() {
         });
 
         return true;
+      } else {
+        console.error('Invalid credentials returned from biometric service');
+        notify({
+          title: "Authentication Failed",
+          description: "Invalid credentials retrieved",
+          variant: "destructive",
+        });
+        return false;
       }
-
-      return false;
     } catch (error: any) {
       console.error('Biometric authentication failed:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       
-      let errorMessage = 'Authentication failed';
-      if (error.message?.includes('User cancel')) {
-        errorMessage = 'Authentication cancelled';
-      } else if (error.message?.includes('not available')) {
-        errorMessage = 'Biometric authentication not available';
+      let errorMessage = 'Authentication failed. Please try again.';
+      let errorTitle = 'Authentication Failed';
+      
+      if (error.message) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('cancel') || msg.includes('user cancel')) {
+          errorMessage = 'Authentication was cancelled';
+          errorTitle = 'Authentication Cancelled';
+        } else if (msg.includes('not available') || msg.includes('unavailable')) {
+          errorMessage = 'Biometric authentication is not available';
+        } else if (msg.includes('no credentials') || msg.includes('not found')) {
+          errorMessage = 'Please sign in with your password first to enable biometric login';
+        } else if (msg.includes('lockout') || msg.includes('too many attempts')) {
+          errorMessage = 'Too many failed attempts. Please wait and try again.';
+        }
       }
 
       notify({
-        title: "Authentication Failed",
+        title: errorTitle,
         description: errorMessage,
         variant: "destructive",
       });
@@ -175,18 +207,28 @@ export function useBiometricAuth() {
 
   const getBiometricDisplayName = (type: string): string => {
     if (!type || typeof type !== 'string') {
-      return 'Biometric authentication';
+      return 'Biometric Authentication';
     }
     
-    switch (type.toLowerCase()) {
+    // Normalize the type to handle various formats
+    const normalizedType = type.toString().toLowerCase();
+    
+    switch (normalizedType) {
       case 'faceid':
+      case 'face_id':
+      case 'face id':
         return 'Face ID';
       case 'touchid':
+      case 'touch_id':
+      case 'touch id':
         return 'Touch ID';
       case 'fingerprint':
+      case 'fingerprint_sensor':
         return 'Fingerprint';
+      case 'biometric':
+        return 'Biometric Authentication';
       default:
-        return 'Biometric authentication';
+        return 'Biometric Authentication';
     }
   };
 

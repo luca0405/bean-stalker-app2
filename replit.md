@@ -719,6 +719,26 @@ Changelog:
   - Improved error messages for better user experience (cancelled, not available, no credentials stored)
   - Fixed biometric type detection with proper string conversion for iOS Face ID recognition
   - Native biometric authentication now properly displays device-specific authentication type and handles errors gracefully
+- July 25, 2025. Fixed membership payment issue preventing premium registration
+  - Resolved critical bug where premium membership registration wasn't working on any platform
+  - Native platforms: Use RevenueCat IAP for membership purchase → register with /api/register-with-membership endpoint
+  - Web platforms: Direct registration with /api/register-with-membership endpoint (mandatory premium as documented)
+  - Fixed TypeScript errors by using apiRequest instead of invalid endpoint parameter
+  - Both platforms now correctly provide $69 credit with premium membership registration
+  - Premium membership registration flow now fully operational across all platforms
+- July 25, 2025. Configured dynamic RevenueCat user ID system for comprehensive sandbox testing
+  - RevenueCat now supports dynamic user IDs for testing with different Bean Stalker accounts
+  - Each Bean Stalker user gets their own RevenueCat app_user_id (userData.id.toString())
+  - Updated sandbox-force-override.ts to accept any user ID for sandbox testing
+  - All auth hooks use iapService.initializeWithUserID() with actual user database ID
+  - RevenueCat webhook properly maps app_user_id to Bean Stalker database user for credit processing
+  - Supports testing new member registrations with unique RevenueCat accounts per user
+  - User "32" (iamninz) continues to work, plus any new users get individual RevenueCat accounts
+- July 25, 2025. Fixed default credit balance for new members to be $69 instead of $100
+  - Updated DatabaseStorage.createUser() to use credits: 69 as default for premium membership
+  - Fixed server/setup-db.ts to create sample users with correct credit amounts
+  - Admin users still receive 1000 credits, regular users now default to $69 premium membership credits
+  - Ensures consistency between RevenueCat premium membership ($69) and manual registration defaults
 ```
 
 ## User Preferences

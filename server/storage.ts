@@ -956,7 +956,7 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     // Set default values if not provided
     const userWithDefaults = {
-      credits: 100, // Default starting credits
+      credits: 69, // Default starting credits for premium membership
       isAdmin: false, // Default non-admin
       ...insertUser, // User-provided values override defaults
     };

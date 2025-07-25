@@ -6,7 +6,7 @@ import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
 export class SandboxForceOverride {
   private static readonly HARDCODED_CONFIG = {
     apiKey: 'appl_owLmakOcTeYJOJoxJgScSQZtUQA',
-    appUserID: undefined, // Dynamic user ID - set during authentication
+    appUserID: undefined, // Dynamic user ID for sandbox testing with different users
     observerMode: false,
     usesStoreKit2IfAvailable: true,
   };
@@ -27,16 +27,16 @@ export class SandboxForceOverride {
         console.log('🚀 SANDBOX FORCE: RevenueCat logging configured');
       }
       
-      // Configure with sandbox settings and dynamic user ID
+      // Configure with sandbox settings and dynamic user ID for testing
       const config = {
         ...this.HARDCODED_CONFIG,
-        appUserID: userID || undefined, // Use provided user ID or let RevenueCat generate anonymous ID
+        appUserID: userID || undefined, // Use provided user ID for sandbox testing
       };
       
       if (shouldLog) {
         console.log('🚀 SANDBOX FORCE: Configuring with sandbox settings');
         console.log('🚀 SANDBOX FORCE: API Key:', config.apiKey.substring(0, 12) + '...');
-        console.log('🚀 SANDBOX FORCE: User ID:', userID || 'anonymous');
+        console.log('🚀 SANDBOX FORCE: User ID:', userID || 'anonymous (RevenueCat will generate)');
       }
       
       await Purchases.configure(config);
