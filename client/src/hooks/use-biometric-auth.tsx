@@ -87,10 +87,11 @@ export function useBiometricAuth() {
       if (credentials && credentials.username && credentials.password) {
         console.log('Attempting login with biometric credentials...');
         
-        // Use existing login mutation with biometric credentials
+        // Use existing login mutation with biometric credentials (don't save again)
         await loginMutation.mutateAsync({
           username: credentials.username,
           password: credentials.password,
+          saveBiometric: false // Don't save credentials again for biometric login
         });
 
         const authType = getBiometricDisplayName(biometricState.biometricType);

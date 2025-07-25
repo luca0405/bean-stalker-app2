@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize RevenueCat with dynamic user ID for sandbox testing
   useEffect(() => {
-    if (user && Capacitor.isNativePlatform()) {
+    if (user && user.id && Capacitor.isNativePlatform()) {
       // Initialize with actual user ID for sandbox testing
       iapService.initializeWithUserID(user.id.toString()).then(success => {
         if (success) {
@@ -96,20 +96,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
 
-  // Login mutation
+  // Login mutation with biometric credential saving
   const loginMutationObj = useMutation({
-    mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("POST", "/api/login", credentials);
+    mutationFn: async (credentials: LoginData & { saveBiometric?: boolean }) => {
+      const res = await apiRequest("POST", "/api/login", {
+        username: credentials.username,
+        password: credentials.password
+      });
       const data = await res.json();
-      return data;
+      return { userData: data, originalCredentials: credentials };
     },
-    onSuccess: (userData) => {
+    onSuccess: async ({ userData, originalCredentials }) => {
       queryClient.setQueryData(["/api/user"], userData);
       // Scroll to top after successful login
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
+      // Save biometric credentials after successful password login (not for biometric login)
+      if (originalCredentials.saveBiometric && Capacitor.isNativePlatform()) {
+        try {
+          const { biometricService } = await import('@/services/biometric-service');
+          const saved = await biometricService.saveCredentials(
+            originalCredentials.username, 
+            originalCredentials.password
+          );
+          if (saved) {
+            console.log('Biometric credentials saved successfully for user:', originalCredentials.username);
+          } else {
+            console.log('Failed to save biometric credentials');
+          }
+        } catch (error) {
+          console.error('Error saving biometric credentials:', error);
+        }
+      }
+      
       // Initialize RevenueCat after login with user's ID for sandbox testing
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform() && userData && userData.id) {
         iapService.initializeWithUserID(userData.id.toString()).then(success => {
           if (success) {
             console.log('RevenueCat initialized after login with user ID:', userData.id);
@@ -172,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       // Initialize RevenueCat after registration with new user's ID for sandbox testing
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform() && userData && userData.id) {
         iapService.initializeWithUserID(userData.id.toString()).then(success => {
           if (success) {
             console.log('RevenueCat initialized after registration with user ID:', userData.id);

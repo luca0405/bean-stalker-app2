@@ -57,7 +57,11 @@ export default function AuthPageMobile() {
     }
 
     try {
-      await loginMutation.mutateAsync(loginData);
+      // Add saveBiometric flag for password logins to automatically enable biometric auth
+      await loginMutation.mutateAsync({
+        ...loginData,
+        saveBiometric: true // Always save credentials for biometric auth after successful password login
+      });
     } catch (error: any) {
       notify({
         title: "Login failed",
@@ -134,16 +138,28 @@ export default function AuthPageMobile() {
       if (isNative) {
         // Use RevenueCat for premium membership on native platforms
         try {
-          notify({
-            title: "Processing Premium Membership",
-            description: "Please complete the payment in the App Store...",
-          });
+          // First register the user account without waiting for payment
+          console.log('Creating account first, then processing payment...');
+          const response = await apiRequest('POST', '/api/register-with-membership', userData);
           
-          const result = await purchaseProduct('com.beanstalker.membership69');
-          if (result.success) {
-            // Membership payment successful - register user with premium membership endpoint
-            const response = await apiRequest('POST', '/api/register-with-membership', userData);
-            if (response.ok) {
+          if (response.ok) {
+            const result = await response.json();
+            const newUser = result.user;
+            
+            notify({
+              title: "Account Created",
+              description: "Now processing your premium membership payment...",
+            });
+            
+            // Set the user ID for RevenueCat before purchase
+            console.log('Setting RevenueCat user ID for new user:', newUser.id);
+            // Note: The IAP service will automatically set the user ID via the useEffect in useIAP hook
+            // when the user state updates after login, but we can also explicitly set it here
+            
+            // Purchase the membership product
+            const purchaseResult = await purchaseProduct('com.beanstalker.membership69');
+            
+            if (purchaseResult.success) {
               // Reload user data and invalidate cache
               await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
               notify({
@@ -151,14 +167,20 @@ export default function AuthPageMobile() {
                 description: "Your account has been created with $69 credit. Welcome to Bean Stalker Premium!",
               });
             } else {
-              throw new Error('Registration failed after payment');
+              notify({
+                title: "Payment Warning",
+                description: "Account created but payment failed. You can retry payment from the Buy Credits page.",
+                variant: "destructive",
+              });
             }
+          } else {
+            throw new Error('Registration failed');
           }
         } catch (error: any) {
-          console.error('Premium membership purchase failed:', error);
+          console.error('Premium membership process failed:', error);
           notify({
-            title: "Payment Failed",
-            description: "Premium membership purchase failed. Please try again or contact support.",
+            title: "Registration Failed",
+            description: error.message || "Please try again or contact support.",
             variant: "destructive",
           });
         }

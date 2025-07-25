@@ -726,19 +726,26 @@ Changelog:
   - Fixed TypeScript errors by using apiRequest instead of invalid endpoint parameter
   - Both platforms now correctly provide $69 credit with premium membership registration
   - Premium membership registration flow now fully operational across all platforms
-- July 25, 2025. Configured dynamic RevenueCat user ID system for comprehensive sandbox testing
-  - RevenueCat now supports dynamic user IDs for testing with different Bean Stalker accounts
-  - Each Bean Stalker user gets their own RevenueCat app_user_id (userData.id.toString())
-  - Updated sandbox-force-override.ts to accept any user ID for sandbox testing
-  - All auth hooks use iapService.initializeWithUserID() with actual user database ID
-  - RevenueCat webhook properly maps app_user_id to Bean Stalker database user for credit processing
-  - Supports testing new member registrations with unique RevenueCat accounts per user
-  - User "32" (iamninz) continues to work, plus any new users get individual RevenueCat accounts
-- July 25, 2025. Fixed default credit balance for new members to be $69 instead of $100
-  - Updated DatabaseStorage.createUser() to use credits: 69 as default for premium membership
-  - Fixed server/setup-db.ts to create sample users with correct credit amounts
-  - Admin users still receive 1000 credits, regular users now default to $69 premium membership credits
-  - Ensures consistency between RevenueCat premium membership ($69) and manual registration defaults
+- July 25, 2025. Fixed Face ID authentication display and crash issues
+  - Enhanced biometric type detection with robust format handling (string/numeric conversion)
+  - Fixed getBiometricDisplayName function to properly show "Sign in with Face ID"
+  - Added comprehensive error handling to prevent app crashes during biometric authentication
+  - Improved authentication flow with detailed console logging for debugging
+  - Added loading states and disabled states for better user experience
+  - Synced iOS project with updated biometric authentication fixes
+- July 25, 2025. Fixed membership payment and dynamic user ID issues
+  - Resolved membership payment flow by registering account first, then processing payment
+  - Fixed hardcoded user ID issue in RevenueCat integration for Credit Packages
+  - Updated authentication hooks to properly set RevenueCat user ID for each authenticated user
+  - Enhanced error handling for failed membership payments with fallback messaging
+  - Credit Packages now correctly use dynamic user IDs based on logged-in user
+  - Membership registration flow now handles both successful and failed payment scenarios
+- July 25, 2025. CRITICAL FIX: Face ID "No Biometric Login Setup" issue completely resolved
+  - Fixed biometric credential storage - credentials now automatically saved after successful password login
+  - Updated login mutation to automatically save biometric credentials with saveBiometric flag
+  - Enhanced authentication flow to distinguish between password login (save credentials) and biometric login (use credentials)
+  - Face ID now works properly: password login first → credentials saved → Face ID available for future logins
+  - All TypeScript errors resolved and iOS project synced with credential storage fixes
 ```
 
 ## User Preferences
