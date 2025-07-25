@@ -746,6 +746,22 @@ Changelog:
   - Enhanced authentication flow to distinguish between password login (save credentials) and biometric login (use credentials)
   - Face ID now works properly: password login first → credentials saved → Face ID available for future logins
   - All TypeScript errors resolved and iOS project synced with credential storage fixes
+- July 25, 2025. CRITICAL FIX: RevenueCat hardcoded user ID "32" issue completely resolved
+  - Fixed SandboxForceOverride to accept dynamic user IDs instead of hardcoded "32"
+  - Updated authentication hooks to properly set RevenueCat user ID for each authenticated user
+  - Enhanced membership payment flow to explicitly set user ID before RevenueCat purchase attempts
+  - Fixed IAP service setUserID() method to properly handle user login with RevenueCat
+  - Added 1-second delay in membership registration for RevenueCat user change processing
+  - All users now get their own unique RevenueCat account based on Bean Stalker database ID
+  - iOS project synced with comprehensive RevenueCat user ID fixes for TestFlight deployment
+- July 25, 2025. One Account Per Device system implemented for Apple Wallet integration preparation
+  - Created device-service.ts with Capacitor Device and Preferences APIs for unique device identification
+  - Implemented device binding system that ties each device to one Bean Stalker account
+  - Added automatic device binding during login/registration for seamless user experience
+  - Created AccountSwitcher component for secure account switching with full data clearance
+  - Enhanced authentication system to validate device binding and prevent multiple accounts
+  - Prepared infrastructure for Apple Wallet credit balance integration with guaranteed user identity
+  - Device-bound security ensures consistent user experience and simplified financial transactions
 ```
 
 ## User Preferences

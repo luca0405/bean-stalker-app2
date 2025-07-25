@@ -11,6 +11,7 @@ import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+
 export default function AuthPageMobile() {
   const { user, loginMutation, registerMutation } = useAuth();
   const { notify } = useNativeNotification();
@@ -59,7 +60,8 @@ export default function AuthPageMobile() {
     try {
       // Add saveBiometric flag for password logins to automatically enable biometric auth
       await loginMutation.mutateAsync({
-        ...loginData,
+        username: loginData.username,
+        password: loginData.password,
         saveBiometric: true // Always save credentials for biometric auth after successful password login
       });
     } catch (error: any) {
@@ -152,9 +154,14 @@ export default function AuthPageMobile() {
             });
             
             // Set the user ID for RevenueCat before purchase
-            console.log('Setting RevenueCat user ID for new user:', newUser.id);
-            // Note: The IAP service will automatically set the user ID via the useEffect in useIAP hook
-            // when the user state updates after login, but we can also explicitly set it here
+            console.log('Setting RevenueCat user ID for new user before purchase:', newUser.id);
+            
+            // Explicitly set the user in RevenueCat before attempting purchase
+            const { iapService } = await import('@/services/iap-service');
+            await iapService.setUserID(newUser.id.toString());
+            
+            // Wait a moment for RevenueCat to process the user change
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
             // Purchase the membership product
             const purchaseResult = await purchaseProduct('com.beanstalker.membership69');

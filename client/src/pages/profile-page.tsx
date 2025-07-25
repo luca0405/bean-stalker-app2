@@ -5,6 +5,7 @@ import { PushNotificationToggle } from "@/components/push-notification-toggle";
 import { EnhancedBuyCredits } from "@/components/enhanced-buy-credits";
 import { SendCredits } from "@/components/send-credits";
 import { TransactionHistory } from "@/components/transaction-history";
+import { AccountSwitcher } from "@/components/account-switcher";
 import AppInstallButton from "@/components/app-install-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -53,7 +53,7 @@ class IAPService {
     
     try {
       // Use comprehensive sandbox force override with dynamic user ID
-      const initSuccess = await SandboxForceOverride.initializeForcesSandbox(undefined);
+      const initSuccess = await SandboxForceOverride.initializeForcesSandbox();
       if (!initSuccess) {
         console.error('🔥 IAP: Sandbox force initialization failed');
         return false;

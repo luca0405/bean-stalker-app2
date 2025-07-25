@@ -8,11 +8,13 @@ import { apiRequest, getQueryFn, queryClient } from "../lib/queryClient";
 import { useNativeNotification } from "@/services/native-notification-service";
 import { Capacitor } from '@capacitor/core';
 import { iapService } from "@/services/iap-service";
+import { deviceService } from "@/services/device-service";
 
 // Define simplified type for login data
 type LoginData = {
   username: string;
   password: string;
+  saveBiometric?: boolean;
 };
 
 // Define a simpler AuthContext type that doesn't rely on complex generics
@@ -20,15 +22,15 @@ export type AuthContextType = {
   user: any | null;
   isLoading: boolean;
   error: Error | null;
-  login: (data: LoginData) => Promise<void>;
+  login: (data: LoginData & { saveBiometric?: boolean }) => Promise<void>;
   register: (data: InsertUser) => Promise<void>;
   logout: () => Promise<void>;
   isLoginPending: boolean;
   isRegisterPending: boolean;
   isLogoutPending: boolean;
   loginMutation: {
-    mutate: (data: LoginData) => void;
-    mutateAsync: (data: LoginData) => Promise<any>;
+    mutate: (data: LoginData & { saveBiometric?: boolean }) => void;
+    mutateAsync: (data: LoginData & { saveBiometric?: boolean }) => Promise<any>;
     isPending: boolean;
   };
   registerMutation: {
@@ -80,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize RevenueCat with dynamic user ID for sandbox testing
   useEffect(() => {
-    if (user && user.id && Capacitor.isNativePlatform()) {
+    if (user && 'id' in user && user.id && Capacitor.isNativePlatform()) {
       // Initialize with actual user ID for sandbox testing
       iapService.initializeWithUserID(user.id.toString()).then(success => {
         if (success) {
@@ -130,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       // Initialize RevenueCat after login with user's ID for sandbox testing
-      if (Capacitor.isNativePlatform() && userData && userData.id) {
+      if (Capacitor.isNativePlatform() && userData && 'id' in userData && userData.id) {
         iapService.initializeWithUserID(userData.id.toString()).then(success => {
           if (success) {
             console.log('RevenueCat initialized after login with user ID:', userData.id);
@@ -193,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       // Initialize RevenueCat after registration with new user's ID for sandbox testing
-      if (Capacitor.isNativePlatform() && userData && userData.id) {
+      if (Capacitor.isNativePlatform() && userData && 'id' in userData && userData.id) {
         iapService.initializeWithUserID(userData.id.toString()).then(success => {
           if (success) {
             console.log('RevenueCat initialized after registration with user ID:', userData.id);
@@ -258,7 +260,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   // Simplified interface for authentication actions
-  const login = async (credentials: LoginData) => {
+  const login = async (credentials: LoginData & { saveBiometric?: boolean }) => {
     await loginMutationObj.mutateAsync(credentials);
   };
 
