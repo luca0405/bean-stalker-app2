@@ -27,7 +27,7 @@ class BiometricService {
   async getBiometricType(): Promise<string> {
     try {
       const result = await NativeBiometric.isAvailable();
-      return result.biometryType || 'unknown';
+      return String(result.biometryType) || 'unknown';
     } catch (error) {
       console.log('Could not determine biometric type:', error);
       return 'unknown';
@@ -56,39 +56,64 @@ class BiometricService {
    */
   async authenticateWithBiometrics(): Promise<BiometricCredentials | null> {
     try {
+      console.log('BiometricService: Starting authentication...');
+      
       // Check if biometrics are available
       const isAvailable = await this.isAvailable();
+      console.log('BiometricService: Is available:', isAvailable);
+      
       if (!isAvailable) {
         throw new Error('Biometric authentication not available');
       }
 
+      // Check if credentials are stored
+      const hasCredentials = await this.hasStoredCredentials();
+      console.log('BiometricService: Has stored credentials:', hasCredentials);
+      
+      if (!hasCredentials) {
+        throw new Error('No biometric credentials stored. Please sign in with your password first.');
+      }
+
       // Get biometric type for customized messaging
       const biometricType = await this.getBiometricType();
+      console.log('BiometricService: Biometric type:', biometricType);
+      
       const reason = this.getAuthenticationReason(biometricType);
 
       // Perform biometric authentication
-      const result = await NativeBiometric.verifyIdentity({
+      console.log('BiometricService: Verifying identity...');
+      await NativeBiometric.verifyIdentity({
         reason,
         title: 'Bean Stalker Authentication',
         subtitle: 'Access your coffee account securely',
         description: 'Use your biometric authentication to sign in'
       });
 
-      if (result) {
-        // Retrieve stored credentials
-        const credentials = await NativeBiometric.getCredentials({
-          server: this.CREDENTIAL_KEY,
-        });
+      console.log('BiometricService: Identity verified, retrieving credentials...');
+      
+      // If verification successful, retrieve stored credentials
+      const credentials = await NativeBiometric.getCredentials({
+        server: this.CREDENTIAL_KEY,
+      });
 
-        return {
-          username: credentials.username,
-          password: credentials.password,
-        };
+      console.log('BiometricService: Credentials retrieved successfully');
+      
+      return {
+        username: credentials.username,
+        password: credentials.password,
+      };
+    } catch (error: any) {
+      console.error('BiometricService: Authentication failed:', error);
+      
+      // Enhance error messages
+      if (error.message?.includes('User cancelled') || error.message?.includes('UserCancel')) {
+        throw new Error('Authentication was cancelled by user');
+      } else if (error.message?.includes('not available')) {
+        throw new Error('Biometric authentication is not available on this device');
+      } else if (error.message?.includes('no credentials')) {
+        throw new Error('No biometric credentials found. Please sign in with your password first.');
       }
-
-      return null;
-    } catch (error) {
-      console.error('Biometric authentication failed:', error);
+      
       throw error;
     }
   }

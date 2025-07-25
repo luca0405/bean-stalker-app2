@@ -52,7 +52,7 @@ class IAPService {
     }
     
     try {
-      // Use comprehensive sandbox force override
+      // Use comprehensive sandbox force override with dynamic user ID
       const initSuccess = await SandboxForceOverride.initializeForcesSandbox();
       if (!initSuccess) {
         console.error('🔥 IAP: Sandbox force initialization failed');
@@ -92,6 +92,36 @@ class IAPService {
     } catch (error) {
       console.error('IAP: Failed to set user ID', error);
       console.error('IAP: User login error details:', JSON.stringify(error, null, 2));
+    }
+  }
+  
+  async initializeWithUserID(userID: string): Promise<boolean> {
+    const isWebPlatform = !Capacitor.isNativePlatform();
+    
+    if (isWebPlatform) {
+      console.log('IAP: Running in web development mode - simulating IAP functionality');
+      this.isInitialized = true;
+      return true;
+    }
+    
+    try {
+      // Initialize with specific user ID
+      const initSuccess = await SandboxForceOverride.initializeForcesSandbox(userID);
+      if (!initSuccess) {
+        console.error('🔥 IAP: Sandbox force initialization with user ID failed');
+        return false;
+      }
+      
+      const loadedOfferings = await SandboxForceOverride.aggressiveOfferingsReload();
+      this.offerings = loadedOfferings;
+      
+      this.isInitialized = true;
+      console.log('🔥 IAP: SANDBOX IAP INITIALIZATION COMPLETE WITH USER ID:', userID);
+      
+      return true;
+    } catch (error) {
+      console.error('IAP: Failed to initialize with user ID', error);
+      return false;
     }
   }
 

@@ -25,6 +25,7 @@ import { AppUpdateProvider } from "@/contexts/app-update-context";
 import { IAPProvider } from "@/hooks/use-iap";
 import { Capacitor } from '@capacitor/core';
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { SplashScreen } from "@/components/splash-screen";
 
 import { useState, useEffect } from 'react';
 
@@ -53,11 +54,19 @@ function Router() {
 function App() {
   const [appError, setAppError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
         // Native iOS app initialization
+        if (Capacitor.isNativePlatform()) {
+          // Hide Capacitor's default splash screen since we're using our own
+          const { SplashScreen } = await import('@capacitor/splash-screen');
+          await SplashScreen.hide();
+        }
+        
+        // App initialization delay
         await new Promise(resolve => setTimeout(resolve, 500));
         setIsReady(true);
       } catch (error) {
@@ -67,6 +76,15 @@ function App() {
 
     initializeApp();
   }, []);
+
+  const handleSplashComplete = () => {
+    setShowSplash(false);
+  };
+
+  // Show splash screen first
+  if (showSplash && !appError) {
+    return <SplashScreen onComplete={handleSplashComplete} />;
+  }
 
   if (appError) {
     return (

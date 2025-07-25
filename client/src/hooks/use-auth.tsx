@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect } from "react";
 import {
   useQuery,
   useMutation,
@@ -7,6 +7,7 @@ import { InsertUser, User } from "@shared/schema";
 import { apiRequest, getQueryFn, queryClient } from "../lib/queryClient";
 import { useNativeNotification } from "@/services/native-notification-service";
 import { Capacitor } from '@capacitor/core';
+import { iapService } from "@/services/iap-service";
 
 // Define simplified type for login data
 type LoginData = {
@@ -77,6 +78,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
+  // Initialize RevenueCat with user ID when user changes
+  useEffect(() => {
+    if (user && Capacitor.isNativePlatform()) {
+      // Initialize RevenueCat with dynamic user ID
+      iapService.initializeWithUserID(user.id.toString()).then(success => {
+        if (success) {
+          console.log('RevenueCat initialized with user ID:', user.id);
+        } else {
+          console.error('Failed to initialize RevenueCat with user ID:', user.id);
+        }
+      }).catch(error => {
+        console.error('RevenueCat initialization error:', error);
+      });
+    }
+  }, [user]);
+
 
 
   // Login mutation
@@ -90,6 +107,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/user"], userData);
       // Scroll to top after successful login
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Initialize RevenueCat with the logged-in user's ID
+      if (Capacitor.isNativePlatform()) {
+        iapService.initializeWithUserID(userData.id.toString()).then(success => {
+          if (success) {
+            console.log('RevenueCat initialized after login with user ID:', userData.id);
+          }
+        }).catch(error => {
+          console.error('RevenueCat login initialization error:', error);
+        });
+      }
     },
     onError: (error: Error) => {
       let title = "Sign In Failed";
@@ -142,6 +170,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Registration successful",
         description: `Welcome, ${userData.username}!`,
       });
+      
+      // Initialize RevenueCat with the new user's ID
+      if (Capacitor.isNativePlatform()) {
+        iapService.initializeWithUserID(userData.id.toString()).then(success => {
+          if (success) {
+            console.log('RevenueCat initialized after registration with user ID:', userData.id);
+          }
+        }).catch(error => {
+          console.error('RevenueCat registration initialization error:', error);
+        });
+      }
     },
     onError: (error: Error) => {
       let title = "Registration Failed";

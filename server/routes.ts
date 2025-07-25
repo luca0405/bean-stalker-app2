@@ -671,6 +671,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Username already exists" });
       }
       
+      // Check if email already exists
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+      
       // Create user account with premium membership (simulating AUD$69 payment)
       const hashedPassword = await hashPassword(password);
       const newUser = await storage.createUser({

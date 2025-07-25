@@ -18,6 +18,7 @@ export default function AuthPageMobile() {
   const {
     biometricState,
     authenticateWithBiometrics,
+    getBiometricDisplayName,
     isAuthenticating
   } = useBiometricAuth();
 
@@ -48,6 +49,7 @@ export default function AuthPageMobile() {
     if (!loginData.username || !loginData.password) {
       notify({
         title: "Please fill in all fields",
+        description: "Username and password are required",
         variant: "destructive",
       });
       return;
@@ -66,11 +68,34 @@ export default function AuthPageMobile() {
 
   const handleBiometricLogin = async () => {
     try {
-      await authenticateWithBiometrics();
+      console.log('Starting biometric authentication...');
+      console.log('Biometric state:', biometricState);
+      
+      const success = await authenticateWithBiometrics();
+      
+      if (!success) {
+        console.log('Biometric authentication returned false');
+        notify({
+          title: "Authentication Failed",
+          description: "Biometric authentication was not successful",
+          variant: "destructive",
+        });
+      }
     } catch (error: any) {
+      console.error('Biometric authentication error:', error);
+      
+      let errorMessage = "Please try again";
+      if (error.message?.includes('cancelled') || error.message?.includes('cancel')) {
+        errorMessage = "Authentication was cancelled";
+      } else if (error.message?.includes('not available')) {
+        errorMessage = "Biometric authentication is not available";
+      } else if (error.message?.includes('no credentials')) {
+        errorMessage = "Please sign in with your password first to enable biometric login";
+      }
+      
       notify({
-        title: "Biometric authentication failed",
-        description: error.message || "Please try again",
+        title: "Biometric Authentication Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -82,6 +107,7 @@ export default function AuthPageMobile() {
     if (!registerData.username || !registerData.email || !registerData.password) {
       notify({
         title: "Please fill in all fields",
+        description: "Username, email and password are required",
         variant: "destructive",
       });
       return;
@@ -90,6 +116,7 @@ export default function AuthPageMobile() {
     if (registerData.password !== registerData.confirmPassword) {
       notify({
         title: "Passwords don't match",
+        description: "Please ensure both password fields are identical",
         variant: "destructive",
       });
       return;
@@ -358,7 +385,7 @@ export default function AuthPageMobile() {
                   <div className="flex-1 h-px bg-white/40" />
                 </div>
 
-                {/* Biometric Authentication - exact styling from reference */}
+                {/* Biometric Authentication with dynamic text based on device */}
                 {biometricState.isAvailable && (
                   <Button
                     onClick={handleBiometricLogin}
@@ -368,7 +395,7 @@ export default function AuthPageMobile() {
                     <Fingerprint className="h-5 w-5" />
                     {isAuthenticating 
                       ? "Authenticating..." 
-                      : "Sign in with Biometric authentication"
+                      : `Sign in with ${getBiometricDisplayName(biometricState.biometricType)}`
                     }
                   </Button>
                 )}

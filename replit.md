@@ -684,6 +684,41 @@ Changelog:
   - App now scrolls like authentic native iOS apps (Facebook, Instagram) with no visible scrollbars
   - Maintains smooth momentum scrolling, bounce behavior, and touch-optimized gesture handling
   - iOS build synced and ready for TestFlight with true native app scrolling experience
+- July 25, 2025. CRITICAL BUG FIXES: Fixed hardcoded membership credits and RevenueCat user ID
+  - Fixed server/storage.ts: New members now receive correct $69 credit instead of hardcoded $100
+  - Fixed client/src/services/sandbox-force-override.ts: Removed hardcoded user ID "32" for dynamic authentication
+  - Updated RevenueCat initialization to use authenticated user's actual ID instead of hardcoded value
+  - Added RevenueCat user ID initialization in authentication flow (login, registration, user state changes)
+  - Created initializeWithUserID() method in IAP service for proper user-specific RevenueCat configuration
+  - RevenueCat now correctly maps IAP purchases to the actual logged-in user instead of always user "32"
+  - Premium membership registration flow now properly provides $69 credit as intended
+- July 25, 2025. Enhanced registration validation with complete duplicate email protection
+  - Added email validation to regular registration endpoint (/api/register) to prevent duplicate email addresses
+  - Added email validation to premium membership registration (/api/register-with-membership) for comprehensive protection
+  - Both registration endpoints now validate both username and email uniqueness before account creation
+  - Improved error messages for duplicate username and email scenarios
+  - Enhanced user account security and data integrity with proper validation checks
+- July 25, 2025. Increased popup z-index for proper layering above floating navigation
+  - Updated popup-container z-index from 60 to 100 to ensure all popups display above floating menu (z-50)
+  - Updated popup-header z-index from 30 to 50 for proper layering within popup containers
+  - Buy Credits popup and Select Favorites popup now correctly appear above floating navigation
+  - All full-screen popups (Buy Credits, Send Credits, Profile, Favorites, Cart) have consistent high z-index layering
+- July 25, 2025. Native mobile splash screen implementation with Bean Stalker branding completed
+  - Created custom splash-screen.tsx component with provided Bean Stalker logo and green-800 background
+  - Implemented animated splash screen with logo fade-in, pulse effects, and loading indicators
+  - Integrated with Capacitor native splash screen system with proper configuration
+  - Added native iOS safe area handling for notched devices (Dynamic Island, notch compatibility)
+  - Configured automatic Capacitor splash screen hiding to use custom React-based splash screen
+  - Enhanced app initialization flow with splash screen timing and smooth transitions
+  - Native mobile app now shows professional branded splash screen on startup with authentic Bean Stalker logo
+- July 25, 2025. Fixed biometric authentication to display "Sign in with Face ID" and prevent crashes
+  - Updated auth page button text to dynamically display correct biometric type (Face ID, Touch ID, Fingerprint)
+  - Fixed TypeScript errors in notification service calls by adding missing description parameters
+  - Enhanced biometric service with comprehensive error handling and logging to prevent app crashes
+  - Added credential validation checks before attempting biometric authentication
+  - Improved error messages for better user experience (cancelled, not available, no credentials stored)
+  - Fixed biometric type detection with proper string conversion for iOS Face ID recognition
+  - Native biometric authentication now properly displays device-specific authentication type and handles errors gracefully
 ```
 
 ## User Preferences

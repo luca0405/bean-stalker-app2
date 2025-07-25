@@ -78,6 +78,14 @@ export function setupAuth(app: Express) {
       return res.status(400).json({ message: "Username already exists" });
     }
 
+    // Check if email already exists
+    if (req.body.email) {
+      const existingEmail = await storage.getUserByEmail(req.body.email);
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email already exists" });
+      }
+    }
+
     try {
       const user = await storage.createUser({
         ...req.body,

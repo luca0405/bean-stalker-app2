@@ -254,7 +254,7 @@ export class MemStorage implements IStorage {
     const user: User = { 
       ...insertUser, 
       id, 
-      credits: 100, // Start with 100 credits
+      credits: insertUser.credits || 69, // Use provided credits or default to $69 for premium membership
       fullName: insertUser.fullName || '',
       phoneNumber: insertUser.phoneNumber || '',
       isAdmin: insertUser.isAdmin || false,
