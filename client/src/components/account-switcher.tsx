@@ -5,12 +5,12 @@ import { LogOut, Smartphone } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { deviceService } from '@/services/device-service';
 import { Capacitor } from '@capacitor/core';
-import { useNavigate } from 'wouter';
+import { useLocation } from 'wouter';
 
 export function AccountSwitcher() {
   const { logout, user } = useAuth();
   const [isUnbinding, setIsUnbinding] = useState(false);
-  const [, navigate] = useNavigate();
+  const [, navigate] = useLocation();
 
   const handleSwitchAccount = async () => {
     if (!Capacitor.isNativePlatform()) {

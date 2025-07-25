@@ -762,6 +762,15 @@ Changelog:
   - Enhanced authentication system to validate device binding and prevent multiple accounts
   - Prepared infrastructure for Apple Wallet credit balance integration with guaranteed user identity
   - Device-bound security ensures consistent user experience and simplified financial transactions
+- July 25, 2025. Smart Authentication Flow and Account Switching completed
+  - Fixed username field visibility: hidden and auto-filled on bound devices, shown on fresh devices
+  - Updated "Become a Member" button to hide on devices with existing account binding
+  - Added Account Switcher to Profile page Account Management section with confirmation dialog
+  - Created /api/users/:id endpoint for secure user data retrieval and username display
+  - Enhanced UX with device-aware authentication interface that adapts to binding status
+  - Implemented complete account switching flow with device data clearing and unbinding
+  - Fixed import errors in account switcher component using correct wouter useLocation hook
+  - iOS project synced and ready for TestFlight with polished one-account-per-device authentication
 ```
 
 ## User Preferences
