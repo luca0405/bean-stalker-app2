@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Capacitor } from '@capacitor/core';
 import { useIAP } from '@/hooks/use-iap';
-import { useNativeNotifications } from '@/hooks/use-native-notifications';
-
+import { useNativeNotification } from '@/services/native-notification-service';
+import { RevenueCatTroubleshooter } from '@/components/revenuecat-troubleshooter';
+import { RevenueCatForceReload } from '@/components/revenuecat-force-reload';
+import { APP_CONFIG } from '../config/environment';
 
 import { formatCurrency } from '@/lib/utils';
 import { CreditCard, ShoppingBag, Star, Gift, Smartphone } from 'lucide-react';
@@ -28,7 +30,7 @@ export function EnhancedBuyCredits() {
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { purchaseProduct, isAvailable: iapAvailable, isLoading: iapLoading } = useIAP();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const isNative = Capacitor.isNativePlatform();
 
   const handlePurchase = async (creditPackage: CreditPackage) => {
@@ -39,10 +41,18 @@ export function EnhancedBuyCredits() {
       // Process IAP purchase through App Store
       const result = await purchaseProduct(creditPackage.id);
       if (result.success) {
-        notifySuccess("Purchase Successful!", `${formatCurrency(creditPackage.amount + (creditPackage.bonus || 0))} credits added to your account.`);
+        notify({
+          title: "Purchase Successful!",
+          description: `${formatCurrency(creditPackage.amount + (creditPackage.bonus || 0))} credits added to your account.`,
+        });
       }
     } catch (error) {
-      notifyError("Purchase Failed", "Please try again or contact support if the issue persists.");
+      console.error('App Store purchase failed:', error);
+      notify({
+        title: "Purchase Failed",
+        description: "Please try again or contact support if the issue persists.",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
       setSelectedPackage(null);
@@ -191,7 +201,26 @@ export function EnhancedBuyCredits() {
         </Card>
       </motion.div>
 
+      {/* IAP Diagnostics - Only show when enabled for testing */}
+      {isNative && APP_CONFIG.features.enableIAPDiagnostics && (
+        <>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            <RevenueCatTroubleshooter />
+          </motion.div>
 
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5 }}
+          >
+            <RevenueCatForceReload />
+          </motion.div>
+        </>
+      )}
 
     </div>
   );

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
@@ -29,7 +29,7 @@ interface PendingTransfer {
 
 export default function AdminCreditVerification() {
   const [verificationCode, setVerificationCode] = useState("");
-  const { toast } = useToast();
+  const { notify } = useNativeNotification();
   const queryClient = useQueryClient();
 
   // Get all pending transfers
@@ -51,7 +51,7 @@ export default function AdminCreditVerification() {
       return await res.json();
     },
     onSuccess: (data) => {
-      toast({
+      notify({
         title: "Code Verified Successfully",
         description: `Deducted $${data.amount} from ${data.senderName}`,
         variant: "default",
@@ -60,7 +60,7 @@ export default function AdminCreditVerification() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-credit-transfers"] });
     },
     onError: (error: any) => {
-      toast({
+      notify({
         title: "Verification Failed",
         description: error.message || "Invalid or expired code",
         variant: "destructive",
@@ -75,7 +75,7 @@ export default function AdminCreditVerification() {
   const handleManualVerify = (e: React.FormEvent) => {
     e.preventDefault();
     if (!verificationCode.trim()) {
-      toast({
+      notify({
         title: "Code Required",
         description: "Please enter a verification code",
         variant: "destructive",

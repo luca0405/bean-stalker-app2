@@ -2,15 +2,16 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Heart, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { ChevronDown } from "lucide-react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MenuItem, MenuItemOption, CartItemOption } from "@shared/schema";
 import { useCart } from "@/contexts/cart-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 
 interface ProductDetailModalProps {
   item: MenuItem | null;
@@ -26,7 +27,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   const { addToCart } = useCart();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const [selectedSize, setSelectedSize] = useState<'small' | 'medium' | 'large'>('small');
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
@@ -62,34 +63,6 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     enabled: !!user && !!item
   });
 
-  // Add to favorites mutation
-  const addToFavoritesMutation = useMutation({
-    mutationFn: async () => {
-      if (!item) throw new Error('No item selected');
-      
-      const response = await apiRequest('POST', '/api/favorites', {
-        menuItemId: item.id,
-        selectedSize: item.hasSizes ? selectedSize : null,
-        selectedOptions: Object.keys(selectedOptions).length > 0 ? selectedOptions : null,
-        customName: null // Could be extended to allow custom names
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to add to favorites');
-      }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item?.id] });
-      notifySuccess("Added to favorites", "Item has been saved to your favorites with selected options.");
-    },
-    onError: (error: any) => {
-      notifyError("Error", error.message || "Failed to add item to favorites.");
-    }
-  });
-
   // Reset state when modal opens/closes or item changes
   useEffect(() => {
     if (isOpen && item) {
@@ -120,7 +93,10 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
       queryClient.invalidateQueries({ queryKey: ['/api/favorites', item?.id] });
-      notifySuccess("Added to favorites", `${item?.name} has been added to your favorites.`);
+      notify({
+        title: "Added to favorites",
+        description: `${item?.name} has been added to your favorites.`,
+      });
     }
   });
 
@@ -133,13 +109,20 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
       queryClient.invalidateQueries({ queryKey: ['/api/favorites', item?.id] });
-      notifySuccess("Removed from favorites", `${item?.name} has been removed from your favorites.`);
+      notify({
+        title: "Removed from favorites",
+        description: `${item?.name} has been removed from your favorites.`,
+      });
     }
   });
 
   const toggleFavorite = () => {
     if (!user) {
-      notifyError("Login required", "Please log in to add items to favorites.");
+      notify({
+        title: "Login required",
+        description: "Please log in to add items to favorites.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -221,18 +204,20 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
       });
     }
     
-    // Cart context will handle the notification, so no need to notify here
+    let message = `Added ${quantity}x ${item.name}`;
+    if (item.hasSizes) message += ` (${selectedSize})`;
     
-    onClose();
-  };
-
-  const handleSaveToFavorites = () => {
-    if (!user) {
-      notifyError("Login required", "Please log in to save favorites.");
-      return;
+    if (optionsList.length > 0) {
+      const optionText = optionsList.map(opt => `${opt.value}`).join(', ');
+      message += ` with ${optionText}`;
     }
     
-    addToFavoritesMutation.mutate();
+    notify({
+      title: "Added to cart",
+      description: message
+    });
+    
+    onClose();
   };
 
   if (!item) return null;
@@ -240,13 +225,13 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 flex items-end justify-center product-detail-modal" style={{ zIndex: 10000 }}>
+        <div className="fixed inset-0 z-[100] flex items-end justify-center">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/50 product-modal-overlay"
+            className="absolute inset-0 bg-black/50"
             onClick={onClose}
           />
 
@@ -256,8 +241,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="relative w-full max-w-md bg-white rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto product-modal-content"
-            style={{ zIndex: 10001 }}
+            className="relative w-full max-w-md bg-white rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto"
           >
             {/* Header */}
             <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 p-4 flex justify-between items-center rounded-t-3xl z-10">
@@ -293,12 +277,11 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                 {/* Heart Icon */}
                 {user && (
                   <button 
-                    onClick={handleSaveToFavorites}
-                    disabled={addToFavoritesMutation.isPending}
-                    className="absolute top-4 right-4 p-2 bg-white/90 rounded-full shadow-md hover:bg-white transition-colors disabled:opacity-50"
+                    onClick={toggleFavorite}
+                    className="absolute top-4 right-4 p-2 bg-white/90 rounded-full shadow-md hover:bg-white transition-colors"
                   >
                     <Heart 
-                      className={`h-5 w-5 text-red-500 hover:fill-red-500 transition-colors`} 
+                      className={`h-5 w-5 ${favoriteStatus?.isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} 
                     />
                   </button>
                 )}
@@ -326,59 +309,35 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                     <CardTitle className="text-base">Choose Size</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-3 p-3 border rounded-lg">
-                        <input 
-                          type="radio" 
-                          id="small" 
-                          name="size" 
-                          value="small" 
-                          checked={selectedSize === 'small'}
-                          onChange={(e) => setSelectedSize(e.target.value as 'small' | 'medium' | 'large')}
-                          className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500 focus:ring-2"
-                        />
-                        <Label htmlFor="small" className="flex-1 cursor-pointer">
+                    <RadioGroup value={selectedSize} onValueChange={(value) => setSelectedSize(value as 'small' | 'medium' | 'large')}>
+                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                        <RadioGroupItem value="small" id="small" />
+                        <Label htmlFor="small" className="flex-1">
                           <div className="flex justify-between">
                             <span>Small</span>
                             <span className="font-semibold">${item.price.toFixed(2)}</span>
                           </div>
                         </Label>
                       </div>
-                      <div className="flex items-center space-x-3 p-3 border rounded-lg">
-                        <input 
-                          type="radio" 
-                          id="medium" 
-                          name="size" 
-                          value="medium" 
-                          checked={selectedSize === 'medium'}
-                          onChange={(e) => setSelectedSize(e.target.value as 'small' | 'medium' | 'large')}
-                          className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500 focus:ring-2"
-                        />
-                        <Label htmlFor="medium" className="flex-1 cursor-pointer">
+                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                        <RadioGroupItem value="medium" id="medium" />
+                        <Label htmlFor="medium" className="flex-1">
                           <div className="flex justify-between">
                             <span>Medium</span>
                             <span className="font-semibold">${(item.mediumPrice || item.price * 1.25).toFixed(2)}</span>
                           </div>
                         </Label>
                       </div>
-                      <div className="flex items-center space-x-3 p-3 border rounded-lg">
-                        <input 
-                          type="radio" 
-                          id="large" 
-                          name="size" 
-                          value="large" 
-                          checked={selectedSize === 'large'}
-                          onChange={(e) => setSelectedSize(e.target.value as 'small' | 'medium' | 'large')}
-                          className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 focus:ring-green-500 focus:ring-2"
-                        />
-                        <Label htmlFor="large" className="flex-1 cursor-pointer">
+                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
+                        <RadioGroupItem value="large" id="large" />
+                        <Label htmlFor="large" className="flex-1">
                           <div className="flex justify-between">
                             <span>Large</span>
                             <span className="font-semibold">${(item.largePrice || item.price * 1.5).toFixed(2)}</span>
                           </div>
                         </Label>
                       </div>
-                    </div>
+                    </RadioGroup>
                   </CardContent>
                 </Card>
               )}
@@ -396,26 +355,25 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                         <Label className="text-sm font-medium text-gray-700 mb-2 block">
                           {parentOption.name} (Optional)
                         </Label>
-                        <div className="relative">
-                          <select 
-                            value={selectedOptions[parentOption.name] || ''} 
-                            onChange={(e) => {
-                              setSelectedOptions(prev => ({
-                                ...prev,
-                                [parentOption.name]: e.target.value
-                              }));
-                            }}
-                            className="w-full h-11 px-3 pr-10 bg-white border border-gray-200 rounded-md text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                          >
-                            <option value="">{`Choose ${parentOption.name}`}</option>
-                            {parentOption.children?.map((childOption) => (
-                              <option key={childOption.id} value={childOption.name}>
-                                {childOption.name}{typeof childOption.priceAdjustment === 'number' && childOption.priceAdjustment > 0 && ` +$${childOption.priceAdjustment.toFixed(2)}`}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                        </div>
+                        <select 
+                          value={selectedOptions[parentOption.name] || ''} 
+                          onChange={(e) => {
+                            setSelectedOptions(prev => ({
+                              ...prev,
+                              [parentOption.name]: e.target.value
+                            }));
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        >
+                          <option value="">{`Choose ${parentOption.name}`}</option>
+                          {parentOption.children?.map((childOption) => (
+                            <option key={childOption.id} value={childOption.name}>
+                              {childOption.name}
+                              {typeof childOption.priceAdjustment === 'number' && childOption.priceAdjustment > 0 && 
+                                ` +$${childOption.priceAdjustment.toFixed(2)}`}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     ))}
                     
@@ -425,29 +383,28 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                         <Label className="text-sm font-medium text-gray-700 mb-2 block">
                           Flavor (Optional)
                         </Label>
-                        <div className="relative">
-                          <select 
-                            value={selectedOptions["Flavor"] || ''} 
-                            onChange={(e) => {
-                              setSelectedOptions(prev => ({
-                                ...prev,
-                                "Flavor": e.target.value
-                              }));
-                            }}
-                            className="w-full h-11 px-3 pr-10 bg-white border border-gray-200 rounded-md text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                          >
-                            <option value="">Choose Flavor</option>
-                            {flavorOptions
-                              .filter(opt => !opt.isParent && !opt.parentId)
-                              .map((option) => (
-                                <option key={option.id} value={option.name}>
-                                  {option.name}{typeof option.priceAdjustment === 'number' && option.priceAdjustment > 0 && ` +$${option.priceAdjustment.toFixed(2)}`}
-                                </option>
-                              ))
-                            }
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                        </div>
+                        <select 
+                          value={selectedOptions["Flavor"] || ''} 
+                          onChange={(e) => {
+                            setSelectedOptions(prev => ({
+                              ...prev,
+                              "Flavor": e.target.value
+                            }));
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                        >
+                          <option value="">Choose Flavor</option>
+                          {flavorOptions
+                            .filter(opt => !opt.isParent && !opt.parentId)
+                            .map((option) => (
+                              <option key={option.id} value={option.name}>
+                                {option.name}
+                                {typeof option.priceAdjustment === 'number' && option.priceAdjustment > 0 && 
+                                  ` +$${option.priceAdjustment.toFixed(2)}`}
+                              </option>
+                            ))
+                          }
+                        </select>
                       </div>
                     )}
                   </CardContent>
@@ -487,26 +444,14 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
 
             </div>
 
-            {/* Sticky Footer with Add to Cart and Save to Favorites */}
-            <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 p-6 z-10 space-y-3">
+            {/* Sticky Add to Cart Footer */}
+            <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 p-6 z-10">
               <Button 
                 onClick={handleAddToCart} 
                 className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 h-auto rounded-xl shadow-lg"
               >
                 Add to Cart • ${(getPrice() * quantity).toFixed(2)}
               </Button>
-              
-              {user && (
-                <Button 
-                  onClick={handleSaveToFavorites}
-                  disabled={addToFavoritesMutation.isPending}
-                  variant="outline"
-                  className="w-full py-2 h-auto rounded-xl border-green-600 text-green-600 hover:bg-green-50"
-                >
-                  <Heart className="h-4 w-4 mr-2" />
-                  {addToFavoritesMutation.isPending ? 'Saving...' : 'Save to Favorites'}
-                </Button>
-              )}
             </div>
           </motion.div>
         </div>

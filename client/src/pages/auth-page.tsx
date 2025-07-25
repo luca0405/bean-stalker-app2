@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -38,7 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { MobileNetworkTest } from "@/components/mobile-network-test";
+// Mobile network test component removed
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username or Email is required"),
@@ -85,7 +85,7 @@ type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
-  const { notifySuccess, notifyError, notifyInfo } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const [_, navigate] = useLocation();
   const [forgotDialogOpen, setForgotDialogOpen] = useState(false);
   const [resetSent, setResetSent] = useState(false);
@@ -147,7 +147,7 @@ export default function AuthPage() {
 
   const onLoginSubmit = async (data: LoginFormValues) => {
     try {
-      await login(data);
+      await loginMutation.mutateAsync(data);
       // No need to navigate here as the useEffect will handle it
     } catch (error) {
       console.error("Login error:", error);
@@ -161,12 +161,19 @@ export default function AuthPage() {
       return await res.json();
     },
     onSuccess: () => {
-      notifyInfo("Password reset link sent", "If your email is registered, you will receive a password reset link shortly.");
+      notify({
+        title: "Password reset link sent",
+        description: "If your email is registered, you will receive a password reset link shortly.",
+      });
       setResetSent(true);
       forgotForm.reset();
     },
     onError: (error: Error) => {
-      notifyError("Error", error.message || "Failed to send reset link. Please try again later.");
+      notify({
+        title: "Error",
+        description: error.message || "Failed to send reset link. Please try again later.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -177,7 +184,10 @@ export default function AuthPage() {
       return await res.json();
     },
     onSuccess: () => {
-      notifySuccess("Password reset successful", "Your password has been reset. You can now log in with your new password.");
+      notify({
+        title: "Password reset successful",
+        description: "Your password has been reset. You can now log in with your new password.",
+      });
       // Clear the token from URL
       window.history.replaceState({}, document.title, window.location.pathname);
       // Switch to login tab
@@ -185,7 +195,11 @@ export default function AuthPage() {
       resetPasswordForm.reset();
     },
     onError: (error: Error) => {
-      notifyError("Error", error.message || "Failed to reset password. The link may be expired or invalid.");
+      notify({
+        title: "Error",
+        description: error.message || "Failed to reset password. The link may be expired or invalid.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -195,7 +209,11 @@ export default function AuthPage() {
   
   const onResetPasswordSubmit = async (data: ResetPasswordFormValues) => {
     if (!resetToken) {
-      notifyError("Error", "Reset token is missing. Please use the link from your email.");
+      notify({
+        title: "Error",
+        description: "Reset token is missing. Please use the link from your email.",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -271,9 +289,9 @@ export default function AuthPage() {
                     <Button
                       type="submit"
                       className="w-full bg-[#124430] hover:bg-[#0d3526] text-white"
-                      disabled={isLoginPending}
+                      disabled={loginMutation.isPending}
                     >
-                      {isLoginPending ? "Logging in..." : "LOG IN"}
+                      {loginMutation.isPending ? "Logging in..." : "LOG IN"}
                     </Button>
 
                     <div className="text-center mt-4">
@@ -441,9 +459,9 @@ export default function AuthPage() {
                 <Button
                   type="submit"
                   className="w-full bg-[#124430] hover:bg-[#0d3526] text-white"
-                  disabled={isLoginPending}
+                  disabled={loginMutation.isPending}
                 >
-                  {isLoginPending ? "Logging in..." : "LOG IN"}
+                  {loginMutation.isPending ? "Logging in..." : "LOG IN"}
                 </Button>
 
                 <div className="text-center mt-4">
@@ -499,7 +517,7 @@ export default function AuthPage() {
         </CardContent>
       </Card>
       
-      <MobileNetworkTest />
+      {/* Mobile network test component removed */}
     </div>
   );
 }

@@ -475,7 +475,7 @@ Changelog:
   - Eliminated console.log statements and development artifacts from mobile authentication flow
   - Mobile app ready for GitHub Actions deployment with professional user experience
 - July 21, 2025. RevenueCat IAP integration updated with user's exact credit structure and sandbox testing ready
-  - Updated product IDs to match App Store Connect: com.beanstalker.credit25, com.beanstalker.credit50, com.beanstalker.credit100, com.beanstalker.membership69
+  - Updated product IDs to match App Store Connect: com.beanstalker.credits25, com.beanstalker.credits50, com.beanstalker.credits100, com.beanstalker.membership69
   - Implemented correct credit bonus structure: $25→$29.50 (+$4.50), $50→$59.90 (+$9.90), $100→$120.70 (+$20.70)
   - Created comprehensive RevenueCat webhook handler at /api/revenuecat/webhook for automatic credit processing
   - Updated frontend IAP service and enhanced-buy-credits component to display correct bonus amounts
@@ -576,87 +576,60 @@ Changelog:
   - System now forces sandbox mode regardless of any build settings showing production mode
   - Enhanced IAP service to use complete sandbox override for native platforms
   - Ready for GitHub Actions deployment with guaranteed sandbox functionality
-- July 24, 2025. Native notification system implementation completed replacing all popup toast notifications
-  - Created comprehensive native-notification-service.ts and use-native-notifications.ts hook for browser-native notifications
-  - Systematically converted ALL components from toast popup notifications to native browser notifications
-  - Enhanced user experience with system-level notifications instead of in-app popups providing better visibility and persistence
-  - Updated all key components: send-credits, auth-page, favorites-list, membership-page, kitchen-display, menu-item, buy-credits, cart-context
-  - Converted core application files: grab-menu-card, orders-page, home-page, profile-page, auth-page-new components
-  - Eliminated all 135+ toast() function calls and 23+ useToast imports throughout the entire application
-  - Native notifications provide permission handling, fallback support, and work across all platforms including mobile
-  - Improved notification management with proper error handling and user-friendly messaging system
-  - Complete native notification overhaul provides superior mobile experience with persistent system-level alerts
-  - Fixed final toast references in product-detail-modal.tsx, send-credits-page.tsx, and admin-page.tsx
-  - All "toast is not defined" runtime errors completely resolved across entire application codebase
-  - Fixed duplicate cart notifications by removing notifications from individual components (product-detail-modal, menu-item)
-  - Cart context now handles all "added to cart" notifications as single source of truth preventing duplicate alerts
-- July 24, 2025. Menu page category styling updated to match home page design consistency
-  - Changed product category headers from green gradient backgrounds to white with orange borders
-  - Updated styling to match "Order Your Favorites" card design (border-2 border-orange-200)
-  - Changed text colors from white/green to gray for better readability on white backgrounds
-  - Maintained rounded corners and shadow effects for consistent visual hierarchy
-- July 24, 2025. Home page favorites popup completely fixed with comprehensive data display
-  - Resolved "$NaN" price display issue by adding proper null checking for menu item prices
-  - Fixed favorites data structure handling to support both direct and nested menuItem properties
-  - Updated display to show custom names, selected sizes, and all selected options including flavors
-  - Enhanced option display with proper formatting: "Large size • Oat milk, Vanilla syrup, Extra shot"
-  - Updated cart functionality to preserve custom names, sizes, and complete option arrays when adding favorites
-  - Added fallback to "Default options" when no customizations are present
-  - Complete favorites integration now displays actual product names, correct prices, and full customization details
-- July 24, 2025. RevenueCat user ID system updated to be completely dynamic instead of hardcoded
-  - Fixed SandboxForceOverride to not hardcode user ID "32" during initialization
-  - Updated IAP service to properly set user ID based on actual logged-in user
-  - RevenueCat webhook handler already correctly processes dynamic app_user_id from webhooks
-  - IAP system now uses actual user.id.toString() for all RevenueCat operations
-  - Fixed biometric authentication crash by replacing all toast notifications with native notification system
-  - Corrected TypeScript errors in biometric service for production-ready code
-- July 24, 2025. Configured IAP system to allow multiple purchases of the same product per user
-  - Modified duplicate transaction logic to allow repeat purchases while preventing double-processing of same transaction ID
-  - Enhanced transaction ID generation to create unique identifiers for each purchase attempt
-  - Updated server-side logic to handle repeat transactions gracefully without blocking legitimate new purchases
-  - Added proper client-side handling for cached RevenueCat transaction responses
-  - Mobile IAP system now prevents development mode fallback and always uses real RevenueCat transactions
-  - Users can now purchase multiple $25, $50, or $100 credit packages without restrictions
-  - System still prevents double-processing of the exact same RevenueCat transaction ID for fraud protection
-- July 24, 2025. Fixed iOS dynamic island header overlap and smooth scrolling issues completely
-  - Updated header to use fixed positioning with proper safe area handling for iOS dynamic island
-  - Added inline CSS safe area padding: calc(12px + env(safe-area-inset-top, 0px))
-  - Enhanced smooth scrolling with GPU acceleration and momentum scrolling for iOS Safari
-  - Added main-content-with-header CSS class for consistent page spacing across all pages
-  - Fixed overscroll behavior and enabled hardware acceleration for smooth scrolling performance
-  - Updated menu-page, orders-page, cart-page, and home-page with proper header compensation
-  - iOS users now have smooth scrolling without header overlap with dynamic island area
-- July 24, 2025. Fixed RevenueCat multiple purchase issue for consumable credit packages
-  - Identified issue: RevenueCat was reusing transaction IDs for repeat purchases, triggering duplicate detection
-  - Enhanced transaction ID generation to always create unique identifiers for consumable purchases
-  - Updated server logic to allow generated transaction IDs (starting with 'rc_') for multiple purchases
-  - Only checks for duplicates on actual RevenueCat transaction IDs to prevent genuine fraud
-  - Added comprehensive debug logging for IAP purchase tracking and verification
-  - Users can now successfully purchase multiple $25, $50, or $100 credit packages without restrictions
-  - System still prevents double-processing of the exact same RevenueCat transaction ID for fraud protection
-- July 24, 2025. Product ID mismatch and excessive API requests completely resolved
-  - Fixed critical server-side RevenueCat webhook handler supporting new Product IDs with "credits" plural form
-  - Confirmed working: com.beanstalker.credits25 → 29.5 credits, com.beanstalker.credits50 → 59.9 credits, com.beanstalker.credits100 → 120.7 credits
-  - Eliminated excessive /api/orders requests causing scrolling performance degradation by disabling iOS notification context polling
-  - Disabled push notification context polling that was triggering hundreds of API requests per minute
-  - Updated React Query configurations with proper caching and disabled automatic refetching
-  - Credits now update immediately in Available Balance after IAP purchases via proper webhook processing
-  - Fixed mobile app performance issues by removing continuous background API polling
-- July 24, 2025. Header overlap definitively fixed across all pages with forced CSS and popup exclusions
-  - Root cause: Tailwind CSS padding classes were overriding main-content-with-header class
-  - Implemented !important CSS declaration to force 100px header clearance across all pages
-  - Removed ALL conflicting Tailwind padding classes (pt-6, pt-8) from main elements
-  - Applied main-content-with-header class to ALL pages: home, menu, orders, cart, admin, profile, favorites
-  - CSS now calculates: padding-top = safe-area-inset-top(20px) + 100px = 120px total header clearance
-  - Fixed header covering "Our Menu" text, "Hi Username" text, and all page headers definitively
-  - Added CSS exclusions for popup containers to prevent header padding on full-screen dialogs
-  - Popup containers (.popup-container, [role="dialog"], [data-radix-dialog-content]) now start from screen top
-  - Fixed Buy Credits, Send Credits, Profile, and Favorites popups being pushed down by header padding
-  - Enhanced z-index hierarchy: popups (10000) > floating menu (9999) > header (9998)
-  - All full-screen popups now display above both header and floating menu with proper layering
-  - Floating menu positioning maintained with proper safe area support
-  - All pages have consistent header spacing while popups display full-screen without interference $50, or $100 credit packages without restrictions
-  - Fixed client-side notification handling for repeat transaction scenarios with native notifications
+- July 24, 2025. RevenueCat product IDs updated to correct naming convention
+  - Changed product IDs from "credit" to "credits": com.beanstalker.credits25, com.beanstalker.credits50, com.beanstalker.credits100
+  - Updated all backend API endpoints and webhook handlers to use new product naming
+  - Modified frontend IAP service and buy credits component to match new product IDs
+  - Updated documentation and diagnostic endpoints with correct product identifiers
+  - All credit purchase and restoration flows now use consistent "credits" naming throughout the app
+- July 24, 2025. Production-ready configuration implemented while maintaining sandbox IAP testing
+  - Created environment-aware configuration system with APP_CONFIG for production/development detection
+  - Implemented production-safe logging utility that minimizes console output in production
+  - Updated IAP diagnostics to be conditionally visible based on enableIAPDiagnostics feature flag
+  - Clean production interface removes debug components while keeping IAP testing functionality
+  - Added comprehensive production deployment guide with environment variables and GitHub Actions setup
+  - App now provides professional user experience in production while continuing sandbox IAP testing
+- July 24, 2025. Fixed popup z-index layering to ensure Buy Credits and Send Credits popups appear above floating navigation
+  - Updated popup-container z-index from 50 to 60 to be higher than floating menu's z-50
+  - Updated popup-header z-index from 20 to 30 for proper layering within popups
+  - Ensures all full-screen popups (Buy Credits, Send Credits, Profile, Favorites) display correctly above navigation
+- July 24, 2025. Changed Product Details popup dropdowns to native HTML select elements
+  - Replaced shadcn Select components with native HTML select elements for better mobile experience
+  - Updated both parent options (milk alternatives) and standard flavor options to use native selects
+  - Added consistent styling with green focus states and proper mobile touch targets
+  - Removed unnecessary Select component imports from product-detail-modal.tsx
+- July 24, 2025. Fixed SVG image sizing for mobile menu display
+  - Redesigned fallback SVG icons to be smaller and more appropriate for card display (40x40 with circular backgrounds)
+  - Created minimal, clean coffee and breakfast icons with subtle styling that blend well with card design
+  - Used circular backgrounds instead of full rectangles for better visual integration
+  - Reduced stroke width to 1.5 for cleaner appearance on mobile cards
+  - Fixed TypeScript errors in image fallback handling and improved error handling
+  - Added force fallback testing mode for better development debugging
+  - Improved mobile compatibility of fallback images when server images fail to load
+- July 24, 2025. Updated menu category headers styling for consistency
+  - Changed category headers from green gradient background to white background with orange border
+  - Applied same border styling as "Order Your Favorites" card (border-2 border-orange-200)
+  - Updated text colors from white/green to gray-900/gray-600 for better readability on white background
+  - Maintained rounded-xl and shadow-sm styling for visual consistency
+- July 24, 2025. Hidden juice products from menu display
+  - Filtered out "juices" category from menu context to hide juice products
+  - Applied filtering to both menu items and categories list
+  - Juice products remain in database but are not displayed in menu interface
+  - Admin interface still shows all products including juices for management
+- July 24, 2025. Cart page converted to full-display popup design
+  - Redesigned cart page to use popup-container and popup-content structure like Buy Credits popup
+  - Maintained all cart functionality including item display, quantity controls, and order placement
+  - Updated header with consistent popup styling and navigation
+  - Moved place order button from sticky footer to scroll container for better mobile experience
+  - Applied same design patterns and CSS classes as other full-screen popups
+- July 24, 2025. Complete native mobile notification system implementation
+  - Created comprehensive native-notification-service.ts using @capacitor/local-notifications for mobile apps
+  - Replaced all toast notifications throughout the app with native mobile notifications
+  - Enhanced mobile user experience with platform-specific notification handling (native iOS vs web toast)
+  - Updated all contexts: push-notification-context.tsx, ios-notification-context.tsx
+  - Migrated all components: push-notification-toggle.tsx, cart-page.tsx, enhanced-buy-credits.tsx
+  - Native notifications provide consistent user experience across web and mobile platforms
+  - Improved notification reliability and visual integration for iOS/Android native apps
 ```
 
 ## User Preferences
@@ -664,5 +637,4 @@ Changelog:
 ```
 Preferred communication style: Simple, everyday language.
 Typography: Manrope font family across the entire application.
-Native mobile-first approach: All UI components must use native HTML elements (select, input, button, etc.) instead of custom React components to ensure proper mobile functionality and avoid z-index/overlay issues.
 ```

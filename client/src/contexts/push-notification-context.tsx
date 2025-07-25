@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { useIOSNotificationService } from './ios-notification-context';
-import { useNativeNotifications } from '@/hooks/use-native-notifications';
+import { useNativeNotification } from '@/services/native-notification-service';
 import { useAuth } from '@/hooks/use-auth';
 import { queryClient } from '@/lib/queryClient';
 
@@ -24,7 +24,7 @@ const PushNotificationContext = createContext<PushNotificationContextType>({
  */
 export function PushNotificationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const [isReady, setIsReady] = useState(false);
   const notificationCache = useRef<Set<string>>(new Set());
   const pollingIntervalRef = useRef<number | null>(null);
@@ -216,16 +216,28 @@ export function PushNotificationProvider({ children }: { children: ReactNode }) 
                 }
                 
                 // Show a more detailed native notification
-                notifySuccess(`Order #${order.id} Update`, statusMessage);
+                notify({
+                  title: `Order #${order.id} Update`,
+                  description: statusMessage,
+                  variant: "default"
+                });
               })
               .catch(error => {
                 console.error('Error fetching order details:', error);
                 // Fallback to general notification if fetch fails
-                notifySuccess(event.data.title || 'Order Update', event.data.body || 'Your order status has been updated.');
+                notify({
+                  title: event.data.title || 'Order Update',
+                  description: event.data.body || 'Your order status has been updated.',
+                  variant: "default"
+                });
               });
           } else {
             // Show a general native notification for order updates without specific ID
-            notifySuccess(event.data.title || 'Order Update', event.data.body || 'Your order status has been updated.');
+            notify({
+              title: event.data.title || 'Order Update',
+              description: event.data.body || 'Your order status has been updated.',
+              variant: "default"
+            });
           }
           
           // Start polling for a minute to ensure any updates are caught
@@ -233,31 +245,34 @@ export function PushNotificationProvider({ children }: { children: ReactNode }) 
             window.clearInterval(pollingIntervalRef.current);
           }
           
-          // TEMPORARILY DISABLED - excessive API requests causing performance issues
           // Poll every 30 seconds for 60 seconds to further reduce server load
-          // let pollCount = 0;
-          // pollingIntervalRef.current = window.setInterval(() => {
-          //   if (pollCount < 2) { // 2 * 30 seconds = 60 seconds
-          //     console.log('Polling orders (notification triggered) - 30s interval');
-          //     queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
-          //     if (orderId) {
-          //       queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
-          //     }
-          //     pollCount++;
-          //   } else {
-          //     if (pollingIntervalRef.current) {
-          //       window.clearInterval(pollingIntervalRef.current);
-          //       pollingIntervalRef.current = null;
-          //     }
-          //   }
-          // }, 3000);
+          let pollCount = 0;
+          pollingIntervalRef.current = window.setInterval(() => {
+            if (pollCount < 2) { // 2 * 30 seconds = 60 seconds
+              console.log('Polling orders (notification triggered) - 30s interval');
+              queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+              if (orderId) {
+                queryClient.invalidateQueries({ queryKey: [`/api/orders/${orderId}`] });
+              }
+              pollCount++;
+            } else {
+              if (pollingIntervalRef.current) {
+                window.clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
+              }
+            }
+          }, 3000);
         } else {
           // For non-order notifications, show a standard native notification
-          notifySuccess(event.data.title || 'Notification', event.data.body || 'You have a new notification');
+          notify({
+            title: event.data.title || 'Notification',
+            description: event.data.body || 'You have a new notification',
+            variant: "default"
+          });
         }
       }
     }
-  }, [notifySuccess, queryClient, user]);
+  }, [notify, queryClient, user]);
   
   // Listen for service worker messages about new notifications
   useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useNativeNotifications } from '@/hooks/use-native-notifications';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Download } from 'lucide-react';
 
@@ -23,7 +23,7 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [waitingServiceWorker, setWaitingServiceWorker] = useState<ServiceWorker | null>(null);
   const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { toast } = useToast();
 
   // Listen for beforeinstallprompt event to capture the install prompt
   useEffect(() => {
@@ -105,12 +105,30 @@ export function AppUpdateProvider({ children }: { children: ReactNode }) {
     waitingServiceWorker.postMessage({ type: 'SKIP_WAITING' });
     
     // The page will reload automatically when the new service worker takes control
-    notifySuccess("Updating...", "The app will refresh in a moment.");
+    notify({
+      title: "Updating...",
+      description: "The app will refresh in a moment.",
+    });
   };
 
   // Show a toast notification with update prompt
   const promptForUpdate = () => {
-    notifySuccess("App Update Available", "A new version is available. Update now for the latest features and improvements.");
+    notify({
+      title: "App Update Available",
+      description: "A new version is available. Update now for the latest features and improvements.",
+      action: (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={applyUpdate}
+          className="gap-1 items-center"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Update
+        </Button>
+      ),
+      duration: 10000, // Show for 10 seconds
+    });
   };
 
   // Function to show the install prompt

@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import {
@@ -62,7 +62,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function AuthPage() {
   const auth = useAuth();
   const { user, login, register, isLoginPending, isRegisterPending } = auth;
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
 
   // Add safety check for authentication context
   if (!auth || !login || !register) {
@@ -103,13 +103,20 @@ export default function AuthPage() {
       return await res.json();
     },
     onSuccess: (response) => {
-      notifySuccess("Welcome to Bean Stalker Premium!", `Your account has been created and you've received AUD$69 in credits. Welcome to the community!`);
+      notify({
+        title: "Welcome to Bean Stalker Premium!",
+        description: `Your account has been created and you've received AUD$69 in credits. Welcome to the community!`,
+      });
       // Navigate to home page
       navigate('/');
     },
     onError: (error: Error) => {
       setIsProcessingPayment(false);
-      notifyError("Signup failed", error.message || "Failed to create premium account. Please try again.");
+      notify({
+        title: "Signup failed",
+        description: error.message || "Failed to create premium account. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -168,7 +175,11 @@ export default function AuthPage() {
       }
     } catch (error) {
       setIsProcessingPayment(false);
-      notifyError("Payment Error", error instanceof Error ? error.message : "Failed to process payment");
+      notify({
+        title: "Payment Error",
+        description: error instanceof Error ? error.message : "Failed to process payment",
+        variant: "destructive",
+      });
     }
   };
 

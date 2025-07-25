@@ -290,19 +290,18 @@ export const insertStaffSchema = createInsertSchema(staff).omit({
 export type Staff = typeof staff.$inferSelect;
 export type InsertStaff = z.infer<typeof insertStaffSchema>;
 
-// Favorites table - now includes options and uses auto-increment ID
+// Favorites table - composite primary key of userId and menuItemId
 export const favorites = pgTable("favorites", {
-  id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
   menuItemId: integer("menu_item_id").notNull().references(() => menuItems.id),
-  selectedSize: text("selected_size"), // small, medium, large
-  selectedOptions: jsonb("selected_options"), // Store selected options like milk type, syrups, etc.
-  customName: text("custom_name"), // User-defined name for this favorite (e.g., "My Usual Coffee")
   createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    pk: primaryKey({ columns: [table.userId, table.menuItemId] }),
+  };
 });
 
 export const insertFavoriteSchema = createInsertSchema(favorites).omit({
-  id: true,
   createdAt: true,
 });
 

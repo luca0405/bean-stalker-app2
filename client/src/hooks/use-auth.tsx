@@ -5,7 +5,7 @@ import {
 } from "@tanstack/react-query";
 import { InsertUser, User } from "@shared/schema";
 import { apiRequest, getQueryFn, queryClient } from "../lib/queryClient";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { Capacitor } from '@capacitor/core';
 
 // Define simplified type for login data
@@ -61,7 +61,7 @@ export const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { notifyError, notifySuccess } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   
   // Fetch current user with mobile-optimized configuration
   const {
@@ -122,7 +122,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         originalError: error.message
       });
 
-      notifyError(title, description);
+      notify({
+        title,
+        description,
+        variant: "destructive",
+      });
     },
   });
 
@@ -134,7 +138,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (userData) => {
       queryClient.setQueryData(["/api/user"], userData);
-      notifySuccess("Registration successful", `Welcome, ${userData.username}!`);
+      notify({
+        title: "Registration successful",
+        description: `Welcome, ${userData.username}!`,
+      });
     },
     onError: (error: Error) => {
       let title = "Registration Failed";
@@ -161,7 +168,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description = "Our servers are temporarily unavailable. Please try again later";
       }
 
-      notifyError(title, description);
+      notify({
+        title,
+        description,
+        variant: "destructive",
+      });
     },
   });
 
@@ -172,10 +183,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
-      notifySuccess("Logout successful", "You have been logged out.");
+      notify({
+        title: "Logout successful",
+        description: "You have been logged out.",
+      });
     },
     onError: (error: Error) => {
-      notifyError("Logout failed", error.message);
+      notify({
+        title: "Logout failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 

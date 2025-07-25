@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Coffee, CreditCard, Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function AuthPage() {
-  const { toast } = useToast();
+  const { notify } = useNativeNotification();
   const [_, navigate] = useLocation();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -42,7 +42,7 @@ export default function AuthPage() {
       
       if (response.ok) {
         const user = await response.json();
-        toast({
+        notify({
           title: "Welcome back",
           description: `Signed in as ${user.username}`,
         });
@@ -51,7 +51,7 @@ export default function AuthPage() {
         throw new Error("Invalid credentials");
       }
     } catch (error) {
-      toast({
+      notify({
         title: "Sign in failed",
         description: "Please check your credentials and try again.",
         variant: "destructive",
@@ -69,7 +69,7 @@ export default function AuthPage() {
     
     try {
       if (joinPremium) {
-        toast({
+        notify({
           title: "Premium membership",
           description: "Processing premium membership for AUD$69...",
         });
@@ -85,7 +85,7 @@ export default function AuthPage() {
         
         if (response.ok) {
           const user = await response.json();
-          toast({
+          notify({
             title: "Premium membership activated",
             description: `Welcome ${user.username}! AUD$69 credit added to your account.`,
           });
@@ -102,7 +102,7 @@ export default function AuthPage() {
         
         if (response.ok) {
           const user = await response.json();
-          toast({
+          notify({
             title: "Account created",
             description: `Welcome to Bean Stalker, ${user.username}!`,
           });
@@ -112,7 +112,7 @@ export default function AuthPage() {
         }
       }
     } catch (error) {
-      toast({
+      notify({
         title: "Sign up failed",
         description: "Please check your information and try again.",
         variant: "destructive",

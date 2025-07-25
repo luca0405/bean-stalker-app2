@@ -113,8 +113,8 @@ export interface IStorage {
   
   // Favorites operations
   addFavorite(favorite: InsertFavorite): Promise<Favorite>;
-  removeFavorite(userId: number, favoriteId: number): Promise<void>;
-  getUserFavorites(userId: number): Promise<(Favorite & { menuItem: MenuItem })[]>;
+  removeFavorite(userId: number, menuItemId: number): Promise<void>;
+  getUserFavorites(userId: number): Promise<MenuItem[]>;
   isFavorite(userId: number, menuItemId: number): Promise<boolean>;
   
   // Session store
@@ -132,7 +132,7 @@ export class MemStorage implements IStorage {
   private orders: Map<number, Order>;
   private creditTransactions: Map<number, CreditTransaction>;
   private pendingCreditTransfers: Map<number, PendingCreditTransfer>;
-  private favorites: Map<number, Favorite>; // Store favorites with ID as key
+  private favorites: Map<string, Favorite>; // Store favorites with a composite key: `${userId}-${menuItemId}`
   sessionStore: session.Store;
   currentUserId: number;
   currentMenuItemId: number;
@@ -141,7 +141,6 @@ export class MemStorage implements IStorage {
   currentTransactionId: number;
   currentPendingTransferId: number;
   currentMenuItemOptionId: number; // Added counter for option IDs
-  currentFavoriteId: number; // Counter for favorite IDs
 
   constructor() {
     this.users = new Map();
@@ -162,7 +161,6 @@ export class MemStorage implements IStorage {
     this.currentTransactionId = 1;
     this.currentPendingTransferId = 1;
     this.currentMenuItemOptionId = 1;
-    this.currentFavoriteId = 1;
     
     // Initialize categories first, then menu items
     this.initializeCategories();
@@ -664,47 +662,43 @@ export class MemStorage implements IStorage {
   
   // Favorites methods
   async addFavorite(favorite: InsertFavorite): Promise<Favorite> {
+    // Create a composite key for the map
+    const key = `${favorite.userId}-${favorite.menuItemId}`;
+    
     const newFavorite: Favorite = {
-      id: this.currentFavoriteId++,
       ...favorite,
       createdAt: new Date()
     };
     
-    this.favorites.set(newFavorite.id, newFavorite);
+    this.favorites.set(key, newFavorite);
     return newFavorite;
   }
   
-  async removeFavorite(userId: number, favoriteId: number): Promise<void> {
-    const favorite = this.favorites.get(favoriteId);
-    if (favorite && favorite.userId === userId) {
-      this.favorites.delete(favoriteId);
-    }
+  async removeFavorite(userId: number, menuItemId: number): Promise<void> {
+    const key = `${userId}-${menuItemId}`;
+    this.favorites.delete(key);
   }
   
-  async getUserFavorites(userId: number): Promise<(Favorite & { menuItem: MenuItem })[]> {
+  async getUserFavorites(userId: number): Promise<MenuItem[]> {
     // Find all favorites for the user
     const userFavorites = Array.from(this.favorites.values())
       .filter(favorite => favorite.userId === userId);
     
-    // Get the corresponding menu items and combine with favorite data
-    const favoriteMenuItems: (Favorite & { menuItem: MenuItem })[] = [];
+    // Get the corresponding menu items
+    const favoriteMenuItems: MenuItem[] = [];
     for (const favorite of userFavorites) {
       const menuItem = this.menuItems.get(favorite.menuItemId);
       if (menuItem) {
-        favoriteMenuItems.push({
-          ...favorite,
-          menuItem
-        });
+        favoriteMenuItems.push(menuItem);
       }
     }
     
-    return favoriteMenuItems.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return favoriteMenuItems;
   }
   
   async isFavorite(userId: number, menuItemId: number): Promise<boolean> {
-    return Array.from(this.favorites.values()).some(
-      favorite => favorite.userId === userId && favorite.menuItemId === menuItemId
-    );
+    const key = `${userId}-${menuItemId}`;
+    return this.favorites.has(key);
   }
 
   // Menu Category methods
@@ -1349,14 +1343,14 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  async removeFavorite(userId: number, favoriteId: number): Promise<void> {
+  async removeFavorite(userId: number, menuItemId: number): Promise<void> {
     try {
       await this.db
         .delete(favorites)
         .where(
           and(
             eq(favorites.userId, userId),
-            eq(favorites.id, favoriteId)
+            eq(favorites.menuItemId, menuItemId)
           )
         );
     } catch (error) {
@@ -1365,47 +1359,25 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
-  async getUserFavorites(userId: number): Promise<(Favorite & { menuItem: MenuItem })[]> {
+  async getUserFavorites(userId: number): Promise<MenuItem[]> {
     try {
-      // Join favorites with menu items to get both favorite details and menu item details
-      const results = await this.db
+      // Join favorites with menu items to get the full menu item details
+      return this.db
         .select({
-          id: favorites.id,
-          userId: favorites.userId,
-          menuItemId: favorites.menuItemId,
-          selectedSize: favorites.selectedSize,
-          selectedOptions: favorites.selectedOptions,
-          customName: favorites.customName,
-          createdAt: favorites.createdAt,
-          menuItem: {
-            id: menuItems.id,
-            name: menuItems.name,
-            description: menuItems.description,
-            price: menuItems.price,
-            category: menuItems.category,
-            imageUrl: menuItems.imageUrl,
-            hasSizes: menuItems.hasSizes,
-            mediumPrice: menuItems.mediumPrice,
-            largePrice: menuItems.largePrice,
-            hasOptions: menuItems.hasOptions
-          }
+          id: menuItems.id,
+          name: menuItems.name,
+          description: menuItems.description,
+          price: menuItems.price,
+          category: menuItems.category,
+          imageUrl: menuItems.imageUrl,
+          hasSizes: menuItems.hasSizes,
+          mediumPrice: menuItems.mediumPrice,
+          largePrice: menuItems.largePrice,
+          hasOptions: menuItems.hasOptions
         })
         .from(favorites)
         .innerJoin(menuItems, eq(favorites.menuItemId, menuItems.id))
-        .where(eq(favorites.userId, userId))
-        .orderBy(desc(favorites.createdAt));
-      
-      // Process results to ensure proper null handling for prices
-      return results.map(result => ({
-        ...result,
-        menuItem: {
-          ...result.menuItem,
-          // Ensure null prices are converted to meaningful defaults
-          price: result.menuItem.price || 0,
-          mediumPrice: result.menuItem.mediumPrice || result.menuItem.price || 0,
-          largePrice: result.menuItem.largePrice || result.menuItem.price || 0
-        }
-      }));
+        .where(eq(favorites.userId, userId));
     } catch (error) {
       console.error("Error getting user favorites:", error);
       throw error;

@@ -35,8 +35,8 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/menu"],
   });
 
-  // Filter out juice items
-  const menuItems = allMenuItems.filter(item => item.category.toLowerCase() !== 'juices');
+  // Filter out juice products
+  const menuItems = allMenuItems.filter(item => item.category !== "juices");
 
   const {
     data: categoryObjects = [],
@@ -47,10 +47,10 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/categories"],
   });
 
-  // Sort categories by display order and extract names, excluding juices
+  // Sort categories by display order and extract names, filtering out juices
   const categories = categoryObjects
     ? [...categoryObjects]
-        .filter(cat => cat.name.toLowerCase() !== 'juices') // Hide juices category
+        .filter(cat => cat.name !== "juices") // Hide juices category
         .sort((a, b) => {
           const aOrder = a.displayOrder ?? 999;
           const bOrder = b.displayOrder ?? 999;

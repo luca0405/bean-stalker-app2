@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, Users, CheckCircle, AlertCircle, Coffee, Timer } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 
 interface KitchenOrder {
   id: number;
@@ -22,7 +22,7 @@ interface KitchenOrder {
 }
 
 export default function KitchenDisplayPage() {
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const queryClient = useQueryClient();
   
   const { data: orders = [], isLoading } = useQuery<KitchenOrder[]>({
@@ -46,10 +46,17 @@ export default function KitchenDisplayPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/kitchen/orders"] });
-      notifySuccess("Order Updated", "Order status has been updated successfully.");
+      notify({
+        title: "Order Updated",
+        description: "Order status has been updated successfully.",
+      });
     },
     onError: () => {
-      notifyError("Update Failed", "Failed to update order status.");
+      notify({
+        title: "Update Failed",
+        description: "Failed to update order status.",
+        variant: "destructive",
+      });
     },
   });
 

@@ -7,7 +7,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { AdminPushNotificationToggle } from "@/components/push-notification-toggle";
 import { QRScanner, type QRCodeResult } from "@/utils/qr-scanner";
 import { 
@@ -70,7 +70,7 @@ export default function AdminPage() {
   console.log("AdminPage rendering");
   const { user } = useAuth();
   const [_, navigate] = useLocation();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const [activeTab, setActiveTab] = useState("orders");
   
   console.log("Active tab:", activeTab);
@@ -174,7 +174,10 @@ export default function AdminPage() {
                                     (navigator as any).msGetUserMedia;
                                     
           if (legacyGetUserMedia) {
-            notifySuccess("Legacy Browser Detected", "Using compatibility mode for camera access. For best results, please update your browser.");
+            notify({
+              title: "Legacy Browser Detected",
+              description: "Using compatibility mode for camera access. For best results, please update your browser.",
+            });
           } else {
             throw new Error(
               "Your browser doesn't support camera access. Please try using a modern browser like Chrome, Firefox, or Safari."
@@ -225,7 +228,10 @@ export default function AdminPage() {
         
         console.log("QR scanner started successfully");
         setScannerActive(true);
-        notifySuccess("Scanner Active", "Camera is now scanning for QR codes.");
+        notify({
+          title: "Scanner Active",
+          description: "Camera is now scanning for QR codes.",
+        });
       } catch (error: any) {
         console.error("QR scanner error:", error);
         
@@ -260,7 +266,7 @@ export default function AdminPage() {
         
         setScannerError(errorMessage);
         setIsScanning(false);
-        toast({
+        notify({
           title: "Camera Error",
           description: toastMessage,
           variant: "destructive",
@@ -274,17 +280,29 @@ export default function AdminPage() {
           const isSafari = navigator.userAgent.indexOf("Safari") > -1 && !isChrome;
           
           if (isChrome) {
-            notifySuccess("Camera Permission Help", "In Chrome, click the camera icon in the address bar and select 'Allow'.");
+            notify({
+              title: "Camera Permission Help",
+              description: "In Chrome, click the camera icon in the address bar and select 'Allow'.",
+            });
           } else if (isFirefox) {
-            notifySuccess("Camera Permission Help", "In Firefox, click the camera icon in the address bar and choose 'Remember this decision'.");
+            notify({
+              title: "Camera Permission Help",
+              description: "In Firefox, click the camera icon in the address bar and choose 'Remember this decision'.",
+            });
           } else if (isSafari) {
-            notifySuccess("Camera Permission Help", "In Safari, go to Preferences > Websites > Camera and allow access for this site.");
+            notify({
+              title: "Camera Permission Help",
+              description: "In Safari, go to Preferences > Websites > Camera and allow access for this site.",
+            });
           }
         }
         
         // Automatically retry once for transient errors
         if (error.message?.includes("Could not access camera") || error.message?.includes("Video element")) {
-          notifySuccess("Auto-retry", "We'll try to access your camera again in 2 seconds...");
+          notify({
+            title: "Auto-retry",
+            description: "We'll try to access your camera again in 2 seconds...",
+          });
           
           // Clean up before retry
           if (qrScannerRef.current) {
@@ -373,14 +391,14 @@ export default function AdminPage() {
       return await res.json();
     },
     onSuccess: (data) => {
-      toast({
+      notify({
         title: "Test Notification Sent",
         description: `${data.message}`,
       });
       setTestNotificationLoading(false);
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Test Failed",
         description: error.message || "Failed to send test notification",
         variant: "destructive",
@@ -446,7 +464,7 @@ export default function AdminPage() {
     }
     
     if (!user.isAdmin) {
-      toast({
+      notify({
         title: "Access Denied",
         description: "You don't have permission to access this page.",
         variant: "destructive",
@@ -538,13 +556,13 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       setOrderStatusDialog(false);
-      toast({
+      notify({
         title: "Order Updated",
         description: `Order status has been updated to ${selectedStatus}.`,
       });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Update Failed",
         description: error.message,
         variant: "destructive",
@@ -560,14 +578,14 @@ export default function AdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({
+      notify({
         title: "Credits Added",
         description: `${formatCurrency(Number(creditAmount))} has been added to the user's account.`,
       });
       setUserDialog(false);
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Failed to Add Credits",
         description: error.message,
         variant: "destructive",
@@ -583,14 +601,14 @@ export default function AdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({
+      notify({
         title: "User Updated",
         description: `User admin status has been updated.`,
       });
       setUserDialog(false);
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Update Failed",
         description: error.message,
         variant: "destructive",
@@ -606,14 +624,14 @@ export default function AdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      toast({
+      notify({
         title: "User Updated",
         description: `User active status has been updated.`,
       });
       setUserDialog(false);
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Update Failed",
         description: error.message,
         variant: "destructive",
@@ -630,10 +648,13 @@ export default function AdminPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       setClearDataDialog(false);
-      notifySuccess("Users Cleared", "All non-admin users have been removed from the system.");
+      notify({
+        title: "Users Cleared",
+        description: "All non-admin users have been removed from the system.",
+      });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Operation Failed",
         description: error.message,
         variant: "destructive",
@@ -651,10 +672,13 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/orders/detailed"] });
       setClearDataDialog(false);
-      notifySuccess("Orders Cleared", "All orders have been removed from the system.");
+      notify({
+        title: "Orders Cleared",
+        description: "All orders have been removed from the system.",
+      });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Operation Failed",
         description: error.message,
         variant: "destructive",
@@ -672,10 +696,13 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/menu"] });
       setMenuItemDialog(false);
       resetMenuItemForm();
-      notifySuccess("Menu Item Created", "The menu item has been successfully added.");
+      notify({
+        title: "Menu Item Created",
+        description: "The menu item has been successfully added."
+      });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Creation Failed",
         description: error.message,
         variant: "destructive",
@@ -693,10 +720,13 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/menu"] });
       setMenuItemDialog(false);
       resetMenuItemForm();
-      notifySuccess("Menu Item Updated", "The menu item has been successfully updated.");
+      notify({
+        title: "Menu Item Updated",
+        description: "The menu item has been successfully updated."
+      });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Update Failed",
         description: error.message,
         variant: "destructive",
@@ -711,10 +741,13 @@ export default function AdminPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/menu"] });
-      notifySuccess("Menu Item Deleted", "The menu item has been successfully deleted.");
+      notify({
+        title: "Menu Item Deleted",
+        description: "The menu item has been successfully deleted."
+      });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Deletion Failed",
         description: error.message,
         variant: "destructive",
@@ -748,10 +781,13 @@ export default function AdminPage() {
         imageUrl: data.imageUrl
       }));
       
-      notifySuccess("Image Uploaded", "Image was uploaded successfully.");
+      notify({
+        title: "Image Uploaded",
+        description: "Image was uploaded successfully."
+      });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Upload Failed",
         description: error.message,
         variant: "destructive",
@@ -770,10 +806,13 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/categories"] });
       setCategoryDialog(false);
       resetCategoryForm();
-      notifySuccess("Category Created", "The menu category has been successfully added.");
+      notify({
+        title: "Category Created",
+        description: "The menu category has been successfully added."
+      });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Creation Failed",
         description: error.message,
         variant: "destructive",
@@ -792,10 +831,13 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/menu/categories"] });
       setCategoryDialog(false);
       resetCategoryForm();
-      notifySuccess("Category Updated", "The menu category has been successfully updated.");
+      notify({
+        title: "Category Updated",
+        description: "The menu category has been successfully updated."
+      });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Update Failed",
         description: error.message,
         variant: "destructive",
@@ -810,13 +852,13 @@ export default function AdminPage() {
       return await res.json();
     },
     onSuccess: (data) => {
-      toast({
+      notify({
         title: "Update Notification Sent",
         description: `Email notification sent to ${data.emailsSent} users for version ${data.version}.`,
       });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Notification Failed",
         description: error.message,
         variant: "destructive",
@@ -832,10 +874,13 @@ export default function AdminPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       queryClient.invalidateQueries({ queryKey: ["/api/menu/categories"] });
-      notifySuccess("Category Deleted", "The menu category has been successfully deleted.");
+      notify({
+        title: "Category Deleted",
+        description: "The menu category has been successfully deleted."
+      });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Deletion Failed",
         description: error.message,
         variant: "destructive",
@@ -854,10 +899,13 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
       setNewUserDialog(false);
       resetNewUserForm();
-      notifySuccess("User Created", "The new user has been successfully created.");
+      notify({
+        title: "User Created",
+        description: "The new user has been successfully created."
+      });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: "Creation Failed",
         description: error.message,
         variant: "destructive",
@@ -898,7 +946,7 @@ export default function AdminPage() {
         qrScannerRef.current.stop();
       }
       
-      toast({
+      notify({
         title: "User Found",
         description: `Successfully found ${data.isAdmin ? "admin" : "customer"}: ${data.username}`
       });
@@ -910,14 +958,17 @@ export default function AdminPage() {
       setIsScanning(false);
       
       // Show helpful error message
-      toast({
+      notify({
         title: "QR Code Scan Failed",
         description: error.message || "Could not find a user with this QR code. Make sure it's a valid Bean Stalker QR code.",
         variant: "destructive"
       });
       
       // Offer retry option
-      notifySuccess("Try Again", "You can try scanning again or manually search for the user in the Users tab.");
+      notify({
+        title: "Try Again",
+        description: "You can try scanning again or manually search for the user in the Users tab.",
+      });
       
       // Reset the scanner state after error
       if (qrScannerRef.current) {
@@ -954,7 +1005,7 @@ export default function AdminPage() {
       setScannerError(null);
       setIsScanning(false);
       
-      toast({
+      notify({
         title: "User Found",
         description: `Successfully found ${data.isAdmin ? "admin" : "customer"}: ${data.username}`
       });
@@ -970,7 +1021,7 @@ export default function AdminPage() {
       setScannerError(error.message || "Failed to find user with that ID");
       setIsScanning(false);
       
-      toast({
+      notify({
         title: "User Lookup Failed",
         description: error.message || "Could not find a user with this ID",
         variant: "destructive"
@@ -996,7 +1047,7 @@ export default function AdminPage() {
     if (selectedUser && creditAmount) {
       const amount = Number(creditAmount);
       if (isNaN(amount) || amount <= 0) {
-        toast({
+        notify({
           title: "Invalid Amount",
           description: "Please enter a valid amount greater than 0.",
           variant: "destructive",
@@ -1122,7 +1173,7 @@ export default function AdminPage() {
   const handleCategorySubmit = () => {
     // Validate form
     if (!categoryForm.name || !categoryForm.displayName) {
-      toast({
+      notify({
         title: "Invalid Form",
         description: "Please fill in all required fields.",
         variant: "destructive",
@@ -1162,7 +1213,7 @@ export default function AdminPage() {
   const handleCreateUser = () => {
     // Validate form
     if (!newUserForm.username || !newUserForm.password) {
-      toast({
+      notify({
         title: "Invalid Form",
         description: "Username and password are required.",
         variant: "destructive",
@@ -1258,7 +1309,11 @@ export default function AdminPage() {
           })
           .catch(err => {
             console.error("Error fetching menu item options:", err);
-            notifyError("Error", "Failed to load menu item options");
+            notify({
+              title: "Error",
+              description: "Failed to load menu item options",
+              variant: "destructive"
+            });
           });
       } else {
         // Reset options
@@ -1290,7 +1345,11 @@ export default function AdminPage() {
   // Add a new menu item option
   const handleAddOption = () => {
     if (!optionForm.name) {
-      notifyError("Invalid Option", "Please enter a name for the option");
+      notify({
+        title: "Invalid Option",
+        description: "Please enter a name for the option",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -1362,13 +1421,17 @@ export default function AdminPage() {
         // Refetch the menu items to force a reload
         menuItemsQuery.refetch();
         
-        toast({
+        notify({
           title: "Option Removed",
           description: `Successfully removed "${option.name}" option`
         });
       } catch (err) {
         console.error("Error deleting option:", err);
-        notifyError("Error", "Failed to delete option from database");
+        notify({
+          title: "Error",
+          description: "Failed to delete option from database",
+          variant: "destructive"
+        });
       }
     }
   };
@@ -1421,7 +1484,10 @@ export default function AdminPage() {
         // Refetch the menu items to force a reload
         menuItemsQuery.refetch();
         
-        notifySuccess("Options Removed", "All options have been removed from this item");
+        notify({
+          title: "Options Removed",
+          description: "All options have been removed from this item"
+        });
         
         return;
       }
@@ -1587,20 +1653,24 @@ export default function AdminPage() {
       queryClient.removeQueries({ queryKey: [`/api/menu/${menuItemId}/options`] });
       queryClient.removeQueries({ queryKey: [`/api/admin/menu/${menuItemId}/options`] });
       
-      toast({
+      notify({
         title: "Options Saved",
         description: `Successfully saved ${menuItemOptions.length} options for this item`
       });
     } catch (error) {
       console.error("Error saving menu item options:", error);
-      notifyError("Error", "Failed to save options");
+      notify({
+        title: "Error",
+        description: "Failed to save options",
+        variant: "destructive"
+      });
     }
   };
   
   const handleMenuItemSubmit = () => {
     // Validate form
     if (!menuItemForm.name || !menuItemForm.category || !menuItemForm.price || menuItemForm.price <= 0) {
-      toast({
+      notify({
         title: "Invalid Form",
         description: "Please fill in all required fields.",
         variant: "destructive",
@@ -1612,7 +1682,7 @@ export default function AdminPage() {
     if (menuItemForm.hasSizes) {
       if (!menuItemForm.mediumPrice || menuItemForm.mediumPrice <= 0 ||
           !menuItemForm.largePrice || menuItemForm.largePrice <= 0) {
-        toast({
+        notify({
           title: "Invalid Form",
           description: "Please enter valid prices for all sizes.",
           variant: "destructive",
@@ -1623,7 +1693,7 @@ export default function AdminPage() {
     
     // Check options if they are enabled
     if (menuItemForm.hasOptions && menuItemOptions.length === 0) {
-      toast({
+      notify({
         title: "Missing Options",
         description: "You enabled options but didn't add any. Please add at least one option or disable options.",
         variant: "destructive",
@@ -1690,7 +1760,7 @@ export default function AdminPage() {
     <div className="min-h-screen flex flex-col bg-secondary w-full">
       <AppHeader />
 
-      <main className="flex-1 p-5 container mx-auto max-w-5xl main-content-with-header">
+      <main className="flex-1 p-5 container mx-auto max-w-5xl">
         <div className="flex items-center justify-between mb-4">
           <h1 className="font-semibold text-2xl text-primary">Admin Dashboard</h1>
         </div>
@@ -2666,7 +2736,10 @@ export default function AdminPage() {
                             
                             // If we're editing an existing menu item, clear from database immediately
                             if (selectedMenuItem?.id && menuItemOptions.some(o => o.id)) {
-                              notifySuccess("Clearing Options", "Removing all options for this item...");
+                              notify({
+                                title: "Clearing Options",
+                                description: "Removing all options for this item..."
+                              });
                               
                               // We'll let saveMenuItemOptions handle the actual deletion when form is saved
                             }

@@ -4,7 +4,7 @@ import { Heart } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { getMobileCompatibleImageUrl } from "@/utils/mobile-image-utils";
 
 interface GrabMenuCardProps {
@@ -15,10 +15,14 @@ interface GrabMenuCardProps {
 export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
 
   // Get mobile-compatible image URL using utility function  
   const imageUrl = getMobileCompatibleImageUrl(item.imageUrl, item.category);
+  
+  // Force fallback icons for testing - remove in production
+  const forceFallback = false;
+  const finalImageUrl = forceFallback ? getMobileCompatibleImageUrl(null, item.category) : imageUrl;
 
   const { data: favoriteStatus } = useQuery({
     queryKey: ['/api/favorites', item.id],
@@ -42,10 +46,17 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
       queryClient.invalidateQueries({ queryKey: ['/api/favorites', item.id] });
-      notifySuccess("Added to favorites", `${item.name} has been added to your favorites.`);
+      notify({
+        title: "Added to favorites",
+        description: `${item.name} has been added to your favorites.`,
+      });
     },
     onError: (error: Error) => {
-      notifyError("Failed to add favorite", error.message);
+      notify({
+        title: "Failed to add favorite",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   });
 
@@ -57,10 +68,17 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
       queryClient.invalidateQueries({ queryKey: ['/api/favorites', item.id] });
-      notifySuccess("Removed from favorites", `${item.name} has been removed from your favorites.`);
+      notify({
+        title: "Removed from favorites",
+        description: `${item.name} has been removed from your favorites.`,
+      });
     },
     onError: (error: Error) => {
-      notifyError("Failed to remove favorite", error.message);
+      notify({
+        title: "Failed to remove favorite",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   });
 
@@ -68,7 +86,11 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
     e.stopPropagation(); // Prevent card click
     
     if (!user) {
-      notifyError("Login required", "Please log in to add items to favorites.");
+      notify({
+        title: "Login required",
+        description: "Please log in to add items to favorites.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -87,23 +109,17 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
       {/* Product Image */}
       <div className="aspect-square w-full bg-gray-100 relative overflow-hidden">
         <img 
-          src={imageUrl} 
+          src={finalImageUrl} 
           alt={item.name}
           className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
           onError={(e) => {
             const isCapacitor = !!(window as any).Capacitor;
-            console.log(`Failed to load image: ${imageUrl} for ${item.name}`);
+            console.log(`Failed to load image: ${finalImageUrl} for ${item.name}`);
             console.log(`Platform info: protocol=${window.location.protocol}, hostname=${window.location.hostname}, isCapacitor=${isCapacitor}`);
             
             // For native apps, fallback to appropriate category icon
-            if (isCapacitor && !imageUrl.startsWith('data:')) {
-              const fallbackIcon = item.category?.includes('breakfast') || 
-                                   item.category?.includes('lunch') || 
-                                   item.category?.includes('food') || 
-                                   item.category?.includes('sandwich') || 
-                                   item.category?.includes('panini') ||
-                                   item.category?.includes('bagel') ||
-                                   item.category?.includes('toast')
+            if (isCapacitor && !finalImageUrl.startsWith('data:')) {
+              const fallbackIcon = item.category?.includes('breakfast') || item.category?.includes('lunch') 
                 ? getMobileCompatibleImageUrl(null, 'breakfast')
                 : getMobileCompatibleImageUrl(null, 'coffee');
               (e.target as HTMLImageElement).src = fallbackIcon;
@@ -111,38 +127,25 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
             }
             
             // Hide the broken image and show fallback
+            (e.target as HTMLImageElement).style.display = 'none';
             const imgElement = e.target as HTMLImageElement;
-            imgElement.style.display = 'none';
             if (imgElement.parentElement) {
               const fallback = imgElement.parentElement.querySelector('.image-fallback');
               if (fallback) {
                 (fallback as HTMLElement).style.display = 'flex';
-                (fallback as HTMLElement).classList.remove('hidden');
-                (fallback as HTMLElement).classList.add('flex');
               }
             }
           }}
           onLoad={() => {
-            console.log(`Successfully loaded image: ${imageUrl} for ${item.name}`);
+            console.log(`Successfully loaded image: ${finalImageUrl} for ${item.name}`);
           }}
         />
         <div 
-          className={`absolute inset-0 w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center image-fallback ${item.imageUrl ? 'hidden' : 'flex'}`}
+          className={`absolute inset-0 bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700 image-fallback ${item.imageUrl ? 'hidden' : ''}`}
         >
-          <img 
-            src={item.category?.includes('breakfast') || 
-                 item.category?.includes('lunch') || 
-                 item.category?.includes('food') || 
-                 item.category?.includes('sandwich') || 
-                 item.category?.includes('panini') ||
-                 item.category?.includes('bagel') ||
-                 item.category?.includes('toast')
-              ? getMobileCompatibleImageUrl(null, 'breakfast')
-              : getMobileCompatibleImageUrl(null, 'coffee')} 
-            alt={`${item.name} fallback icon`}
-            className="w-20 h-20"
-            style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
-          />
+          <span className="text-sm font-medium text-center px-3">
+            {item.imageUrl ? 'Image Loading...' : 'No Image'}
+          </span>
         </div>
         
         {/* Heart Icon */}

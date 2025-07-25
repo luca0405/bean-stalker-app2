@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +26,7 @@ interface SendCreditsProps {
 }
 
 export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsProps = {}) {
-  const { notifySuccess, notifyError, notifyWarning } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const { user } = useAuth();
   const [internalOpen, setInternalOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState<string>("");
@@ -49,16 +49,27 @@ export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsPro
     onSuccess: (data) => {
       if (data && data.id) {
         setRecipientInfo(data);
-        notifySuccess("User found", `Found user: ${data.username}`);
+        notify({
+          title: "User found",
+          description: `Found user: ${data.username}`,
+        });
       } else {
         setRecipientInfo(null);
-        notifyError("User not found", "No user with that phone number was found");
+        notify({
+          title: "User not found",
+          description: "No user with that phone number was found",
+          variant: "destructive",
+        });
       }
       setIsSearching(false);
     },
     onError: (error: Error) => {
       setRecipientInfo(null);
-      notifyError("Lookup failed", error.message);
+      notify({
+        title: "Lookup failed",
+        description: error.message,
+        variant: "destructive",
+      });
       setIsSearching(false);
     },
   });
@@ -81,10 +92,10 @@ export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsPro
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/credit-transactions"] });
       
-      notifySuccess(
-        "Credits sent successfully",
-        `${formatCurrency(amount)} has been sent to ${recipientInfo?.username}.`
-      );
+      notify({
+        title: "Credits sent successfully",
+        description: `${formatCurrency(amount)} has been sent to ${recipientInfo?.username}.`,
+      });
       
       // Reset form and close dialog
       setPhoneNumber("");
@@ -94,7 +105,11 @@ export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsPro
       setOpen(false);
     },
     onError: (error: Error) => {
-      notifyError("Failed to send credits", error.message);
+      notify({
+        title: "Failed to send credits",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
   
@@ -116,7 +131,11 @@ export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsPro
   
   const handleLookupUser = () => {
     if (!phoneNumber || phoneNumber.replace(/\D/g, "").length < 10) {
-      notifyError("Invalid phone number", "Please enter a valid phone number");
+      notify({
+        title: "Invalid phone number",
+        description: "Please enter a valid phone number",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -126,17 +145,29 @@ export function SendCredits({ open: externalOpen, onOpenChange }: SendCreditsPro
   
   const handleSubmit = () => {
     if (!recipientInfo) {
-      notifyError("Missing recipient", "Please look up a valid phone number first");
+      notify({
+        title: "Missing recipient",
+        description: "Please look up a valid phone number first",
+        variant: "destructive",
+      });
       return;
     }
     
     if (!amount || amount <= 0) {
-      notifyError("Invalid amount", "Please enter a valid amount greater than 0");
+      notify({
+        title: "Invalid amount",
+        description: "Please enter a valid amount greater than 0",
+        variant: "destructive",
+      });
       return;
     }
     
     if (amount > (user?.credits || 0)) {
-      notifyError("Insufficient credits", "You don't have enough credits to complete this transaction");
+      notify({
+        title: "Insufficient credits",
+        description: "You don't have enough credits to complete this transaction",
+        variant: "destructive",
+      });
       return;
     }
     

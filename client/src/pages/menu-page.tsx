@@ -6,7 +6,7 @@ import { ProductDetailModal } from "@/components/product-detail-modal";
 import { useMenu } from "@/contexts/menu-context";
 import { Loader2, RefreshCw } from "lucide-react";
 import { formatCategoryName } from "@/lib/utils";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { Button } from "@/components/ui/button";
 import { MenuItem } from "@shared/schema";
 
@@ -15,7 +15,7 @@ export default function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
 
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
@@ -70,18 +70,25 @@ export default function MenuPage() {
   const handleRefresh = useCallback(async () => {
     try {
       await refreshMenu();
-      notifySuccess("Menu Updated", "Latest menu items loaded");
+      notify({
+        title: "Menu Updated",
+        description: "Latest menu items loaded",
+      });
     } catch (error) {
-      notifyError("Refresh Failed", "Could not refresh menu items");
+      notify({
+        title: "Refresh Failed",
+        description: "Could not refresh menu items",
+        variant: "destructive",
+      });
     }
-  }, [refreshMenu, notifySuccess, notifyError]);
+  }, [refreshMenu, notify]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 mobile-scroll">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
       <AppHeader />
       
-      <div className="flex-1 overflow-y-auto mobile-scroll">
-        <main className="p-4 max-w-6xl mx-auto main-content-with-header mobile-scroll">
+      <div className="flex-1 overflow-y-auto scroll-container momentum-scroll">
+        <main className="p-4 max-w-6xl mx-auto">
           {/* Enhanced Header Section */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 mb-6 shadow-sm border border-white/20">
             <div className="flex justify-between items-center">

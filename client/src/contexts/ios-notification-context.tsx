@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { useNativeNotifications } from '@/hooks/use-native-notifications';
+import { useNativeNotification } from '@/services/native-notification-service';
 import { useAuth } from '@/hooks/use-auth';
 import { apiRequest } from '@/lib/queryClient';
 
@@ -128,7 +128,7 @@ export function useIOSNotifications() {
 
 // Standalone hook that can be used without a provider
 export function useIOSNotificationService() {
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const { user } = useAuth();
   
   // Check if we're on iOS and log the result
@@ -195,10 +195,9 @@ export function useIOSNotificationService() {
       try {
         console.log('Checking for order updates via in-app notifications');
         
-        // TEMPORARILY DISABLED - excessive API requests causing performance issues
-        // const response = await apiRequest('GET', `/api/orders`);
-        // const orders = await response.json();
-        const orders = []; // Empty array to prevent polling
+        // Check for new order updates
+        const response = await apiRequest('GET', `/api/orders`);
+        const orders = await response.json();
         
         if (!orders || orders.length === 0) {
           // No orders to process, but still mark first load as complete
@@ -326,7 +325,12 @@ export function useIOSNotificationService() {
             }
             
             // Make iOS notifications more prominent and long-lasting
-            notifySuccess(`${coffeeIcon}Order #${order.id} Update`, statusMessage);
+            notify({
+              title: `${coffeeIcon}Order #${order.id} Update`,
+              description: statusMessage,
+              // Use a different variant for iOS to make it more noticeable
+              variant: isIOSDevice ? "destructive" : "default"
+            });
             
             // Log the notification for debugging
             console.log(`In-app notification shown for order #${order.id}:`, {
@@ -365,7 +369,7 @@ export function useIOSNotificationService() {
     
     // Clean up on unmount or when dependencies change  
     return () => {};
-  }, [enabled, user, lastSeenOrderUpdate, isFirstLoad, lastKnownOrderStatuses]);
+  }, [enabled, user, notify, lastSeenOrderUpdate, isFirstLoad, lastKnownOrderStatuses]);
 
   const enableNotifications = () => setEnabled(true);
   const disableNotifications = () => setEnabled(false);

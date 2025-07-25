@@ -7,7 +7,7 @@ export default function FavoritesPage() {
     <div className="min-h-screen flex flex-col bg-secondary">
       <AppHeader />
       
-      <main className="flex-1 p-5 main-content-with-header">
+      <main className="flex-1 p-5">
         <h1 className="font-semibold text-2xl mb-4 text-primary">My Favorites</h1>
         <FavoritesList />
       </main>

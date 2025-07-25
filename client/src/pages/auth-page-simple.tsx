@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { useToast } from "@/hooks/use-toast";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +32,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
   const { user, login, register, isLoginPending, isRegisterPending } = useAuth();
-  const { toast } = useToast();
+  const { notify } = useNativeNotification();
   const [_, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
 
@@ -74,7 +74,7 @@ export default function AuthPage() {
     
     if (joinPremium) {
       // Premium membership signup - this would integrate with Square payment
-      toast({
+      notify({
         title: "Premium Membership",
         description: "Premium membership with Square payment integration is in development. Creating regular account for now.",
       });

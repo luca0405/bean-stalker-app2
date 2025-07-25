@@ -323,8 +323,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { productId, transactionId, receipt, platform } = req.body;
       const userId = req.user?.id;
       
-      console.log(`📱 IAP Verification Request: Product=${productId}, Transaction=${transactionId}, User=${userId}`);
-      
       if (!productId || !transactionId || !userId) {
         return res.status(400).json({ message: "Missing required fields" });
       }
@@ -337,32 +335,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid receipt" });
       }
 
-      // Check for duplicate transactions only if using exact RevenueCat transaction IDs
-      // For consumable credit purchases, we generate unique IDs to allow multiple purchases
-      let isDuplicateTransaction = false;
-      
-      // Only check for duplicates if this is NOT a generated transaction ID (doesn't start with 'rc_')
-      if (!transactionId.startsWith('rc_')) {
-        const existingTransaction = await storage.getCreditTransactionByTransactionId(transactionId);
-        if (existingTransaction) {
-          console.log(`🔄 Duplicate RevenueCat transaction ID detected: ${transactionId} for user ${userId}`);
-          isDuplicateTransaction = true;
-          
-          const user = await storage.getUser(userId);
-          const { password, ...userWithoutPassword } = user;
-          
-          return res.json({ 
-            success: true, 
-            user: userWithoutPassword,
-            creditsAdded: 0,
-            message: "Transaction already processed - no additional credits added",
-            isRepeatTransaction: true
-          });
-        }
+      // Check if this transaction has already been processed
+      const existingTransaction = await storage.getCreditTransactionByTransactionId(transactionId);
+      if (existingTransaction) {
+        return res.status(400).json({ message: "Transaction already processed" });
       }
-      
-      // For generated transaction IDs (consumable purchases), always allow the transaction
-      console.log(`✅ Processing ${transactionId.startsWith('rc_') ? 'consumable' : 'standard'} IAP transaction: ${transactionId}`);
 
       const user = await storage.getUser(userId);
       if (!user) {
@@ -398,9 +375,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionId
       });
 
-      console.log(`✅ IAP Purchase verified: User ${userId} received ${creditAmount} credits from ${productId}`);
-      console.log(`💰 New credit balance: ${updatedUser.credits} (was ${user.credits})`);
-      console.log(`🔗 Transaction ID: ${transactionId}`);
+      // Only log in development or when debugging enabled
+  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_IAP_LOGGING === 'true') {
+    console.log(`IAP Purchase verified: User ${userId} received ${creditAmount} credits from ${productId}`);
+  }
       
       const { password, ...userWithoutPassword } = updatedUser;
       res.json({ 
@@ -441,9 +419,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Process the restoration (similar to verify-purchase logic)
           let creditAmount = 0;
           if (receipt.productId.includes('membership69')) creditAmount = 69;
-          else if (receipt.productId.includes('credit25')) creditAmount = 29.50;
-          else if (receipt.productId.includes('credit50')) creditAmount = 59.90;
-          else if (receipt.productId.includes('credit100')) creditAmount = 120.70;
+          else if (receipt.productId.includes('credits25')) creditAmount = 29.50;
+          else if (receipt.productId.includes('credits50')) creditAmount = 59.90;
+          else if (receipt.productId.includes('credits100')) creditAmount = 120.70;
 
           if (creditAmount > 0) {
             const user = await storage.getUser(userId);
@@ -2130,7 +2108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const { menuItemId, selectedSize, selectedOptions, customName } = req.body;
+      const { menuItemId } = req.body;
       
       if (!menuItemId) {
         return res.status(400).json({ message: "Menu item ID is required" });
@@ -2142,12 +2120,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Menu item not found" });
       }
       
+      // Check if already favorited
+      const isAlreadyFavorite = await storage.isFavorite(userId, menuItemId);
+      if (isAlreadyFavorite) {
+        return res.status(400).json({ message: "Item is already in favorites" });
+      }
+      
       const favorite = await storage.addFavorite({
         userId,
-        menuItemId,
-        selectedSize: selectedSize || null,
-        selectedOptions: selectedOptions || null,
-        customName: customName || null
+        menuItemId
       });
       
       res.status(201).json(favorite);
@@ -2157,18 +2138,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/favorites/:favoriteId", async (req, res) => {
+  app.delete("/api/favorites/:menuItemId", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
     
     try {
       const userId = req.user!.id;
-      const favoriteId = parseInt(req.params.favoriteId);
+      const menuItemId = parseInt(req.params.menuItemId);
       
-      if (isNaN(favoriteId)) {
-        return res.status(400).json({ message: "Invalid favorite ID" });
+      if (isNaN(menuItemId)) {
+        return res.status(400).json({ message: "Invalid menu item ID" });
       }
       
-      await storage.removeFavorite(userId, favoriteId);
+      // Check if it's a favorite first
+      const isFavorite = await storage.isFavorite(userId, menuItemId);
+      if (!isFavorite) {
+        return res.status(404).json({ message: "Item is not in favorites" });
+      }
+      
+      await storage.removeFavorite(userId, menuItemId);
       res.status(200).json({ message: "Favorite removed successfully" });
     } catch (error) {
       console.error("Error removing favorite:", error);
@@ -2212,10 +2199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!isAlreadyFavorite) {
           await storage.addFavorite({
             userId,
-            menuItemId: item.id,
-            selectedSize: null,
-            selectedOptions: null,
-            customName: null
+            menuItemId: item.id
           });
           addedItems.push(item);
         }
@@ -2982,7 +2966,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           orderId: null
         });
         
-        console.log(`✅ RevenueCat IAP processed: User ${userId} received ${creditAmount} credits from ${product_id}`);
+        // Only log in development or when debugging enabled  
+        if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_IAP_LOGGING === 'true') {
+          console.log(`✅ RevenueCat IAP processed: User ${userId} received ${creditAmount} credits from ${product_id}`);
+        }
         
         res.status(200).json({ 
           message: "Webhook processed successfully",

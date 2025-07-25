@@ -4,13 +4,13 @@ import { useBiometricAuth } from "@/hooks/use-biometric-auth";
 import { Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function AuthPageMobile() {
   const { user, loginMutation, registerMutation } = useAuth();
-  const { notifyError, notifySuccess } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const {
     biometricState,
     authenticateWithBiometrics,
@@ -42,14 +42,21 @@ export default function AuthPageMobile() {
     e.preventDefault();
     
     if (!loginData.username || !loginData.password) {
-      notifyError("Please fill in all fields", "Username and password are required");
+      notify({
+        title: "Please fill in all fields",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
       await loginMutation.mutateAsync(loginData);
     } catch (error: any) {
-      notifyError("Login failed", error.message || "Please check your credentials");
+      notify({
+        title: "Login failed",
+        description: error.message || "Please check your credentials",
+        variant: "destructive",
+      });
     }
   };
 
@@ -57,7 +64,11 @@ export default function AuthPageMobile() {
     try {
       await authenticateWithBiometrics();
     } catch (error: any) {
-      notifyError("Biometric authentication failed", error.message || "Please try again");
+      notify({
+        title: "Biometric authentication failed",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
     }
   };
 
@@ -65,7 +76,7 @@ export default function AuthPageMobile() {
     e.preventDefault();
     
     if (!registerData.username || !registerData.email || !registerData.password) {
-      toast({
+      notify({
         title: "Please fill in all fields",
         variant: "destructive",
       });
@@ -73,7 +84,7 @@ export default function AuthPageMobile() {
     }
 
     if (registerData.password !== registerData.confirmPassword) {
-      toast({
+      notify({
         title: "Passwords don't match",
         variant: "destructive",
       });
@@ -88,12 +99,12 @@ export default function AuthPageMobile() {
         password: registerData.password
       });
       
-      toast({
+      notify({
         title: "Account created successfully!",
         description: registerData.joinPremium ? "Your premium membership is active!" : "Welcome to Bean Stalker!",
       });
     } catch (error: any) {
-      toast({
+      notify({
         title: "Registration failed",
         description: error.message || "Please try again",
         variant: "destructive",

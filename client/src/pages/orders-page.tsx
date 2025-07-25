@@ -20,12 +20,12 @@ import {
 } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { Button } from "@/components/ui/button";
 
 export default function OrdersPage() {
   const queryClient = useQueryClient();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   
   const {
     data: orders = [],
@@ -34,12 +34,8 @@ export default function OrdersPage() {
     isRefetching,
   } = useQuery<Order[], Error>({
     queryKey: ["/api/orders"],
-    refetchOnWindowFocus: false, // Disable excessive refetching to improve scroll performance
+    refetchOnWindowFocus: true,
     refetchOnMount: true,
-    refetchInterval: false, // Completely disable polling
-    refetchOnReconnect: false, // Don't refetch on network reconnect
-    staleTime: 10 * 60 * 1000, // Consider data fresh for 10 minutes
-    gcTime: 15 * 60 * 1000, // Keep in cache for 15 minutes
   });
 
   const sortedOrders = [...orders].sort(
@@ -63,18 +59,25 @@ export default function OrdersPage() {
   const handleRefresh = useCallback(async () => {
     try {
       await queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      notifySuccess("Orders Updated", "Latest order information loaded");
+      notify({
+        title: "Orders Updated",
+        description: "Latest order information loaded",
+      });
     } catch (error) {
-      notifyError("Refresh Failed", "Could not refresh order information");
+      notify({
+        title: "Refresh Failed",
+        description: "Could not refresh order information",
+        variant: "destructive",
+      });
     }
-  }, [queryClient]);
+  }, [queryClient, toast]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-secondary mobile-scroll">
+    <div className="min-h-screen flex flex-col bg-secondary">
       <AppHeader />
 
-      <div className="flex-1 overflow-y-auto mobile-scroll">
-        <main className="p-5 main-content-with-header mobile-scroll">
+      <div className="flex-1 overflow-y-auto">
+        <main className="p-5">
           <div className="flex justify-between items-center mb-4">
             <h1 className="font-semibold text-2xl text-primary">Order History</h1>
             <Button 

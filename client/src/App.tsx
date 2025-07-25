@@ -57,13 +57,7 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Add Capacitor class to body for native-specific CSS
-        if (Capacitor.isNativePlatform()) {
-          document.body.classList.add('capacitor');
-          document.body.classList.add('native-mobile');
-        } else {
-          document.body.classList.add('web');
-        }
+
 
         // Wait for Capacitor to be ready on mobile
         if (Capacitor.isNativePlatform()) {

@@ -15,7 +15,7 @@ import { EnhancedBuyCredits } from "@/components/enhanced-buy-credits";
 import { motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
 
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { usePushNotificationContext } from "@/contexts/push-notification-context";
 import { useCart } from "@/contexts/cart-context";
 import { MenuItem } from "@shared/schema";
@@ -28,17 +28,15 @@ export default function HomePage() {
   const [buyCreditsOpen, setBuyCreditsOpen] = useState(false);
   const [favoritesPopupOpen, setFavoritesPopupOpen] = useState(false);
   const [selectedFavorites, setSelectedFavorites] = useState<Set<number>>(new Set());
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const { notificationsEnabled } = usePushNotificationContext();
   const { addToCart } = useCart();
   
   const { data: orders = [] } = useQuery<Order[], Error>({
     queryKey: ["/api/orders"],
     refetchOnWindowFocus: false,
-    refetchOnMount: false, // Completely disable automatic loading
+    refetchOnMount: true,
     refetchInterval: false, // Completely disable automatic polling - let notifications handle updates
-    staleTime: Infinity, // Never consider stale - only update via notifications
-    enabled: false, // Start disabled, only fetch when manually triggered
   });
 
   // Fetch favorites for the popup
@@ -59,24 +57,26 @@ export default function HomePage() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       
       if (data.updatedOrders && data.updatedOrders.length > 0) {
-        notifySuccess("Orders Updated", `${data.updatedOrders.length} order(s) status updated from Square Kitchen`);
+        notify({
+          title: "Orders Updated",
+          description: `${data.updatedOrders.length} order(s) status updated from Square Kitchen`,
+        });
       } else {
-        notifySuccess("Up to Date", "All orders are already up to date");
+        notify({
+          title: "Up to Date",
+          description: "All orders are already up to date",
+        });
       }
     },
     onError: (error: Error) => {
-      notifyError("Sync Failed", error.message || "Failed to sync with Square Kitchen");
+      notify({
+        title: "Sync Failed",
+        description: error.message || "Failed to sync with Square Kitchen",
+        variant: "destructive",
+      });
     },
   });
   
-  // Manually trigger orders fetch only when needed
-  useEffect(() => {
-    if (user) {
-      // Only fetch once on mount, then rely on notifications for updates
-      queryClient.fetchQuery({ queryKey: ["/api/orders"] });
-    }
-  }, [user]);
-
   // Add an effect to register and handle service worker message events for notifications
   useEffect(() => {
     if (!user) return;
@@ -137,7 +137,11 @@ export default function HomePage() {
 
   const handleAddSelectedToCart = () => {
     if (selectedFavorites.size === 0) {
-      notifyError("No Items Selected", "Please select some favorites to add to your cart.");
+      notify({
+        title: "No Items Selected",
+        description: "Please select some favorites to add to your cart.",
+        variant: "default",
+      });
       return;
     }
 
@@ -146,37 +150,26 @@ export default function HomePage() {
       const item = favoriteItems.find(f => f.id === itemId);
       if (item) {
         try {
-          const menuItem = item.menuItem || item;
-          
-          // Convert selectedOptions object to array for cart
-          let cartOptions = [];
-          if (item.selectedOptions && typeof item.selectedOptions === 'object') {
-            Object.entries(item.selectedOptions).forEach(([key, value]) => {
-              if (value && value.toString().trim() !== '') {
-                cartOptions.push(value.toString());
-              }
-            });
-          } else if (Array.isArray(item.selectedOptions)) {
-            cartOptions = item.selectedOptions;
-          }
-          
           addToCart({
-            menuItemId: menuItem.id || item.menuItemId,
-            name: item.customName || menuItem.name,
-            price: menuItem.price || 0,
+            menuItemId: item.id,
+            name: item.name,
+            price: item.price,
             quantity: 1,
-            imageUrl: menuItem.imageUrl || undefined,
-            size: item.selectedSize || (menuItem.hasSizes ? "small" : undefined),
-            options: cartOptions
+            imageUrl: item.imageUrl || undefined,
+            size: item.hasSizes ? "small" : undefined,
+            options: []
           });
           addedCount++;
         } catch (error) {
-          console.error(`Error adding ${item.customName || menuItem?.name || item.name} to cart:`, error);
+          console.error(`Error adding ${item.name} to cart:`, error);
         }
       }
     });
 
-    notifySuccess("Favorites Added to Cart", `${addedCount} favorite item${addedCount !== 1 ? 's' : ''} added to your cart!`);
+    notify({
+      title: "Favorites Added to Cart",
+      description: `${addedCount} favorite item${addedCount !== 1 ? 's' : ''} added to your cart!`,
+    });
 
     setFavoritesPopupOpen(false);
     setSelectedFavorites(new Set());
@@ -191,10 +184,10 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30 mobile-scroll">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-green-50/30">
       <AppHeader />
       
-      <main className="flex-1 px-6 max-w-7xl mx-auto w-full main-content-with-header mobile-scroll">
+      <main className="flex-1 px-6 py-8 max-w-7xl mx-auto w-full scroll-container momentum-scroll">
         {/* Welcome Section */}
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-gray-900 mb-1">Hi, {user?.fullName || user?.username}</h1>
@@ -515,41 +508,15 @@ export default function HomePage() {
                                 className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                               />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-900 truncate">{item.customName || item.menuItem?.name || item.name}</p>
-                                <p className="text-xs text-slate-600 truncate">
-                                  {(() => {
-                                    const parts = [];
-                                    if (item.selectedSize) {
-                                      parts.push(`${item.selectedSize.charAt(0).toUpperCase() + item.selectedSize.slice(1)} size`);
-                                    }
-                                    
-                                    // Handle selectedOptions as object (from database)
-                                    if (item.selectedOptions && typeof item.selectedOptions === 'object') {
-                                      const optionStrings = [];
-                                      Object.entries(item.selectedOptions).forEach(([key, value]) => {
-                                        if (value && value.toString().trim() !== '') {
-                                          optionStrings.push(value.toString());
-                                        }
-                                      });
-                                      if (optionStrings.length > 0) {
-                                        parts.push(optionStrings.join(', '));
-                                      }
-                                    }
-                                    // Handle selectedOptions as array (legacy)
-                                    else if (Array.isArray(item.selectedOptions) && item.selectedOptions.length > 0) {
-                                      parts.push(item.selectedOptions.join(', '));
-                                    }
-                                    
-                                    return parts.length > 0 ? parts.join(' • ') : 'Default options';
-                                  })()}
-                                </p>
-                                <p className="text-sm font-semibold text-green-600">{formatCurrency(item.menuItem?.price || item.price || 0)}</p>
+                                <p className="text-sm font-medium text-slate-900 truncate">{item.name}</p>
+                                <p className="text-xs text-slate-600 truncate">{item.description}</p>
+                                <p className="text-sm font-semibold text-green-600">{formatCurrency(item.price)}</p>
                               </div>
-                              {(item.menuItem?.imageUrl || item.imageUrl) && (
+                              {item.imageUrl && (
                                 <div className="w-12 h-12 bg-slate-200 rounded-lg flex-shrink-0 overflow-hidden">
                                   <img 
-                                    src={item.menuItem?.imageUrl || item.imageUrl} 
-                                    alt={item.menuItem?.name || item.name}
+                                    src={item.imageUrl} 
+                                    alt={item.name}
                                     className="w-full h-full object-cover"
                                   />
                                 </div>

@@ -32,7 +32,7 @@ import { useBiometricAuth } from "@/hooks/use-biometric-auth";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "../lib/queryClient";
 
@@ -51,7 +51,7 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export default function ProfilePage() {
   const { user } = useAuth();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
 
   
   const {
@@ -83,10 +83,17 @@ export default function ProfilePage() {
       // Update the user data in the cache
       queryClient.setQueryData(["/api/user"], updatedUser);
       
-      notifySuccess("Profile updated", "Your profile has been updated successfully.");
+      notify({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
     },
     onError: (error: Error) => {
-      notifyError("Update failed", error.message);
+      notify({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -106,8 +113,8 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <AppHeader />
       
-      <main className="pb-24 px-5 main-content-with-header">
-        <div className="max-w-2xl mx-auto py-2">
+      <main className="pt-safe pb-24 px-5">
+        <div className="max-w-2xl mx-auto py-6">
           <div className="flex items-center justify-between mb-6">
             <h1 className="font-semibold text-2xl text-primary">Profile Settings</h1>
           </div>
@@ -278,7 +285,10 @@ export default function ProfilePage() {
                       onCheckedChange={async (enabled) => {
                         if (enabled) {
                           // Would prompt user to sign in again to save credentials
-                          notifySuccess("Setup Required", "Sign out and back in to enable biometric authentication");
+                          notify({
+                            title: "Setup Required",
+                            description: "Sign out and back in to enable biometric authentication",
+                          });
                         } else {
                           await disableBiometricAuth();
                         }

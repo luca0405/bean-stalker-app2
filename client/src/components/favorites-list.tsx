@@ -3,19 +3,19 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { MenuItem } from "@shared/schema";
 import { Loader2, ShoppingCart } from "lucide-react";
-import { FavoriteItemCard } from "./favorite-item-card";
+import { MenuItemCard } from "./menu-item";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { useCart } from "@/contexts/cart-context";
 
 export function FavoritesList() {
   const { user } = useAuth();
   const { addToCart } = useCart();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
 
-  const { data: favoritesWithOptions, isLoading, error } = useQuery({
+  const { data: favorites, isLoading, error } = useQuery<MenuItem[]>({
     queryKey: ['/api/favorites'],
     queryFn: async () => {
       if (!user) return [];
@@ -27,27 +27,37 @@ export function FavoritesList() {
   
   // Function to add all favorites to cart
   const addAllToCart = () => {
-    if (!favoritesWithOptions || favoritesWithOptions.length === 0) {
-      notifyError("No items to add", "You don't have any favorites to add to cart.");
+    if (!favorites || favorites.length === 0) {
+      notify({
+        title: "No items to add",
+        description: "You don't have any favorites to add to cart.",
+        variant: "destructive",
+      });
       return;
     }
     
-    // Add each favorite item to cart with saved options
-    favoritesWithOptions.forEach((favorite: any) => {
+    // Add each favorite item to cart
+    favorites.forEach(item => {
+      // Convert null to undefined for imageUrl to satisfy type requirements
       const cartItem = {
-        menuItemId: favorite.menuItem.id,
-        name: favorite.customName || favorite.menuItem.name,
-        price: favorite.menuItem.price,
-        quantity: 1,
-        selectedSize: favorite.selectedSize,
-        selectedOptions: favorite.selectedOptions,
-        imageUrl: favorite.menuItem.imageUrl
+        menuItemId: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: 1
       };
+      
+      // Only add imageUrl if it exists
+      if (item.imageUrl) {
+        (cartItem as any).imageUrl = item.imageUrl;
+      }
       
       addToCart(cartItem);
     });
     
-    notifySuccess("Added to cart", `${favoritesWithOptions.length} items added to your cart.`);
+    notify({
+      title: "Added to cart",
+      description: `${favorites.length} items added to your cart.`,
+    });
   };
 
   if (isLoading) {
@@ -69,7 +79,7 @@ export function FavoritesList() {
     );
   }
 
-  if (!favoritesWithOptions || favoritesWithOptions.length === 0) {
+  if (!favorites || favorites.length === 0) {
     return (
       <div className="text-center py-8">
         <h3 className="text-lg font-medium mb-2">No favorites yet</h3>
@@ -86,7 +96,7 @@ export function FavoritesList() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">{favoritesWithOptions.length} Favorite Item{favoritesWithOptions.length !== 1 ? 's' : ''}</h2>
+        <h2 className="text-xl font-semibold">{favorites.length} Favorite Item{favorites.length !== 1 ? 's' : ''}</h2>
         <Button 
           onClick={addAllToCart}
           className="flex items-center gap-2 bg-primary hover:bg-primary/90"
@@ -97,8 +107,8 @@ export function FavoritesList() {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 my-4">
-        {favoritesWithOptions.map((favorite: any) => (
-          <FavoriteItemCard key={favorite.id} favorite={favorite} />
+        {favorites.map((item) => (
+          <MenuItemCard key={item.id} item={item} />
         ))}
       </div>
     </div>

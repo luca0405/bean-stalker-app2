@@ -27,8 +27,9 @@ class BiometricService {
   async getBiometricType(): Promise<string> {
     try {
       const result = await NativeBiometric.isAvailable();
-      return String(result.biometryType || 'unknown');
+      return result.biometryType || 'unknown';
     } catch (error) {
+      console.log('Could not determine biometric type:', error);
       return 'unknown';
     }
   }
@@ -66,14 +67,14 @@ class BiometricService {
       const reason = this.getAuthenticationReason(biometricType);
 
       // Perform biometric authentication
-      await NativeBiometric.verifyIdentity({
+      const result = await NativeBiometric.verifyIdentity({
         reason,
         title: 'Bean Stalker Authentication',
         subtitle: 'Access your coffee account securely',
         description: 'Use your biometric authentication to sign in'
       });
 
-      // If we get here, authentication was successful
+      if (result) {
         // Retrieve stored credentials
         const credentials = await NativeBiometric.getCredentials({
           server: this.CREDENTIAL_KEY,
@@ -83,7 +84,11 @@ class BiometricService {
           username: credentials.username,
           password: credentials.password,
         };
+      }
+
+      return null;
     } catch (error) {
+      console.error('Biometric authentication failed:', error);
       throw error;
     }
   }

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Loader2, DollarSign, CreditCard } from 'lucide-react';
-import { useNativeNotifications } from '@/hooks/use-native-notifications';
+import { useNativeNotification } from '@/services/native-notification-service';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 declare global {
@@ -23,7 +23,7 @@ const CREDIT_PACKAGES = [
 
 export function BuyCredits() {
   const { user } = useAuth();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const isMobile = useIsMobile();
   const [selectedPackage, setSelectedPackage] = useState<typeof CREDIT_PACKAGES[0]>(CREDIT_PACKAGES[0]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -44,10 +44,14 @@ export function BuyCredits() {
       return config;
     } catch (error) {
       console.error('Failed to load Square configuration:', error);
-      notifyError('Error', 'Failed to load payment configuration');
+      notify({
+        title: 'Error',
+        description: 'Failed to load payment configuration',
+        variant: 'destructive',
+      });
       return null;
     }
-  }, []);
+  }, [notify]);
 
   // Load Square configuration on component mount
   useEffect(() => {
@@ -80,7 +84,11 @@ export function BuyCredits() {
           script.onerror = () => {
             reject(new Error('Failed to load Square SDK'));
             if (isComponentMounted) {
-              notifyError('Error', 'Failed to load payment system');
+              notify({
+                title: 'Error',
+                description: 'Failed to load payment system',
+                variant: 'destructive',
+              });
             }
           };
           document.body.appendChild(script);
@@ -108,7 +116,11 @@ export function BuyCredits() {
         } catch (error) {
           console.error('Failed to initialize Square payment:', error);
           if (isComponentMounted) {
-            notifyError('Payment Setup Failed', 'Could not initialize the payment system');
+            notify({
+              title: 'Payment Setup Failed',
+              description: 'Could not initialize the payment system',
+              variant: 'destructive',
+            });
           }
         }
       }
@@ -126,7 +138,7 @@ export function BuyCredits() {
         });
       }
     };
-  }, [squareConfig, cardPaymentRef]);
+  }, [squareConfig, toast, cardPaymentRef]);
 
   const handleSelectPackage = (pkg: typeof CREDIT_PACKAGES[0]) => {
     setSelectedPackage(pkg);
@@ -134,7 +146,11 @@ export function BuyCredits() {
 
   const handlePayment = async () => {
     if (!squarePaymentRef.current) {
-      notifyError('Payment Error', 'Payment system not initialized');
+      notify({
+        title: 'Payment Error',
+        description: 'Payment system not initialized',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -154,7 +170,10 @@ export function BuyCredits() {
         const paymentResult = await response.json();
         
         if (paymentResult.success) {
-          notifySuccess('Payment Successful', `Successfully added ${selectedPackage.receive.toFixed(2)} credits to your account!`);
+          notify({
+            title: 'Payment Successful',
+            description: `Successfully added ${selectedPackage.receive.toFixed(2)} credits to your account!`,
+          });
           
           // Refresh user data to show updated credits
           queryClient.invalidateQueries({ queryKey: ['/api/user'] });
@@ -166,7 +185,11 @@ export function BuyCredits() {
       }
     } catch (error) {
       console.error('Payment processing error:', error);
-      notifyError('Payment Failed', error instanceof Error ? error.message : 'Failed to process payment');
+      notify({
+        title: 'Payment Failed',
+        description: error instanceof Error ? error.message : 'Failed to process payment',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }

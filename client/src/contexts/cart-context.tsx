@@ -1,6 +1,6 @@
 import { createContext, useState, useContext, ReactNode, useEffect } from "react";
 import { CartItem, CartItemOption } from "@shared/schema";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 
 interface CartContextType {
   cart: CartItem[];
@@ -70,21 +70,26 @@ const loadCartFromStorage = (): CartItem[] => {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
 
   // Load cart from localStorage on mount
   useEffect(() => {
     const savedCart = loadCartFromStorage();
     if (savedCart.length > 0) {
       setCart(savedCart);
-      notifySuccess("Cart restored", `${savedCart.length} item${savedCart.length > 1 ? 's' : ''} restored from your previous session`);
     }
-  }, [notifySuccess]);
+  }, []); // Empty dependency array - only run on mount
 
-  // Save cart to localStorage whenever it changes
+  // Save cart to localStorage whenever it changes (but not on initial load)
+  const [isInitialized, setIsInitialized] = useState(false);
+  
   useEffect(() => {
-    saveCartToStorage(cart);
-  }, [cart]);
+    if (isInitialized) {
+      saveCartToStorage(cart);
+    } else {
+      setIsInitialized(true);
+    }
+  }, [cart, isInitialized]);
 
   const addToCart = (newItem: CartItem) => {
     setCart((prevCart) => {
@@ -114,7 +119,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? ` with ${newItem.option}`
             : '';
             
-        notifySuccess("Cart updated", `Increased ${newItem.name}${sizeLabel}${optionsLabel} quantity.`);
+        notify({
+          title: "Cart updated",
+          description: `Increased ${newItem.name}${sizeLabel}${optionsLabel} quantity.`,
+        });
         
         return updatedCart;
       } else {
@@ -126,7 +134,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? ` with ${newItem.option}`
             : '';
             
-        notifySuccess("Item added to cart", `${newItem.name}${sizeLabel}${optionsLabel} has been added to your cart.`);
+        notify({
+          title: "Item added to cart",
+          description: `${newItem.name}${sizeLabel}${optionsLabel} has been added to your cart.`,
+        });
         
         return [...prevCart, newItem];
       }
@@ -177,7 +188,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? ` with ${removedItem.option}`
             : '';
             
-        notifySuccess("Item removed", `${removedItem.name}${sizeLabel}${optionsLabel} has been removed from your cart.`);
+        notify({
+          title: "Item removed",
+          description: `${removedItem.name}${sizeLabel}${optionsLabel} has been removed from your cart.`,
+        });
       }
       
       return updatedCart;
@@ -216,6 +230,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => {
     setCart([]);
+    notify({
+      title: "Cart cleared",
+      description: "All items have been removed from your cart.",
+    });
   };
 
   // Calculate subtotal

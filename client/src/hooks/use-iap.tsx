@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { iapService, IAPProduct, PurchaseResult } from '@/services/iap-service';
 import { useAuth } from './use-auth';
-import { useToast } from './use-toast';
-import { useNativeNotifications } from './use-native-notifications';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { useNativeNotification } from "@/services/native-notification-service";
+import { apiRequest } from '@/lib/queryClient';
 
 interface IAPContextType {
   isInitialized: boolean;
@@ -21,8 +20,7 @@ export function IAPProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<IAPProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
-  const { toast } = useToast();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
 
   useEffect(() => {
     initializeIAP();
@@ -30,6 +28,7 @@ export function IAPProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (user && isInitialized) {
+      console.log('IAP Hook: Setting user ID for RevenueCat:', user.id.toString());
       iapService.setUserID(user.id.toString());
     }
   }, [user, isInitialized]);
@@ -45,7 +44,7 @@ export function IAPProvider({ children }: { children: ReactNode }) {
         setProducts(availableProducts);
       }
     } catch (error) {
-      // IAP initialization failed
+      console.error('Failed to initialize IAP:', error);
     } finally {
       setIsLoading(false);
     }
@@ -53,7 +52,7 @@ export function IAPProvider({ children }: { children: ReactNode }) {
 
   const purchaseProduct = async (productId: string): Promise<PurchaseResult> => {
     if (!isInitialized) {
-      toast({
+      notify({
         title: "Purchase Error",
         description: "Payment system not available",
         variant: "destructive",
@@ -70,13 +69,13 @@ export function IAPProvider({ children }: { children: ReactNode }) {
         // Verify purchase with backend
         await verifyPurchase(result);
         
-        toast({
+        notify({
           title: "Purchase Successful",
           description: "Your purchase has been completed successfully!",
         });
       } else {
         if (result.error !== 'Purchase cancelled by user') {
-          toast({
+          notify({
             title: "Purchase Failed",
             description: result.error || "An error occurred during purchase",
             variant: "destructive",
@@ -86,7 +85,7 @@ export function IAPProvider({ children }: { children: ReactNode }) {
       
       return result;
     } catch (error: any) {
-      toast({
+      notify({
         title: "Purchase Error",
         description: error.message || "An unexpected error occurred",
         variant: "destructive",
@@ -111,26 +110,12 @@ export function IAPProvider({ children }: { children: ReactNode }) {
       });
 
       if (response.ok) {
-        const responseData = await response.json();
-        
-        if (responseData.isRepeatTransaction) {
-          console.log('🔄 Repeat transaction - credits already added for this transaction ID');
-          // Don't reload page since no new credits were added, but show success message
-          notifySuccess("Purchase Already Processed", "This transaction was already completed successfully.");
-          return;
-        }
-        
-        // Refresh user data to get updated credits/membership using React Query
-        await queryClient.invalidateQueries({ queryKey: ['/api/user'] });
-        notifySuccess("Purchase Successful!", `Credits have been added to your account!`);
-      } else {
-        // Handle error cases
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Verification failed');
+        // Refresh user data to get updated credits/membership
+        window.location.reload();
       }
     } catch (error) {
       console.error('Failed to verify purchase:', error);
-      toast({
+      notify({
         title: "Verification Error",
         description: "Purchase successful but verification failed. Please contact support.",
         variant: "destructive",
@@ -146,12 +131,12 @@ export function IAPProvider({ children }: { children: ReactNode }) {
       const success = await iapService.restorePurchases();
       
       if (success) {
-        toast({
+        notify({
           title: "Purchases Restored",
           description: "Your previous purchases have been restored successfully!",
         });
       } else {
-        toast({
+        notify({
           title: "Restore Failed",
           description: "No previous purchases found to restore",
           variant: "destructive",
@@ -160,7 +145,7 @@ export function IAPProvider({ children }: { children: ReactNode }) {
       
       return success;
     } catch (error: any) {
-      toast({
+      notify({
         title: "Restore Error", 
         description: error.message || "Failed to restore purchases",
         variant: "destructive",

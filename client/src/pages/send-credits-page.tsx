@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { useNativeNotifications } from "@/hooks/use-native-notifications";
+import { useNativeNotification } from "@/services/native-notification-service";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -22,7 +22,7 @@ interface ShareCreditsResponse {
 
 export default function SendCreditsPage() {
   const { user } = useAuth();
-  const { notifySuccess, notifyError } = useNativeNotifications();
+  const { notify } = useNativeNotification();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [showSMSPreview, setShowSMSPreview] = useState(false);
@@ -74,10 +74,17 @@ export default function SendCreditsPage() {
       setSmsDetails(data);
       setCustomMessage(getEditableMessage(data.smsMessage)); // Initialize with just editable part
       setShowSMSPreview(true);
-      notifySuccess("Credit Share Ready", "Verification code generated. Send the SMS to complete sharing.");
+      notify({
+        title: "Credit Share Ready",
+        description: "Verification code generated. Send the SMS to complete sharing.",
+      });
     },
     onError: (error: Error) => {
-      notifyError("Share Failed", error.message);
+      notify({
+        title: "Share Failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -92,7 +99,10 @@ export default function SendCreditsPage() {
     // Open SMS app
     window.location.href = smsUrl;
     
-    notifySuccess("SMS App Opened", "Complete the transfer by sending the text message.");
+    notify({
+      title: "SMS App Opened",
+      description: "Complete the transfer by sending the text message.",
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -100,17 +110,29 @@ export default function SendCreditsPage() {
     
     const creditAmount = parseFloat(amount);
     if (!phoneNumber || !creditAmount) {
-      notifyError("Missing Information", "Please enter phone number and amount.");
+      notify({
+        title: "Missing Information",
+        description: "Please enter phone number and amount.",
+        variant: "destructive",
+      });
       return;
     }
 
     if (creditAmount <= 0) {
-      notifyError("Invalid Amount", "Amount must be greater than $0.");
+      notify({
+        title: "Invalid Amount",
+        description: "Amount must be greater than $0.",
+        variant: "destructive",
+      });
       return;
     }
 
     if (!user || creditAmount > user.credits) {
-      notifyError("Insufficient Credits", "You don't have enough credits for this transfer.");
+      notify({
+        title: "Insufficient Credits",
+        description: "You don't have enough credits for this transfer.",
+        variant: "destructive",
+      });
       return;
     }
 

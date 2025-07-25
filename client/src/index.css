@@ -8,12 +8,10 @@
   }
 
   html {
-    /* Disable smooth scrolling to fix fixed positioning */
-    scroll-behavior: auto;
+    /* Enable smooth scrolling globally */
+    scroll-behavior: smooth;
     /* Improve scrolling on iOS Safari */
     -webkit-overflow-scrolling: touch;
-    /* Prevent overscroll bounce on iOS */
-    overscroll-behavior: none;
   }
 
   body {
@@ -22,199 +20,19 @@
     -webkit-overflow-scrolling: touch;
     /* Improve touch responsiveness */
     touch-action: manipulation;
-    /* Prevent overscroll bounce */
-    overscroll-behavior: none;
-    /* Ensure body takes full height */
-    min-height: 100vh;
-    /* Remove transform that breaks fixed positioning */
-    position: static;
   }
 
-  /* Optimized scrolling for all scrollable elements */
+  /* Smooth scrolling for all scrollable elements */
   * {
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: auto; /* Disable smooth scrolling globally for better performance */
+    scroll-behavior: smooth;
   }
 
-  /* Fix main app scrolling */
-  #root {
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: auto;
-    overscroll-behavior: none;
-    /* Ensure full height */
-    min-height: 100vh;
-    /* Remove transforms that break fixed positioning */
-    position: static;
-  }
-
-  /* Main content areas */
-  main, .main-content {
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: auto;
-    overscroll-behavior: none;
-    /* Remove transforms that can break fixed positioning */
-    position: static;
-  }
-
-  /* Enhanced scrolling for mobile containers - optimized for performance */
+  /* Enhanced scrolling for mobile containers */
   .scrollable {
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: auto; /* Disable smooth scrolling for better performance */
-    overscroll-behavior: none;
-    contain: layout style paint; /* Optimize rendering performance */
-    will-change: auto; /* Remove will-change to prevent excessive GPU usage */
-  }
-
-  /* Fixed header compensation for pages - DEFINITIVE FIX */
-  .main-content-with-header {
-    padding-top: calc(env(safe-area-inset-top, 20px) + 100px) !important; /* Reduced to 100px header clearance */
-    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important; /* Add space for bottom nav */
-  }
-
-  /* Popup containers should NOT have header compensation */
-  .popup-container,
-  .popup-content,
-  [role="dialog"],
-  [data-radix-dialog-content],
-  [data-radix-dialog-overlay],
-  .dialog-content {
-    padding-top: 0 !important; /* Reset header padding for popups */
-  }
-
-  /* Ensure full-screen popups appear above header and floating menu */
-  .popup-container {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    z-index: 10000 !important; /* Higher than header (9998) and floating menu (9999) */
-  }
-
-  /* All dialog components should have high z-index */
-  [role="dialog"],
-  [data-radix-dialog-content],
-  [data-radix-dialog-overlay] {
-    z-index: 10000 !important;
-  }
-
-  /* Product Detail Modal should appear above floating menu */
-  .product-detail-modal,
-  .product-modal-overlay,
-  .product-modal-content {
-    z-index: 10000 !important;
-  }
-
-  /* Cart Dialog full-screen styling */
-  [data-radix-dialog-content].popup-container {
-    width: 95vw !important;
-    max-width: 1024px !important;
-    height: 95vh !important;
-    max-height: 95vh !important;
-    margin: auto !important;
-  }
-
-  /* iOS-style native select styling */
-  select {
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-  }
-  
-  /* Ensure modal scrolling works properly */
-  .product-modal-content {
-    position: relative;
-    z-index: 10000;
-  }
-
-  /* Global smooth scrolling for entire app */
-  html {
     scroll-behavior: smooth;
-  }
-
-  body {
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Smooth scrolling for all scrollable containers */
-  * {
-    scroll-behavior: smooth;
-  }
-
-  /* Enhanced mobile scrolling - Web only */
-  .web .smooth-scroll,
-  .web [data-scroll="smooth"] {
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-  }
-
-  /* Native mobile - disable smooth scrolling */
-  .capacitor .smooth-scroll,
-  .native-mobile .smooth-scroll {
-    scroll-behavior: auto !important;
-  }
-
-  /* Native Mobile Scrolling - NO smooth scrolling for better performance */
-  .mobile-scroll {
-    -webkit-overflow-scrolling: touch !important;
-    scroll-behavior: auto !important;
-    overscroll-behavior-y: contain;
-    transform: none !important;
-    will-change: auto !important;
-  }
-
-  /* Native mobile only - disable smooth scrolling */
-  .capacitor,
-  .native-mobile {
-    scroll-behavior: auto !important;
-  }
-  
-  .capacitor *,
-  .native-mobile * {
-    scroll-behavior: auto !important;
-  }
-
-  /* Apply to main content areas - Web only */
-  .web main,
-  .web .main-content,
-  .web .page-content {
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
-  /* Native mobile main content - disable smooth scrolling only */
-  .capacitor main,
-  .native-mobile main {
-    scroll-behavior: auto !important;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
-  /* Header positioning - SIMPLE AND RELIABLE */
-  header {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 9998 !important;
-  }
-
-  /* iOS specific scrolling improvements */
-  @supports (-webkit-touch-callout: none) {
-    body {
-      /* iOS Safari specific improvements - remove transforms that break fixed positioning */
-      -webkit-backface-visibility: hidden;
-      -webkit-perspective: 1000;
-    }
-    
-    .scrollable, main {
-      /* iOS scrolling without transforms that break fixed positioning */
-      -webkit-backface-visibility: hidden;
-      -webkit-perspective: 1000;
-    }
   }
 }
 
@@ -251,29 +69,9 @@
     width: calc(100vw - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
   }
 
-  /* Ensure fixed elements stay truly fixed */
-  .fixed-element {
-    position: fixed !important;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-  }
-
-  /* Bottom navigation - RESTORE ORIGINAL WORKING VERSION */
-  .bottom-nav-container {
-    position: fixed !important;
-    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-    left: 50%;
-    transform: translateX(-50%) translateZ(0);
-    z-index: 9999;
-    will-change: auto;
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-  }
-
-  /* Mobile scrolling utilities - no smooth scrolling */
+  /* Mobile smooth scrolling utilities */
   .smooth-scroll {
-    scroll-behavior: auto;
+    scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
@@ -306,79 +104,18 @@
     display: none; /* Chrome, Safari */
   }
 
-  /* Full screen popup container - Native Mobile Fixed */
+  /* Full screen popup container */
   .popup-container {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    z-index: 10000 !important; /* Higher than header */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
     background: linear-gradient(to bottom right, rgb(248 250 252), rgb(241 245 249));
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    scroll-behavior: auto !important;
-    transform: none !important;
-    will-change: auto !important;
-  }
-
-  /* Native mobile popup fixes */
-  .native-mobile .popup-container,
-  .capacitor .popup-container {
-    position: fixed !important;
-    z-index: 10000 !important;
-    transform: none !important;
-    -webkit-transform: none !important;
-  }
-
-  /* Native HTML dropdowns for mobile (higher than popups) */
-  select,
-  .native-select {
-    z-index: 15000 !important;
-    position: relative;
-  }
-
-  /* Native mobile dropdown fixes */
-  .native-mobile select,
-  .capacitor select {
-    z-index: 15000 !important;
-    -webkit-appearance: menulist !important;
-    appearance: menulist !important;
-  }
-
-  /* Dropdown menus need higher z-index than popups */
-  [data-radix-select-content] {
-    z-index: 15000 !important;
-  }
-
-  [data-radix-dropdown-content] {
-    z-index: 15000 !important;
-  }
-
-  /* Select dropdown content */
-  .select-content {
-    z-index: 15000 !important;
-  }
-
-  /* Product detail modal specific fixes */
-  .product-detail-modal {
-    position: fixed !important;
-    z-index: 10000 !important;
-    transform: none !important;
-  }
-
-  .product-modal-content {
-    z-index: 10001 !important;
-    transform: none !important;
-  }
-
-  /* Native mobile modal fixes */
-  .native-mobile .product-detail-modal,
-  .capacitor .product-detail-modal {
-    position: fixed !important;
-    z-index: 10000 !important;
-    -webkit-transform: none !important;
-    transform: none !important;
+    scroll-behavior: smooth;
   }
 
   /* Popup content with safe area */
@@ -395,7 +132,7 @@
   .popup-header {
     position: sticky;
     top: 0;
-    z-index: 20;
+    z-index: 30;
     background: rgb(248 250 252);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);

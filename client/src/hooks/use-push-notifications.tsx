@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from './use-auth';
 import { useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { useToast } from './use-toast';
+import { useNativeNotification } from '@/services/native-notification-service';
 
 interface PushNotificationState {
   isSupported: boolean;
@@ -42,7 +42,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export function usePushNotifications(): PushNotificationState & PushNotificationActions {
   const { user } = useAuth();
-  const { toast } = useToast();
+  const { notify } = useNativeNotification();
   const [state, setState] = useState<PushNotificationState>({
     isSupported: false,
     isSubscribed: false,
@@ -70,13 +70,13 @@ export function usePushNotifications(): PushNotificationState & PushNotification
       return await res.json();
     },
     onSuccess: () => {
-      toast({
+      notify({
         title: 'Push Notifications Enabled',
         description: 'You will now receive order status updates.',
       });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: 'Subscription Failed',
         description: error.message || 'Failed to enable push notifications.',
         variant: 'destructive',
@@ -95,13 +95,13 @@ export function usePushNotifications(): PushNotificationState & PushNotification
       return await res.json();
     },
     onSuccess: () => {
-      toast({
+      notify({
         title: 'Push Notifications Disabled',
         description: 'You will no longer receive order status updates.',
       });
     },
     onError: (error: Error) => {
-      toast({
+      notify({
         title: 'Unsubscribe Failed',
         description: error.message || 'Failed to disable push notifications.',
         variant: 'destructive',
@@ -491,7 +491,7 @@ export function usePushNotifications(): PushNotificationState & PushNotification
         isPending: false
       }));
       
-      toast({
+      notify({
         title: 'Subscription Failed',
         description: error instanceof Error ? error.message : 'There was an error enabling push notifications. Please try again.',
         variant: 'destructive'
@@ -555,7 +555,7 @@ export function usePushNotifications(): PushNotificationState & PushNotification
         isPending: false
       }));
       
-      toast({
+      notify({
         title: 'Unsubscribe Had Issues',
         description: 'There was an error while disabling push notifications. You may need to manually deny permission in your browser settings.',
         variant: 'destructive'
