@@ -20,6 +20,18 @@
     -webkit-overflow-scrolling: touch;
     /* Improve touch responsiveness */
     touch-action: manipulation;
+    /* Fix viewport on mobile - prevent overscroll */
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for modern mobile browsers */
+    overflow: hidden;
+  }
+  
+  #root {
+    height: 100%;
+    overflow: auto;
+    /* Ensure content fills the viewport properly */
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   /* Smooth scrolling for all scrollable elements */

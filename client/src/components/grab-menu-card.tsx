@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { MenuItem } from "@shared/schema";
-import { Heart } from "lucide-react";
+
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -24,82 +24,7 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
   const forceFallback = false;
   const finalImageUrl = forceFallback ? getMobileCompatibleImageUrl(null, item.category) : imageUrl;
 
-  const { data: favoriteStatus } = useQuery({
-    queryKey: ['/api/favorites', item.id],
-    queryFn: async () => {
-      if (!user) return { isFavorite: false };
-      try {
-        const res = await apiRequest('GET', `/api/favorites/${item.id}`);
-        return await res.json();
-      } catch (error) {
-        return { isFavorite: false };
-      }
-    },
-    enabled: !!user
-  });
 
-  const addFavoriteMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/favorites', { menuItemId: item.id });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item.id] });
-      notify({
-        title: "Added to favorites",
-        description: `${item.name} has been added to your favorites.`,
-      });
-    },
-    onError: (error: Error) => {
-      notify({
-        title: "Failed to add favorite",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-
-  const removeFavoriteMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('DELETE', `/api/favorites/${item.id}`);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item.id] });
-      notify({
-        title: "Removed from favorites",
-        description: `${item.name} has been removed from your favorites.`,
-      });
-    },
-    onError: (error: Error) => {
-      notify({
-        title: "Failed to remove favorite",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-
-  const toggleFavorite = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
-    
-    if (!user) {
-      notify({
-        title: "Login required",
-        description: "Please log in to add items to favorites.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (favoriteStatus?.isFavorite) {
-      removeFavoriteMutation.mutate();
-    } else {
-      addFavoriteMutation.mutate();
-    }
-  };
 
   return (
     <Card 
@@ -147,19 +72,7 @@ export function GrabMenuCard({ item, onClick }: GrabMenuCardProps) {
             {item.imageUrl ? 'Image Loading...' : 'No Image'}
           </span>
         </div>
-        
-        {/* Heart Icon */}
-        {user && (
-          <button 
-            onClick={toggleFavorite}
-            className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full shadow-sm hover:bg-white transition-colors"
-            aria-label={favoriteStatus?.isFavorite ? "Remove from favorites" : "Add to favorites"}
-          >
-            <Heart 
-              className={`h-4 w-4 ${favoriteStatus?.isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} 
-            />
-          </button>
-        )}
+
       </div>
       
       {/* Product Info */}

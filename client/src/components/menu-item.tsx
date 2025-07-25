@@ -2,7 +2,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart-context";
 import { MenuItem, MenuItemOption, CartItemOption } from "@shared/schema";
-import { Heart } from "lucide-react";
+
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { formatCurrency } from "@/lib/utils";
 
 interface MenuItemCardProps {
   item: MenuItem;
@@ -64,112 +65,39 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
     }
   }, [flavorOptions]);
   
-  const { data: favoriteStatus } = useQuery({
-    queryKey: ['/api/favorites', item.id],
-    queryFn: async () => {
-      if (!user) return { isFavorite: false };
-      try {
-        const res = await apiRequest('GET', `/api/favorites/${item.id}`);
-        return await res.json();
-      } catch (error) {
-        return { isFavorite: false };
-      }
-    },
-    enabled: !!user // Only run if user is logged in
-  });
-
-  const addFavoriteMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('POST', '/api/favorites', { menuItemId: item.id });
-      return res.json();
-    },
-    onSuccess: () => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item.id] });
-      notify({
-        title: "Added to favorites",
-        description: `${item.name} has been added to your favorites.`,
-      });
-    },
-    onError: (error: Error) => {
-      notify({
-        title: "Failed to add favorite",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-
-  const removeFavoriteMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest('DELETE', `/api/favorites/${item.id}`);
-      return res.json();
-    },
-    onSuccess: () => {
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item.id] });
-      notify({
-        title: "Removed from favorites",
-        description: `${item.name} has been removed from your favorites.`,
-      });
-    },
-    onError: (error: Error) => {
-      notify({
-        title: "Failed to remove favorite",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
-  
-  const toggleFavorite = () => {
-    if (!user) {
-      notify({
-        title: "Login required",
-        description: "Please log in to add items to favorites.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (favoriteStatus?.isFavorite) {
-      removeFavoriteMutation.mutate();
-    } else {
-      addFavoriteMutation.mutate();
-    }
-  };
-  
   // Get all selected options with their price adjustments
   const getSelectedOptionsWithPrices = (): CartItemOption[] => {
     if (!flavorOptions || flavorOptions.length === 0) return [];
     
     const result: CartItemOption[] = [];
     
-    // Process parent-child selections
-    flavorOptions.forEach(option => {
-      if (option.isParent && option.children) {
-        // Get the selected child option for this parent
-        const selectedChildName = selectedOptions[option.name];
-        if (selectedChildName) {
-          const selectedChild = option.children.find(child => child.name === selectedChildName);
-          if (selectedChild) {
+    // Process all selected options from the selectedOptions state
+    Object.entries(selectedOptions).forEach(([key, value]) => {
+      if (value && value !== "") {
+        // Find the option details
+        if (key === "Flavor") {
+          // Handle standalone flavor options
+          const option = flavorOptions.find(opt => opt.name === value && !opt.isParent && !opt.parentId);
+          if (option) {
             result.push({
-              name: option.name, // Parent name as category
-              value: selectedChild.name, // Child name as value
-              priceAdjustment: selectedChild.priceAdjustment || 0
+              name: "Flavor",
+              value: option.name,
+              priceAdjustment: option.priceAdjustment || 0
             });
           }
-        }
-      } else if (!option.parentId && !option.isParent) {
-        // Handle standard flavor options (using the "Flavor" key now)
-        if (selectedOptions["Flavor"] === option.name) {
-          result.push({
-            name: "Flavor",
-            value: option.name,
-            priceAdjustment: option.priceAdjustment || 0
-          });
+        } else {
+          // Handle parent-child selections
+          const parentOption = flavorOptions.find(opt => opt.name === key && opt.isParent);
+          if (parentOption && parentOption.children) {
+            const childOption = parentOption.children.find(child => child.name === value);
+            if (childOption) {
+              result.push({
+                name: key, // Parent name as category
+                value: value, // Child name as value
+                priceAdjustment: childOption.priceAdjustment || 0
+              });
+            }
+          }
         }
       }
     });
@@ -185,21 +113,33 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
   
   // Get the price based on selected size and all options
   const getPrice = (): number => {
-    let basePrice = item.price;
+    // Ensure we have a valid base price
+    const validBasePrice = typeof item.price === 'number' && !isNaN(item.price) ? item.price : 0;
+    let basePrice = validBasePrice;
     
     // Apply size pricing if applicable
     if (item.hasSizes) {
       switch (selectedSize) {
-        case 'small': basePrice = item.price; break;
-        case 'medium': basePrice = item.mediumPrice || item.price * 1.25; break;
-        case 'large': basePrice = item.largePrice || item.price * 1.5; break;
+        case 'small': 
+          basePrice = validBasePrice; 
+          break;
+        case 'medium': 
+          const mediumPrice = item.mediumPrice || validBasePrice * 1.25;
+          basePrice = typeof mediumPrice === 'number' && !isNaN(mediumPrice) ? mediumPrice : validBasePrice;
+          break;
+        case 'large': 
+          const largePrice = item.largePrice || validBasePrice * 1.5;
+          basePrice = typeof largePrice === 'number' && !isNaN(largePrice) ? largePrice : validBasePrice;
+          break;
       }
     }
     
     // Add all option price adjustments
     const optionAdjustments = getTotalOptionPriceAdjustment();
+    const validAdjustments = typeof optionAdjustments === 'number' && !isNaN(optionAdjustments) ? optionAdjustments : 0;
     
-    return basePrice + optionAdjustments;
+    const finalPrice = basePrice + validAdjustments;
+    return typeof finalPrice === 'number' && !isNaN(finalPrice) ? finalPrice : 0;
   };
   
   const handleAddToCart = () => {
@@ -246,24 +186,13 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
             <span className="text-xs font-medium text-center px-2">No Image Available</span>
           </div>
         )}
-        {user && (
-          <button 
-            onClick={toggleFavorite}
-            className="absolute top-2 right-2 p-1.5 bg-white/80 rounded-full shadow-md hover:bg-white transition-colors"
-            aria-label={favoriteStatus?.isFavorite ? "Remove from favorites" : "Add to favorites"}
-          >
-            <Heart 
-              className={`h-5 w-5 ${favoriteStatus?.isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} 
-            />
-          </button>
-        )}
       </div>
       <CardContent className="p-3">
         <h3 className="font-semibold text-sm leading-tight">{item.name}</h3>
         <p className="text-xs text-gray-600 mt-1 line-clamp-2">{item.description}</p>
         <div className="flex items-center justify-between mt-2">
           <span className="font-bold text-green-700 text-sm">
-            ${getPrice().toFixed(2)}
+            {formatCurrency(getPrice())}
           </span>
           {item.hasSizes && (
             <span className="text-xs text-gray-500">
@@ -283,9 +212,9 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
                 <SelectValue placeholder="Select Size" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="small">Small - ${item.price.toFixed(2)}</SelectItem>
-                <SelectItem value="medium">Medium - ${(item.mediumPrice || item.price * 1.25).toFixed(2)}</SelectItem>
-                <SelectItem value="large">Large - ${(item.largePrice || item.price * 1.5).toFixed(2)}</SelectItem>
+                <SelectItem value="small">Small - {formatCurrency(item.price || 0)}</SelectItem>
+                <SelectItem value="medium">Medium - {formatCurrency(item.mediumPrice || (item.price || 0) * 1.25)}</SelectItem>
+                <SelectItem value="large">Large - {formatCurrency(item.largePrice || (item.price || 0) * 1.5)}</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -87,7 +87,13 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   const addFavoriteMutation = useMutation({
     mutationFn: async () => {
       if (!item) return;
-      const res = await apiRequest('POST', '/api/favorites', { menuItemId: item.id });
+      const selectedOptionsList = getSelectedOptionsWithPrices();
+      const favoriteData = {
+        menuItemId: item.id,
+        selectedSize: item.hasSizes ? selectedSize : null,
+        selectedOptions: selectedOptionsList.length > 0 ? selectedOptionsList : null
+      };
+      const res = await apiRequest('POST', '/api/favorites', favoriteData);
       return res.json();
     },
     onSuccess: () => {
@@ -116,6 +122,46 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     }
   });
 
+  // Get all selected options with their price adjustments
+  const getSelectedOptionsWithPrices = (): CartItemOption[] => {
+    if (!flavorOptions || flavorOptions.length === 0) return [];
+    
+    const result: CartItemOption[] = [];
+    
+    // Process all selected options from the selectedOptions state
+    Object.entries(selectedOptions).forEach(([key, value]) => {
+      if (value && value !== "") {
+        // Find the option details
+        if (key === "Flavor") {
+          // Handle standalone flavor options
+          const option = flavorOptions.find(opt => opt.name === value && !opt.isParent && !opt.parentId);
+          if (option) {
+            result.push({
+              name: "Flavor",
+              value: option.name,
+              priceAdjustment: option.priceAdjustment || 0
+            });
+          }
+        } else {
+          // Handle parent-child selections
+          const parentOption = flavorOptions.find(opt => opt.name === key && opt.isParent);
+          if (parentOption && parentOption.children) {
+            const childOption = parentOption.children.find(child => child.name === value);
+            if (childOption) {
+              result.push({
+                name: key, // Parent name as category
+                value: value, // Child name as value
+                priceAdjustment: childOption.priceAdjustment || 0
+              });
+            }
+          }
+        }
+      }
+    });
+    
+    return result;
+  };
+
   const toggleFavorite = () => {
     if (!user) {
       notify({
@@ -133,37 +179,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     }
   };
 
-  const getSelectedOptionsWithPrices = (): CartItemOption[] => {
-    if (!flavorOptions || flavorOptions.length === 0) return [];
-    
-    const result: CartItemOption[] = [];
-    
-    flavorOptions.forEach(option => {
-      if (option.isParent && option.children) {
-        const selectedChildName = selectedOptions[option.name];
-        if (selectedChildName) {
-          const selectedChild = option.children.find(child => child.name === selectedChildName);
-          if (selectedChild) {
-            result.push({
-              name: option.name,
-              value: selectedChild.name,
-              priceAdjustment: selectedChild.priceAdjustment || 0
-            });
-          }
-        }
-      } else if (!option.parentId && !option.isParent) {
-        if (selectedOptions["Flavor"] === option.name) {
-          result.push({
-            name: "Flavor",
-            value: option.name,
-            priceAdjustment: option.priceAdjustment || 0
-          });
-        }
-      }
-    });
-    
-    return result;
-  };
+
 
   const getTotalOptionPriceAdjustment = (): number => {
     const selectedOptionsList = getSelectedOptionsWithPrices();
@@ -444,14 +460,34 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
 
             </div>
 
-            {/* Sticky Add to Cart Footer */}
+            {/* Sticky Footer with Actions */}
             <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 p-6 z-10">
-              <Button 
-                onClick={handleAddToCart} 
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 h-auto rounded-xl shadow-lg"
-              >
-                Add to Cart • ${(getPrice() * quantity).toFixed(2)}
-              </Button>
+              <div className="space-y-3">
+                {/* Add to Favorites Button */}
+                {user && (
+                  <Button 
+                    onClick={toggleFavorite}
+                    variant="outline"
+                    className={`w-full py-3 h-auto rounded-xl border-2 transition-all ${
+                      favoriteStatus?.isFavorite 
+                        ? 'border-red-500 text-red-500 hover:bg-red-50' 
+                        : 'border-green-600 text-green-600 hover:bg-green-50'
+                    }`}
+                    disabled={addFavoriteMutation.isPending || removeFavoriteMutation.isPending}
+                  >
+                    <Heart className={`h-5 w-5 mr-2 ${favoriteStatus?.isFavorite ? 'fill-current' : ''}`} />
+                    {favoriteStatus?.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                  </Button>
+                )}
+                
+                {/* Add to Cart Button */}
+                <Button 
+                  onClick={handleAddToCart} 
+                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 h-auto rounded-xl shadow-lg"
+                >
+                  Add to Cart • ${(getPrice() * quantity).toFixed(2)}
+                </Button>
+              </div>
             </div>
           </motion.div>
         </div>

@@ -2095,7 +2095,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const favorites = await storage.getUserFavorites(userId);
+      const favorites = await storage.getUserFavoritesWithDetails(userId);
       res.json(favorites);
     } catch (error) {
       console.error("Error fetching favorites:", error);
@@ -2108,7 +2108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const { menuItemId } = req.body;
+      const { menuItemId, selectedSize, selectedOptions } = req.body;
       
       if (!menuItemId) {
         return res.status(400).json({ message: "Menu item ID is required" });
@@ -2126,9 +2126,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Item is already in favorites" });
       }
       
+
+      
       const favorite = await storage.addFavorite({
         userId,
-        menuItemId
+        menuItemId,
+        selectedSize: selectedSize || null,
+        selectedOptions: selectedOptions || null
       });
       
       res.status(201).json(favorite);
@@ -2160,6 +2164,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error removing favorite:", error);
       res.status(500).json({ message: "Failed to remove favorite" });
+    }
+  });
+
+  app.delete("/api/favorites/by-id/:favoriteId", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    
+    try {
+      const favoriteId = parseInt(req.params.favoriteId);
+      
+      if (isNaN(favoriteId)) {
+        return res.status(400).json({ message: "Invalid favorite ID" });
+      }
+      
+      await storage.removeFavoriteById(favoriteId);
+      res.status(200).json({ message: "Favorite configuration removed successfully" });
+    } catch (error) {
+      console.error("Error removing favorite by ID:", error);
+      res.status(500).json({ message: "Failed to remove favorite configuration" });
     }
   });
   
@@ -2199,7 +2221,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!isAlreadyFavorite) {
           await storage.addFavorite({
             userId,
-            menuItemId: item.id
+            menuItemId: item.id,
+            selectedSize: null,
+            selectedOptions: null
           });
           addedItems.push(item);
         }

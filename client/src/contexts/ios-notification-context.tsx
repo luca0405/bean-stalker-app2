@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState, useRef } from 'react';
 import { useNativeNotification } from '@/services/native-notification-service';
 import { useAuth } from '@/hooks/use-auth';
 import { apiRequest } from '@/lib/queryClient';
@@ -152,6 +152,24 @@ export function useIOSNotificationService() {
   // Store the last known order statuses to detect changes more reliably
   const [lastKnownOrderStatuses, setLastKnownOrderStatuses] = useState<Record<number, string>>({});
   
+  // Use refs to prevent infinite re-renders while maintaining real-time polling
+  const isFirstLoadRef = useRef(isFirstLoad);
+  const lastKnownOrderStatusesRef = useRef(lastKnownOrderStatuses);
+  const notifyRef = useRef(notify);
+  
+  // Update refs when values change
+  useEffect(() => {
+    isFirstLoadRef.current = isFirstLoad;
+  }, [isFirstLoad]);
+  
+  useEffect(() => {
+    lastKnownOrderStatusesRef.current = lastKnownOrderStatuses;
+  }, [lastKnownOrderStatuses]);
+  
+  useEffect(() => {
+    notifyRef.current = notify;
+  }, [notify]);
+  
   // Always default to enabled for iOS devices
   const [enabled, setEnabled] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -225,7 +243,7 @@ export function useIOSNotificationService() {
         console.log(`Found ${userOrders.length} orders for current user (id: ${user?.id})`);
         
         // First run after logging in - just initialize
-        if (isFirstLoad) {
+        if (isFirstLoadRef.current) {
           console.log('First load of orders after login, initializing order cache without notifications');
           
           // Build initial order status map
@@ -263,14 +281,14 @@ export function useIOSNotificationService() {
         
         // Check for status changes by comparing with last known statuses
         const statusChanges = userOrders.filter(order => {
-          return lastKnownOrderStatuses[order.id] !== undefined && 
-                 lastKnownOrderStatuses[order.id] !== order.status;
+          return lastKnownOrderStatusesRef.current[order.id] !== undefined && 
+                 lastKnownOrderStatusesRef.current[order.id] !== order.status;
         });
         
         if (statusChanges.length > 0) {
           console.log('Detected status changes:', statusChanges.map(o => ({
             id: o.id,
-            oldStatus: lastKnownOrderStatuses[o.id],
+            oldStatus: lastKnownOrderStatusesRef.current[o.id],
             newStatus: o.status
           })));
         }
@@ -282,8 +300,8 @@ export function useIOSNotificationService() {
           
           // Two ways to detect updates:
           // 1. Status changed from previous known status
-          const statusChanged = lastKnownOrderStatuses[order.id] !== undefined && 
-                               lastKnownOrderStatuses[order.id] !== order.status;
+          const statusChanged = lastKnownOrderStatusesRef.current[order.id] !== undefined && 
+                               lastKnownOrderStatusesRef.current[order.id] !== order.status;
                                
           // 2. We haven't seen this specific update before
           const notSeenBefore = !localStorage.getItem(orderKey);
@@ -325,7 +343,7 @@ export function useIOSNotificationService() {
             }
             
             // Make iOS notifications more prominent and long-lasting
-            notify({
+            notifyRef.current({
               title: `${coffeeIcon}Order #${order.id} Update`,
               description: statusMessage,
               // Use a different variant for iOS to make it more noticeable
@@ -361,15 +379,16 @@ export function useIOSNotificationService() {
       }
     };
     
-    // Run once immediately
+    // Run once immediately when user logs in or notifications are enabled
     checkForOrderUpdates();
     
-    // Disable continuous polling entirely - rely on manual refresh and push notifications
-    // const intervalId = setInterval(checkForOrderUpdates, 300000);
+    // Set up frequent polling for real-time Square Kitchen Display integration
+    const intervalId = setInterval(checkForOrderUpdates, 30000); // 30 seconds for kitchen updates
     
-    // Clean up on unmount or when dependencies change  
-    return () => {};
-  }, [enabled, user, notify, lastSeenOrderUpdate, isFirstLoad, lastKnownOrderStatuses]);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [enabled, user]); // Fixed dependencies - only re-run when user logs in/out or notifications are toggled
 
   const enableNotifications = () => setEnabled(true);
   const disableNotifications = () => setEnabled(false);

@@ -40,7 +40,7 @@ export default function HomePage() {
   });
 
   // Fetch favorites for the popup
-  const { data: favoriteItems = [] } = useQuery<MenuItem[], Error>({
+  const { data: favoriteItems = [] } = useQuery<(MenuItem & { favoriteId: number; selectedSize?: string; selectedOptions?: any[]; customName?: string })[], Error>({
     queryKey: ["/api/favorites"],
     enabled: favoritesPopupOpen, // Only fetch when popup is open
     refetchOnWindowFocus: false,
@@ -146,19 +146,57 @@ export default function HomePage() {
     }
 
     let addedCount = 0;
+    let itemDetails: string[] = [];
+    
     selectedFavorites.forEach(itemId => {
       const item = favoriteItems.find(f => f.id === itemId);
       if (item) {
         try {
+          // Use stored size if available, otherwise default to small
+          const storedSize = item.selectedSize || (item.hasSizes ? "small" : undefined);
+          const storedOptions = item.selectedOptions || [];
+          
+          // Calculate price based on stored configuration
+          let finalPrice = item.price || 0;
+          if (item.hasSizes && storedSize) {
+            switch (storedSize) {
+              case 'medium':
+                finalPrice = item.mediumPrice || finalPrice * 1.25;
+                break;
+              case 'large':
+                finalPrice = item.largePrice || finalPrice * 1.5;
+                break;
+              default:
+                finalPrice = item.price || 0;
+            }
+          }
+          
+          // Add option price adjustments
+          const optionAdjustment = storedOptions.reduce((total: number, option: any) => 
+            total + (option.priceAdjustment || 0), 0);
+          finalPrice += optionAdjustment;
+          
           addToCart({
             menuItemId: item.id,
             name: item.name,
-            price: item.price,
+            price: finalPrice,
             quantity: 1,
             imageUrl: item.imageUrl || undefined,
-            size: item.hasSizes ? "small" : undefined,
-            options: []
+            size: storedSize,
+            options: storedOptions
           });
+          
+          // Build detailed description for notification
+          let itemDesc = item.name;
+          if (storedSize) {
+            itemDesc += ` (${storedSize.charAt(0).toUpperCase() + storedSize.slice(1)})`;
+          }
+          if (storedOptions.length > 0) {
+            const optionText = storedOptions.map((opt: any) => opt.value).join(', ');
+            itemDesc += ` with ${optionText}`;
+          }
+          itemDesc += ` - ${formatCurrency(finalPrice)}`;
+          itemDetails.push(itemDesc);
           addedCount++;
         } catch (error) {
           console.error(`Error adding ${item.name} to cart:`, error);
@@ -166,9 +204,14 @@ export default function HomePage() {
       }
     });
 
+    // Create detailed notification with all added items
+    const detailedDescription = addedCount === 1 
+      ? itemDetails[0] + " added to your cart"
+      : `${addedCount} items added:\n${itemDetails.join(', ')}`;
+
     notify({
       title: "Favorites Added to Cart",
-      description: `${addedCount} favorite item${addedCount !== 1 ? 's' : ''} added to your cart!`,
+      description: detailedDescription,
     });
 
     setFavoritesPopupOpen(false);
@@ -477,7 +520,7 @@ export default function HomePage() {
                         <span>Choose Items to Order</span>
                       </CardTitle>
                       <CardDescription>
-                        Select your favorite items to add to cart. All items will be added with default options.
+                        Select your favorite items to add to cart. Items with sizes/options will be added with default selections. You can customize them in your cart.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -510,7 +553,49 @@ export default function HomePage() {
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-slate-900 truncate">{item.name}</p>
                                 <p className="text-xs text-slate-600 truncate">{item.description}</p>
-                                <p className="text-sm font-semibold text-green-600">{formatCurrency(item.price)}</p>
+                                {/* Show stored configuration if available */}
+                                {(item.selectedSize || (item.selectedOptions && item.selectedOptions.length > 0)) && (
+                                  <p className="text-xs text-green-600 mt-1">
+                                    Saved: {item.selectedSize ? `${item.selectedSize.charAt(0).toUpperCase() + item.selectedSize.slice(1)}` : 'Default size'}
+                                    {item.selectedOptions && item.selectedOptions.length > 0 && 
+                                      ` with ${item.selectedOptions.map((opt: any) => opt.value).join(', ')}`
+                                    }
+                                  </p>
+                                )}
+                                {/* Show size options if available but no saved config */}
+                                {item.hasSizes && !item.selectedSize && (
+                                  <p className="text-xs text-blue-600 mt-1">
+                                    Sizes: Small {formatCurrency(item.price || 0)} | Medium {formatCurrency(item.mediumPrice || (item.price || 0) * 1.25)} | Large {formatCurrency(item.largePrice || (item.price || 0) * 1.5)}
+                                  </p>
+                                )}
+                                {/* Show calculated price based on saved config */}
+                                <p className="text-sm font-semibold text-green-600">
+                                  {(() => {
+                                    // Calculate price with stored configuration
+                                    let price = item.price || 0;
+                                    
+                                    // Add size price adjustments if size is selected
+                                    if (item.selectedSize) {
+                                      if (item.selectedSize === 'medium') {
+                                        price = item.mediumPrice || price * 1.25;
+                                      } else if (item.selectedSize === 'large') {
+                                        price = item.largePrice || price * 1.5;
+                                      }
+                                    }
+                                    
+                                    // Add option adjustments (regardless of size)
+                                    if (item.selectedOptions && item.selectedOptions.length > 0) {
+                                      price += item.selectedOptions.reduce((total: number, opt: any) => total + (opt.priceAdjustment || 0), 0);
+                                    }
+                                    
+                                    // Show calculated price if we have saved options or size, otherwise show base price
+                                    if (item.selectedOptions?.length > 0 || item.selectedSize) {
+                                      return formatCurrency(price);
+                                    }
+                                    
+                                    return item.hasSizes ? `From ${formatCurrency(item.price || 0)}` : formatCurrency(item.price || 0);
+                                  })()}
+                                </p>
                               </div>
                               {item.imageUrl && (
                                 <div className="w-12 h-12 bg-slate-200 rounded-lg flex-shrink-0 overflow-hidden">
@@ -571,7 +656,7 @@ export default function HomePage() {
                         </div>
                         <div className="flex items-start space-x-2">
                           <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">2</span>
-                          <p>Items will be added with default size and options</p>
+                          <p>Items will be added with saved size and options, or defaults</p>
                         </div>
                         <div className="flex items-start space-x-2">
                           <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">3</span>

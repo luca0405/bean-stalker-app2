@@ -114,8 +114,10 @@ export interface IStorage {
   // Favorites operations
   addFavorite(favorite: InsertFavorite): Promise<Favorite>;
   removeFavorite(userId: number, menuItemId: number): Promise<void>;
-  getUserFavorites(userId: number): Promise<MenuItem[]>;
+  getUserFavorites(userId: number): Promise<Favorite[]>;
+  getUserFavoritesWithDetails(userId: number): Promise<MenuItem[]>;
   isFavorite(userId: number, menuItemId: number): Promise<boolean>;
+  getFavoriteWithOptions(userId: number, menuItemId: number): Promise<Favorite | undefined>;
   
   // Session store
   sessionStore: session.Store;
@@ -1358,6 +1360,17 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+
+  async removeFavoriteById(favoriteId: number): Promise<void> {
+    try {
+      await this.db
+        .delete(favorites)
+        .where(eq(favorites.id, favoriteId));
+    } catch (error) {
+      console.error("Error removing favorite by ID:", error);
+      throw error;
+    }
+  }
   
   async getUserFavorites(userId: number): Promise<MenuItem[]> {
     try {
@@ -1380,6 +1393,38 @@ export class DatabaseStorage implements IStorage {
         .where(eq(favorites.userId, userId));
     } catch (error) {
       console.error("Error getting user favorites:", error);
+      throw error;
+    }
+  }
+
+  async getUserFavoritesWithDetails(userId: number): Promise<(MenuItem & { favoriteId: number; selectedSize?: string; selectedOptions?: any[]; customName?: string })[]> {
+    try {
+      // Join favorites with menu items and include the stored configuration
+      const results = await this.db
+        .select({
+          id: menuItems.id,
+          name: menuItems.name,
+          description: menuItems.description,
+          price: menuItems.price,
+          category: menuItems.category,
+          imageUrl: menuItems.imageUrl,
+          hasSizes: menuItems.hasSizes,
+          mediumPrice: menuItems.mediumPrice,
+          largePrice: menuItems.largePrice,
+          hasOptions: menuItems.hasOptions,
+          favoriteId: favorites.id,
+          selectedSize: favorites.selectedSize,
+          selectedOptions: favorites.selectedOptions,
+          customName: favorites.customName
+        })
+        .from(favorites)
+        .innerJoin(menuItems, eq(favorites.menuItemId, menuItems.id))
+        .where(eq(favorites.userId, userId));
+      
+      // selectedOptions is already parsed by Drizzle (jsonb type), no need to JSON.parse
+      return results;
+    } catch (error) {
+      console.error("Error getting user favorites with details:", error);
       throw error;
     }
   }
@@ -1904,6 +1949,87 @@ export class DatabaseStorage implements IStorage {
         ));
     } catch (error) {
       console.error("Error expiring pending credit transfers:", error);
+      throw error;
+    }
+  }
+
+  // Favorites methods (DatabaseStorage)
+  async addFavorite(favorite: InsertFavorite): Promise<Favorite> {
+    try {
+      const result = await this.db.insert(favorites).values(favorite).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error adding favorite:", error);
+      throw error;
+    }
+  }
+  
+  async removeFavorite(userId: number, menuItemId: number): Promise<void> {
+    try {
+      await this.db
+        .delete(favorites)
+        .where(
+          and(
+            eq(favorites.userId, userId),
+            eq(favorites.menuItemId, menuItemId)
+          )
+        );
+    } catch (error) {
+      console.error("Error removing favorite:", error);
+      throw error;
+    }
+  }
+  
+  async getUserFavorites(userId: number): Promise<Favorite[]> {
+    try {
+      return this.db
+        .select()
+        .from(favorites)
+        .where(eq(favorites.userId, userId))
+        .orderBy(desc(favorites.createdAt));
+    } catch (error) {
+      console.error("Error getting user favorites:", error);
+      throw error;
+    }
+  }
+  
+
+  
+  async isFavorite(userId: number, menuItemId: number): Promise<boolean> {
+    try {
+      const result = await this.db
+        .select()
+        .from(favorites)
+        .where(
+          and(
+            eq(favorites.userId, userId),
+            eq(favorites.menuItemId, menuItemId)
+          )
+        );
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error checking if item is favorite:", error);
+      throw error;
+    }
+  }
+  
+  async getFavoriteWithOptions(userId: number, menuItemId: number): Promise<Favorite | undefined> {
+    try {
+      const result = await this.db
+        .select()
+        .from(favorites)
+        .where(
+          and(
+            eq(favorites.userId, userId),
+            eq(favorites.menuItemId, menuItemId)
+          )
+        )
+        .limit(1);
+      
+      return result[0] || undefined;
+    } catch (error) {
+      console.error("Error getting favorite with options:", error);
       throw error;
     }
   }

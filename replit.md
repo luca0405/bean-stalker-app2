@@ -630,6 +630,21 @@ Changelog:
   - Migrated all components: push-notification-toggle.tsx, cart-page.tsx, enhanced-buy-credits.tsx
   - Native notifications provide consistent user experience across web and mobile platforms
   - Improved notification reliability and visual integration for iOS/Android native apps
+- July 25, 2025. Fixed infinite loop issue while maintaining Square Kitchen Display real-time integration
+  - Resolved critical infinite rendering loops caused by state dependencies in iOS notification context
+  - Implemented useRef-based solution to prevent re-renders while maintaining real-time polling functionality
+  - Square Kitchen Display integration preserved: 30-second polling for immediate order status notifications
+  - Fixed mobile viewport issues with dynamic viewport height (100dvh) and proper overflow handling
+  - Added safe area handling for notched devices and prevented black areas during scrolling
+  - Cart functions stabilized with fixed localStorage loading and proper context dependencies
+  - Bidirectional sync maintained: Bean Stalker orders → Square Kitchen + Square Kitchen status updates → app notifications
+- July 25, 2025. Enhanced favorites system to store complete product configurations with selected options
+  - Updated favorites database schema to include selectedSize and selectedOptions fields for storing user's custom product configurations
+  - Modified add favorites functionality to save selected size (small/medium/large) and all selected options (milk alternatives, flavors, etc.)
+  - Enhanced favorites notifications to display complete product details including size, options, and calculated price
+  - Updated storage interface and database methods to handle favorites with custom configurations
+  - Favorites now preserve user's exact product preferences instead of just saving base menu items
+  - Users can save their favorite Cappuccino with Almond Milk in Medium size and restore the exact same configuration later
 ```
 
 ## User Preferences

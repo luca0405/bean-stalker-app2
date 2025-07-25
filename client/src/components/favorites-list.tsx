@@ -1,9 +1,9 @@
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { MenuItem } from "@shared/schema";
+import { MenuItem, CartItemOption } from "@shared/schema";
 import { Loader2, ShoppingCart } from "lucide-react";
-import { MenuItemCard } from "./menu-item";
+import { FavoriteItemCard } from "./favorite-item-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ export function FavoritesList() {
   const { addToCart } = useCart();
   const { notify } = useNativeNotification();
 
-  const { data: favorites, isLoading, error } = useQuery<MenuItem[]>({
+  const { data: favorites, isLoading, error } = useQuery<(MenuItem & { favoriteId: number; selectedSize?: string; selectedOptions?: CartItemOption[]; customName?: string })[]>({
     queryKey: ['/api/favorites'],
     queryFn: async () => {
       if (!user) return [];
@@ -36,20 +36,41 @@ export function FavoritesList() {
       return;
     }
     
-    // Add each favorite item to cart
+    // Add each favorite item to cart with stored configurations
     favorites.forEach(item => {
-      // Convert null to undefined for imageUrl to satisfy type requirements
+      // Use stored size if available, otherwise default to small
+      const storedSize = item.selectedSize || (item.hasSizes ? "small" : undefined);
+      const storedOptions = item.selectedOptions || [];
+      
+      // Calculate price based on stored configuration
+      let finalPrice = item.price || 0;
+      if (item.hasSizes && storedSize) {
+        switch (storedSize) {
+          case 'medium':
+            finalPrice = item.mediumPrice || finalPrice * 1.25;
+            break;
+          case 'large':
+            finalPrice = item.largePrice || finalPrice * 1.5;
+            break;
+          default:
+            finalPrice = item.price || 0;
+        }
+      }
+      
+      // Add option price adjustments
+      const optionAdjustment = storedOptions.reduce((total: number, option: any) => 
+        total + (option.priceAdjustment || 0), 0);
+      finalPrice += optionAdjustment;
+      
       const cartItem = {
         menuItemId: item.id,
         name: item.name,
-        price: item.price,
-        quantity: 1
+        price: finalPrice,
+        quantity: 1,
+        imageUrl: item.imageUrl || undefined,
+        size: storedSize,
+        options: storedOptions
       };
-      
-      // Only add imageUrl if it exists
-      if (item.imageUrl) {
-        (cartItem as any).imageUrl = item.imageUrl;
-      }
       
       addToCart(cartItem);
     });
@@ -108,7 +129,7 @@ export function FavoritesList() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 my-4">
         {favorites.map((item) => (
-          <MenuItemCard key={item.id} item={item} />
+          <FavoriteItemCard key={item.id} item={item} />
         ))}
       </div>
     </div>
