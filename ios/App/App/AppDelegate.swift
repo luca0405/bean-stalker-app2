@@ -8,6 +8,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        
+        // Force fullscreen display
+        if #available(iOS 13.0, *) {
+            application.windows.first?.overrideUserInterfaceStyle = .light
+        }
+        
+        // Hide status bar globally for true fullscreen
+        application.isStatusBarHidden = true
+        
+        // Configure window for fullscreen
+        if let window = window {
+            window.frame = UIScreen.main.bounds
+            window.backgroundColor = UIColor.white
+        }
+        
         return true
     }
 

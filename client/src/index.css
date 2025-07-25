@@ -8,53 +8,19 @@
   }
 
   html {
-    /* Native iOS app base configuration */
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-    height: 100%;
-    width: 100%;
     margin: 0;
     padding: 0;
-    /* Prevent iOS zoom on input focus */
-    -webkit-text-size-adjust: 100%;
-    -webkit-touch-callout: none;
   }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    /* Native iOS app fullscreen configuration */
-    -webkit-overflow-scrolling: touch;
-    touch-action: manipulation;
-    height: 100vh !important;
-    height: 100dvh !important;
-    width: 100vw !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    /* Force native fullscreen positioning */
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    background-color: var(--background) !important;
+    margin: 0;
+    padding: 0;
   }
   
   #root {
-    /* Native iOS app root container - force fullscreen */
-    height: 100vh !important;
-    height: 100dvh !important;
-    width: 100vw !important;
-    overflow: auto !important;
-    box-sizing: border-box !important;
-    margin: 0 !important;
-    position: relative !important;
-    /* Native safe area handling */
-    padding-top: env(safe-area-inset-top) !important;
-    padding-left: env(safe-area-inset-left) !important;
-    padding-right: env(safe-area-inset-right) !important;
-    /* Eliminate any black space */
-    background-color: var(--background) !important;
+    margin: 0;
+    padding: 0;
   }
 
   /* Smooth scrolling for all scrollable elements */
@@ -149,25 +115,8 @@
     display: none; /* Chrome, Safari */
   }
 
-  /* Native iOS app fullscreen class - eliminate all black bars */
   .iphone-fullscreen {
-    height: 100vh !important;
-    height: 100dvh !important;
-    width: 100vw !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    position: relative !important;
-    overflow-x: hidden !important;
-    /* Hardware acceleration for native performance */
-    -webkit-transform: translateZ(0) !important;
-    transform: translateZ(0) !important;
-    /* Force background fill */
-    background-color: var(--background) !important;
-    /* Native safe area integration */
-    padding-top: env(safe-area-inset-top) !important;
-    padding-bottom: env(safe-area-inset-bottom) !important;
-    padding-left: env(safe-area-inset-left) !important;
-    padding-right: env(safe-area-inset-right) !important;
+    background-color: var(--background);
   }
 
   /* Full screen popup container */

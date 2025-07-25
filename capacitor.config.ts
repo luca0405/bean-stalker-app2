@@ -19,15 +19,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1000,
-      launchAutoHide: true,
-      backgroundColor: "#1B3C2A",
-      showSpinner: false,
-      splashFullScreen: true,
-      splashImmersive: true,
-      androidSplashResourceName: "splash",
-      androidScaleType: "CENTER_CROP",
-      iosSpinnerStyle: "small",
+      launchShowDuration: 500,
+      backgroundColor: "#ffffff",
+      showSpinner: false
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
@@ -43,17 +37,10 @@ const config: CapacitorConfig = {
     },
   },
   ios: {
-    // Native iOS fullscreen configuration
-    contentInset: 'automatic',
-    scrollEnabled: true,
-    allowsLinkPreview: false,
-    backgroundColor: '#1B3C2A',
-    // Disable web view scrolling bounce for native feel
-    allowsBackForwardNavigationGestures: false,
-    // Native keyboard behavior
-    keyboardDisplayRequiresUserAction: false,
-    // Native viewport configuration
-    limitsNavigationsToAppBoundDomains: false
+    backgroundColor: '#ffffff',
+    contentInset: 'never',
+    scrollEnabled: false,
+    allowsLinkPreview: false
   },
 };
 

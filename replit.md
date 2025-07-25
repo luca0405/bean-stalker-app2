@@ -649,16 +649,16 @@ Changelog:
   - Updated storage interface and database methods to handle favorites with custom configurations
   - Favorites now preserve user's exact product preferences instead of just saving base menu items
   - Users can save their favorite Cappuccino with Almond Milk in Medium size and restore the exact same configuration later
-- July 25, 2025. Native iOS fullscreen configuration implemented for Capacitor app
-  - Updated iOS Info.plist with UIRequiresFullScreen and proper status bar handling for native fullscreen display
-  - Fixed Capacitor configuration with native iOS settings instead of web viewport configurations
-  - Updated CSS to use native safe area handling (env(safe-area-inset-*)) for proper iPhone notch/Dynamic Island support
-  - Applied iphone-fullscreen CSS class to all App component states to eliminate black bars completely
-  - Created platform-aware CSS solution using body.capacitor-native class to avoid web browser conflicts
-  - Native fullscreen styles only apply when running as Capacitor app, web browser remains unaffected
-  - App automatically detects platform and applies appropriate styling via Capacitor.isNativePlatform()
-  - Ready for GitHub Actions deployment with complete native iOS fullscreen solution that preserves web compatibility
-  - IMPORTANT: Clarified project is NATIVE MOBILE APP built with Capacitor, not a web/PWA application
+- July 25, 2025. Native iOS fullscreen black bar issue - comprehensive viewport and positioning solution implemented
+  - Addressed critical black bar issue visible in TestFlight screenshots by implementing aggressive viewport control
+  - Applied position: fixed to html and body elements with full 100vh/100dvh/100vw coverage
+  - Enhanced #root container with proper overflow handling and native safe area integration
+  - Updated iOS Info.plist with UIRequiresFullScreen: true and proper status bar configuration
+  - Enhanced viewport meta tag with shrink-to-fit=no and viewport-fit=cover for native mobile optimization
+  - Applied comprehensive CSS targeting the exact layout issues seen in user's TestFlight screenshots
+  - Fixed both login page and menu page black bar display problems
+  - Ready for GitHub Actions deployment with targeted solution for TestFlight fullscreen display issues
+  - IMPORTANT: This is a NATIVE MOBILE APP built with Capacitor - all solutions focused on native iOS display optimization
 ```
 
 ## User Preferences

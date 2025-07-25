@@ -44,23 +44,28 @@
                 <string>UIInterfaceOrientationLandscapeRight</string>
         </array>
         <key>UIViewControllerBasedStatusBarAppearance</key>
-        <false/>
+        <true/>
         <key>UIStatusBarHidden</key>
-        <false/>
-        <key>UIStatusBarStyle</key>
-        <string>UIStatusBarStyleLightContent</string>
+        <true/>
         <key>UIRequiresFullScreen</key>
         <true/>
         <key>UILaunchStoryboardName</key>
         <string>LaunchScreen</string>
-        <key>UIViewContentModeRedraw</key>
-        <true/>
         <key>UIApplicationSupportsIndirectInputEvents</key>
         <true/>
-        <key>UIInterfaceOrientationPortrait</key>
+        <key>UIInterfaceOrientation</key>
+        <string>UIInterfaceOrientationPortrait</string>
+        <key>UIViewContentModeRedraw</key>
         <true/>
-        <key>UIUserInterfaceStyle</key>
-        <string>Light</string>
+        <key>UIMainStoryboardFile</key>
+        <string>Main</string>
+        <key>UILaunchScreen</key>
+        <dict>
+            <key>UIColorName</key>
+            <string></string>
+            <key>UIImageName</key>
+            <string></string>
+        </dict>
         <key>NSAppTransportSecurity</key>
         <dict>
                 <key>NSAllowsArbitraryLoads</key>
