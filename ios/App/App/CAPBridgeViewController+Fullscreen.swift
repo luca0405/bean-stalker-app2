@@ -30,8 +30,8 @@ extension CAPBridgeViewController {
             webView.scrollView.backgroundColor = UIColor.white
             webView.scrollView.contentInsetAdjustmentBehavior = .never
             webView.scrollView.automaticallyAdjustsScrollIndicatorInsets = false
-            webView.scrollView.bounces = false
-            webView.scrollView.alwaysBounceVertical = false
+            webView.scrollView.bounces = true
+            webView.scrollView.alwaysBounceVertical = true
             webView.scrollView.alwaysBounceHorizontal = false
             
             // Remove any content insets

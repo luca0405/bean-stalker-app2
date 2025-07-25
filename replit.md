@@ -660,6 +660,11 @@ Changelog:
   - Added pb-32 padding to all pages to prevent content overlap with floating navigation
   - Native iOS Swift solution provides reliable fullscreen without CSS complexity
   - Build successfully synced to iOS project and ready for GitHub Actions TestFlight deployment
+- July 25, 2025. Fixed iOS native scrolling issue by enabling bounce scrolling in Swift configuration
+  - Root cause identified: webView.scrollView.bounces = false was preventing all page scrolling
+  - Updated CAPBridgeViewController+Fullscreen.swift to enable bounce scrolling (bounces = true, alwaysBounceVertical = true)
+  - All pages now properly scrollable while maintaining fullscreen display and status bar visibility
+  - Native iOS scrolling behavior restored with proper bounce effects for smooth user experience
 ```
 
 ## User Preferences
