@@ -131,14 +131,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // Initialize RevenueCat after login with user's ID for sandbox testing
+      // CRITICAL: Re-initialize RevenueCat after login with user's ID for native payment popups
       if (Capacitor.isNativePlatform() && userData && 'id' in userData && userData.id) {
+        console.log('💳 AUTH: Re-initializing RevenueCat after login for user:', userData.id);
         iapService.initializeWithUserID(userData.id.toString()).then(success => {
           if (success) {
-            console.log('RevenueCat initialized after login with user ID:', userData.id);
+            console.log('💳 AUTH: RevenueCat re-initialized successfully for native payments');
+          } else {
+            console.error('💳 AUTH: RevenueCat re-initialization failed');
           }
         }).catch(error => {
-          console.error('RevenueCat login initialization error:', error);
+          console.error('💳 AUTH: RevenueCat initialization error:', error);
         });
       }
     },
@@ -194,14 +197,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: `Welcome, ${userData.username}!`,
       });
       
-      // Initialize RevenueCat after registration with new user's ID for sandbox testing
+      // CRITICAL: Re-initialize RevenueCat after registration with new user's ID for native payment popups
       if (Capacitor.isNativePlatform() && userData && 'id' in userData && userData.id) {
+        console.log('💳 AUTH: Re-initializing RevenueCat after registration for user:', userData.id);
         iapService.initializeWithUserID(userData.id.toString()).then(success => {
           if (success) {
-            console.log('RevenueCat initialized after registration with user ID:', userData.id);
+            console.log('💳 AUTH: RevenueCat re-initialized successfully for native payments after registration');
+          } else {
+            console.error('💳 AUTH: RevenueCat re-initialization failed after registration');
           }
         }).catch(error => {
-          console.error('RevenueCat registration initialization error:', error);
+          console.error('💳 AUTH: RevenueCat initialization error after registration:', error);
         });
       }
     },

@@ -21,13 +21,15 @@ export function useBiometricAuth() {
     isLoading: true,
   });
 
-  // Check biometric availability on mount
+  // Check biometric availability on mount with enhanced initialization
   useEffect(() => {
+    console.log('🔐 BIOMETRIC: Initializing biometric authentication system...');
     checkBiometricAvailability();
   }, []);
 
   const checkBiometricAvailability = async () => {
     try {
+      console.log('🔐 BIOMETRIC: Checking availability and stored credentials...');
       setBiometricState(prev => ({ ...prev, isLoading: true }));
 
       const [isAvailable, biometricType, hasStoredCredentials] = await Promise.all([
@@ -36,6 +38,12 @@ export function useBiometricAuth() {
         biometricService.hasStoredCredentials(),
       ]);
 
+      console.log('🔐 BIOMETRIC: Check results:', {
+        isAvailable,
+        biometricType,
+        hasStoredCredentials
+      });
+
       setBiometricState({
         isAvailable,
         biometricType,
@@ -43,7 +51,7 @@ export function useBiometricAuth() {
         isLoading: false,
       });
     } catch (error) {
-      console.error('Error checking biometric availability:', error);
+      console.error('🔐 BIOMETRIC: Error checking availability:', error);
       setBiometricState(prev => ({ 
         ...prev, 
         isLoading: false,
@@ -54,12 +62,17 @@ export function useBiometricAuth() {
 
   const authenticateWithBiometrics = async (): Promise<boolean> => {
     try {
-      console.log('Starting biometric authentication process...');
-      console.log('Biometric state:', {
+      console.log('🔐 Starting biometric authentication process...');
+      console.log('🔐 Current biometric state:', {
         isAvailable: biometricState.isAvailable,
         biometricType: biometricState.biometricType,
-        hasStoredCredentials: biometricState.hasStoredCredentials
+        hasStoredCredentials: biometricState.hasStoredCredentials,
+        isLoading: biometricState.isLoading
       });
+
+      // Re-check credentials in real-time in case they were just saved
+      const hasRealTimeCredentials = await biometricService.hasStoredCredentials();
+      console.log('🔐 Real-time credential check:', hasRealTimeCredentials);
 
       if (!biometricState.isAvailable) {
         notify({
@@ -70,7 +83,7 @@ export function useBiometricAuth() {
         return false;
       }
 
-      if (!biometricState.hasStoredCredentials) {
+      if (!hasRealTimeCredentials) {
         notify({
           title: "No Biometric Login Set Up",
           description: "Sign in with password first to enable biometric login",
@@ -81,7 +94,7 @@ export function useBiometricAuth() {
 
       // Perform biometric authentication with enhanced error handling
       console.log('Calling biometric service authenticate...');
-      const credentials = await biometricService.authenticateWithBiometrics();
+      const credentials = await biometricService.authenticate();
       console.log('Biometric authentication result:', credentials ? 'success' : 'failed');
       
       if (credentials && credentials.username && credentials.password) {

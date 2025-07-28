@@ -829,6 +829,27 @@ Changelog:
   - IAP service now always uses RevenueCat without platform detection checks
   - Simplified authentication flow to be purely native mobile focused
   - Enhanced user experience by removing unnecessary platform branching logic
+- July 28, 2025. CRITICAL BUG FIXES: Three major authentication and payment issues resolved
+  - Fixed RevenueCat native payment popup by re-initializing with authenticated user ID after login/registration
+  - Enhanced Face ID authentication with real-time credential checks and comprehensive error handling
+  - Improved device binding authentication flow with proper username display and validation
+  - Updated authentication hooks to properly set RevenueCat user ID for each authenticated user
+  - Fixed biometric service crash protection with comprehensive null safety and error handling
+  - Native payment popups now properly trigger after user authentication with correct RevenueCat user mapping
+- July 28, 2025. CRITICAL FIX: Double crediting issue completely resolved ($138 → $69)
+  - Fixed ALL server-side registration endpoints to create accounts with 0 credits instead of $69
+  - Removed duplicate credit transaction creation from multiple registration endpoints
+  - Enhanced membership registration flow to rely solely on RevenueCat IAP → webhook → credit addition process
+  - Registration now creates account structure only, RevenueCat purchase adds the actual $69 credit through webhook
+  - Eliminated server-side crediting: /api/register-with-membership, /payment-success, and Square payment endpoints
+  - Native membership payment now relies exclusively on RevenueCat IAP for proper single $69 credit addition
+- July 28, 2025. Native payment popup implementation verified and enhanced for TestFlight testing
+  - Confirmed RevenueCat re-initialization with authenticated user ID for both login and registration flows
+  - Enhanced comprehensive logging throughout IAP service for native payment popup troubleshooting
+  - Verified proper user ID mapping: registration → login → RevenueCat re-init → native Apple Pay popup
+  - Authentication hooks properly set RevenueCat user ID for each authenticated user session
+  - Enhanced purchase flow with detailed product search and native popup launch logging
+  - Native payment popup system ready for TestFlight IAP testing with proper user authentication
 ```
 
 ## User Preferences

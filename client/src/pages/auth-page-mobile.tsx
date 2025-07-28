@@ -129,19 +129,24 @@ export default function AuthPageMobile() {
       effectiveUsername,
       passwordProvided: !!loginData.password,
       passwordLength: loginData.password?.length || 0,
-      passwordValue: loginData.password || 'EMPTY',
+      passwordNonEmpty: loginData.password && loginData.password.trim() !== '',
       rawLoginData: JSON.stringify(loginData)
     });
     
-    if (!effectiveUsername || !loginData.password || loginData.password.trim() === '') {
-      console.log('❌ Login validation failed - missing fields:', {
-        effectiveUsername: !!effectiveUsername,
-        passwordProvided: !!loginData.password,
-        passwordTrimmed: loginData.password?.trim() || 'EMPTY'
-      });
+    // Fixed validation logic - check password properly
+    if (!effectiveUsername) {
       notify({
-        title: "Please fill in all fields",
-        description: hasDeviceBinding ? "Password is required" : "Username and password are required",
+        title: "Username required",
+        description: "Please enter your username",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!loginData.password || loginData.password.trim() === '') {
+      notify({
+        title: "Password required", 
+        description: "Please enter your password",
         variant: "destructive",
       });
       return;
@@ -265,15 +270,18 @@ export default function AuthPageMobile() {
             // Small delay to ensure login session is established
             await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // Set RevenueCat user ID and purchase the membership product
-            console.log('💳 Setting RevenueCat user ID for new user before purchase:', newUser.id);
-            await iapService.setUserID(newUser.id.toString());
+            // CRITICAL: Re-initialize RevenueCat with authenticated user's ID for native payment popup
+            console.log('💳 Re-initializing RevenueCat with authenticated user ID for native payment popup:', newUser.id);
+            const iapInitSuccess = await iapService.initializeWithUserID(newUser.id.toString());
+            if (!iapInitSuccess) {
+              throw new Error('Failed to initialize RevenueCat for payment processing');
+            }
             
-            // Extra delay to ensure RevenueCat user change is processed
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Allow RevenueCat user initialization to complete
+            await new Promise(resolve => setTimeout(resolve, 3000));
             
-            console.log('💳 Processing membership payment for authenticated user...');
-            console.log('💳 Triggering native payment popup for com.beanstalker.membership69');
+            console.log('💳 Processing membership payment with native IAP popup...');
+            console.log('💳 Triggering Apple Pay popup for com.beanstalker.membership69');
             const purchaseResult = await purchaseProduct('com.beanstalker.membership69');
             
             if (purchaseResult.success) {

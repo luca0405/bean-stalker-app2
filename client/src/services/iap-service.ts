@@ -97,10 +97,12 @@ class IAPService {
   
   async initializeWithUserID(userID: string): Promise<boolean> {
     try {
-      // Native mobile app - initialize RevenueCat with specific user ID
+      console.log('💳 IAP: CRITICAL - Re-initializing RevenueCat for native payment popups with user ID:', userID);
+      
+      // Native mobile app - initialize RevenueCat with specific user ID for native payment popups
       const initSuccess = await SandboxForceOverride.initializeForcesSandbox(userID);
       if (!initSuccess) {
-        console.error('🔥 IAP: Sandbox force initialization with user ID failed');
+        console.error('💳 IAP: CRITICAL - Sandbox force initialization with user ID failed');
         return false;
       }
       
@@ -108,11 +110,12 @@ class IAPService {
       this.offerings = loadedOfferings;
       
       this.isInitialized = true;
-      console.log('🔥 IAP: SANDBOX IAP INITIALIZATION COMPLETE WITH USER ID:', userID);
+      console.log('💳 IAP: SUCCESS - RevenueCat re-initialized with user ID for native payment popups:', userID);
+      console.log('💳 IAP: Offerings loaded:', this.offerings.length, '- Native Apple Pay popups should now work');
       
       return true;
     } catch (error) {
-      console.error('IAP: Failed to initialize with user ID', error);
+      console.error('💳 IAP: CRITICAL ERROR - Failed to initialize with user ID for native payments:', error);
       return false;
     }
   }
@@ -316,15 +319,21 @@ class IAPService {
       throw new Error('IAP service not initialized');
     }
 
+    console.log('💳 IAP: TRIGGERING NATIVE PAYMENT POPUP for product:', productId);
+    
     // Native mobile app - always use RevenueCat
     try {
       // Find the package for this product
       let targetPackage: PurchasesPackage | null = null;
       
+      console.log('💳 IAP: Searching for product in', this.offerings.length, 'offerings...');
       for (const offering of this.offerings) {
+        console.log('💳 IAP: Checking offering:', offering.identifier, 'with', offering.availablePackages.length, 'packages');
         for (const packageObj of offering.availablePackages) {
+          console.log('💳 IAP: Found package product:', packageObj.product.identifier);
           if (packageObj.product.identifier === productId) {
             targetPackage = packageObj;
+            console.log('💳 IAP: FOUND TARGET PACKAGE for native payment popup:', productId);
             break;
           }
         }
@@ -332,10 +341,14 @@ class IAPService {
       }
 
       if (!targetPackage) {
+        console.error('💳 IAP: CRITICAL - Product not found for native payment popup:', productId);
+        console.error('💳 IAP: Available products:', this.offerings.flatMap(o => o.availablePackages.map(p => p.product.identifier)));
         throw new Error(`Product ${productId} not found`);
       }
 
-      // Make the purchase
+      console.log('💳 IAP: LAUNCHING NATIVE APPLE PAY POPUP...');
+      
+      // Make the purchase - this should trigger the native Apple Pay popup
       const result = await Purchases.purchasePackage({ 
         aPackage: targetPackage 
       });

@@ -13,49 +13,54 @@ export class SandboxForceOverride {
 
   static async initializeForcesSandbox(userID?: string): Promise<boolean> {
     try {
-      // Only log in development or when diagnostics enabled
-      const shouldLog = !import.meta.env.PROD || import.meta.env.VITE_ENABLE_IAP_LOGS === 'true';
-      if (shouldLog) {
-        console.log('🚀 SANDBOX FORCE: Initializing sandbox IAP for production testing');
-        console.log('🚀 SANDBOX FORCE: Production app with sandbox IAP configuration');
-      }
+      console.log('💳 NATIVE IAP: Initializing RevenueCat for native payment popups');
+      console.log('💳 NATIVE IAP: User ID for IAP:', userID);
       
-      // Set appropriate log level based on environment
-      const logLevel = import.meta.env.PROD ? LOG_LEVEL.INFO : LOG_LEVEL.DEBUG;
-      await Purchases.setLogLevel({ level: logLevel });
-      if (shouldLog) {
-        console.log('🚀 SANDBOX FORCE: RevenueCat logging configured');
-      }
+      // Always use verbose logging for IAP debugging
+      await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+      console.log('💳 NATIVE IAP: Debug logging enabled');
       
-      // Configure with sandbox settings and dynamic user ID for testing
+      // Configure with sandbox settings and dynamic user ID
       const config = {
         ...this.HARDCODED_CONFIG,
-        appUserID: userID || undefined, // Use provided user ID for sandbox testing
+        appUserID: userID || undefined, // Critical: Use actual user ID for payments
       };
       
-      if (shouldLog) {
-        console.log('🚀 SANDBOX FORCE: Configuring with sandbox settings');
-        console.log('🚀 SANDBOX FORCE: API Key:', config.apiKey.substring(0, 12) + '...');
-        console.log('🚀 SANDBOX FORCE: User ID:', userID || 'anonymous (RevenueCat will generate)');
-      }
+      console.log('💳 NATIVE IAP: Configuring RevenueCat with settings:');
+      console.log('💳 NATIVE IAP: API Key:', config.apiKey.substring(0, 12) + '...');
+      console.log('💳 NATIVE IAP: User ID:', userID || 'anonymous');
+      console.log('💳 NATIVE IAP: Observer Mode:', config.observerMode);
+      console.log('💳 NATIVE IAP: StoreKit2:', config.usesStoreKit2IfAvailable);
       
       await Purchases.configure(config);
-      if (shouldLog) {
-        console.log('🚀 SANDBOX FORCE: RevenueCat configured successfully');
-      }
+      console.log('💳 NATIVE IAP: RevenueCat configured successfully');
       
       // Verify payment capability
       const canMakePayments = await Purchases.canMakePayments();
-      if (shouldLog) {
-        console.log('🚀 SANDBOX FORCE: Can make payments:', canMakePayments);
-        if (!canMakePayments) {
-          console.warn('🚀 SANDBOX FORCE: Payment capability disabled - check sandbox account');
-        }
+      console.log('💳 NATIVE IAP: Payment capability check:', canMakePayments);
+      if (!canMakePayments) {
+        console.error('💳 NATIVE IAP: CRITICAL - Payment capability disabled!');
+        console.error('💳 NATIVE IAP: Check Apple ID sandbox account and device settings');
+      } else {
+        console.log('💳 NATIVE IAP: Payment capability confirmed - native popups should work');
       }
       
       return true;
     } catch (error) {
-      console.error('🚀 SANDBOX FORCE: Failed to initialize:', error);
+      console.error('💳 NATIVE IAP: Failed to initialize:', error);
+      return false;
+    }
+  }
+  
+  // Set user ID for RevenueCat after initialization
+  static async setUserID(userID: string): Promise<boolean> {
+    try {
+      console.log('💳 NATIVE IAP: Changing user ID to:', userID);
+      await Purchases.logIn({ appUserID: userID });
+      console.log('💳 NATIVE IAP: User ID changed successfully');
+      return true;
+    } catch (error) {
+      console.error('💳 NATIVE IAP: Failed to set user ID:', error);
       return false;
     }
   }

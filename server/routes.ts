@@ -622,26 +622,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Create user with membership benefits
+      // FIXED: Create user with NO credits - RevenueCat IAP will add the actual $69
       const hashedPassword = await hashPassword(userData.password);
       const qrCodeData = await QRCode.toDataURL(`user:${userData.username}`);
       
       const newUser = await storage.createUser({
         ...userData,
         password: hashedPassword,
-        credits: 69, // AUD$69 membership credit
+        credits: 0, // Start with 0 credits - RevenueCat IAP will add $69
         isActive: true,
         qrCode: qrCodeData
       });
 
-      // Record membership transaction
-      await storage.createCreditTransaction({
-        userId: newUser.id,
-        type: "membership_payment",
-        amount: 69,
-        balanceAfter: 69,
-        description: "Premium membership payment - AUD$69 credit"
-      });
+      console.log(`💳 MEMBERSHIP: User ${newUser.id} created with 0 credits - RevenueCat IAP will handle crediting`);
 
       // Auto-login the new user
       req.login(newUser, (err) => {
@@ -651,9 +644,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         res.status(201).json({ 
-          message: 'Premium membership activated successfully',
+          message: 'Premium membership activated successfully - credits will be added via RevenueCat IAP',
           user: { ...newUser, password: undefined },
-          membershipCredit: 69,
+          membershipCredit: 0, // Credits come from RevenueCat webhook, not server
           paymentId: paymentId
         });
       });
@@ -797,14 +790,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (userData && typeof userData === 'string') {
         const userInfo = JSON.parse(decodeURIComponent(userData));
         
-        // Create user account with premium membership
+        // FIXED: Create user account with NO credits - RevenueCat IAP will add $69
         const hashedPassword = await hashPassword(userInfo.password);
         const newUser = await storage.createUser({
           username: userInfo.username,
           password: hashedPassword,
           email: userInfo.email,
           fullName: userInfo.fullName,
-          credits: 69, // AUD$69 credit from membership fee
+          credits: 0, // Start with 0 credits - RevenueCat IAP will add $69
           isActive: true
         });
         
@@ -812,17 +805,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const qrCodeData = await QRCode.toDataURL(`user:${newUser.id}`);
         await storage.updateUserQrCode(newUser.id, qrCodeData);
         
-        // Record the membership transaction
-        await storage.createCreditTransaction({
-          userId: newUser.id,
-          type: "membership",
-          amount: 69,
-          balanceAfter: 69,
-          description: "Premium membership activation - AUD$69 credit",
-        });
+        console.log(`💳 MEMBERSHIP: User ${newUser.id} created via payment-success with 0 credits - RevenueCat IAP will handle crediting`);
         
         // Redirect to login with success message
-        res.redirect(`/auth?registration=success&message=Premium membership activated! Please log in with your credentials.`);
+        res.redirect(`/auth?registration=success&message=Premium membership activated! Credits will be added via RevenueCat IAP. Please log in with your credentials.`);
         return;
       }
     } catch (error) {
