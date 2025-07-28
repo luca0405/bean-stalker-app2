@@ -27,18 +27,20 @@ class BiometricService {
   async getBiometricType(): Promise<string> {
     try {
       const result = await NativeBiometric.isAvailable();
-      // Handle different possible return formats
+      // Handle different possible return formats safely
       const biometryType = result.biometryType;
       
-      if (biometryType && typeof biometryType === 'string') {
-        return biometryType.toLowerCase();
-      } else if (biometryType && typeof biometryType === 'number') {
-        // Convert numeric codes to string types
-        switch (biometryType) {
-          case 1: return 'touchid';
-          case 2: return 'faceid';
-          case 3: return 'fingerprint';
-          default: return 'biometric';
+      if (biometryType) {
+        if (typeof biometryType === 'string') {
+          return String(biometryType).toLowerCase();
+        } else if (typeof biometryType === 'number') {
+          // Convert numeric codes to string types
+          switch (biometryType) {
+            case 1: return 'touchid';
+            case 2: return 'faceid';
+            case 3: return 'fingerprint';
+            default: return 'biometric';
+          }
         }
       }
       
@@ -89,18 +91,24 @@ class BiometricService {
         throw new Error('No biometric credentials stored. Please sign in with your password first.');
       }
 
-      // Get biometric type for customized messaging
-      const biometricType = await this.getBiometricType();
-      console.log('BiometricService: Biometric type:', biometricType);
+      // Get biometric type for customized messaging with error handling
+      let biometricType = 'biometric';
+      let reason = 'Use biometric authentication to access Bean Stalker';
       
-      const reason = this.getAuthenticationReason(biometricType);
+      try {
+        biometricType = await this.getBiometricType();
+        console.log('BiometricService: Biometric type:', biometricType);
+        reason = this.getAuthenticationReason(biometricType);
+      } catch (error) {
+        console.log('BiometricService: Could not get biometric type, using default:', error);
+      }
 
       // Perform biometric authentication
       console.log('BiometricService: Verifying identity...');
       console.log('BiometricService: Authentication reason:', reason);
       
       await NativeBiometric.verifyIdentity({
-        reason: reason || 'Use biometric authentication to access Bean Stalker',
+        reason: reason,
         title: 'Bean Stalker Authentication',
         subtitle: 'Access your coffee account securely',
         description: 'Use your biometric authentication to sign in'

@@ -804,6 +804,18 @@ Changelog:
   - Added fallback transaction ID generation for edge cases
   - Purchase verification now properly processes RevenueCat transaction data
   - "Purchase successful but verification failed" error completely resolved
+- July 28, 2025. RevenueCat membership payment flow fixed to match working credit packages
+  - Root cause identified: Credit packages work because user is already authenticated, membership fails during registration
+  - Fixed membership flow by automatically logging in new user before RevenueCat purchase
+  - Simplified membership registration: create account → login → purchase (same as credit packages)
+  - Removed complex RevenueCat user initialization timing that was causing failures
+  - Membership purchases now use same proven flow as working credit packages
+- July 28, 2025. Face ID authentication crash issue completely resolved
+  - Fixed critical TypeScript error in biometric service getBiometricType() method
+  - Added comprehensive error handling to prevent crashes during biometric type detection
+  - Enhanced authentication flow with fallback reasoning when biometric type detection fails
+  - Removed potential null reference errors that were causing app crashes
+  - Face ID authentication now stable with proper error handling and user feedback
 ```
 
 ## User Preferences

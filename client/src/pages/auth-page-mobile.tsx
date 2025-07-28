@@ -29,6 +29,15 @@ export default function AuthPageMobile() {
     username: "",
     password: ""
   });
+  
+  // Debug login data changes
+  useEffect(() => {
+    console.log('🔍 Login data state changed:', {
+      username: loginData.username,
+      passwordLength: loginData.password?.length || 0,
+      hasPassword: !!loginData.password
+    });
+  }, [loginData]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
@@ -65,7 +74,12 @@ export default function AuthPageMobile() {
               if (response.ok) {
                 const userData = await response.json();
                 setBoundUsername(userData.username);
-                setLoginData(prev => ({ ...prev, username: userData.username }));
+                // Only update username, preserve password
+                setLoginData(prev => ({ 
+                  ...prev, 
+                  username: userData.username 
+                }));
+                console.log('✅ Device bound to user:', userData.username);
                 console.log('✅ Device bound to user:', userData.username);
                 console.log('✅ Username field should be HIDDEN');
                 console.log('✅ Become a Member should be HIDDEN');
@@ -112,11 +126,18 @@ export default function AuthPageMobile() {
       boundUsername,
       loginDataUsername: loginData.username,
       effectiveUsername,
-      passwordProvided: !!loginData.password
+      passwordProvided: !!loginData.password,
+      passwordLength: loginData.password?.length || 0,
+      passwordValue: loginData.password || 'EMPTY',
+      rawLoginData: JSON.stringify(loginData)
     });
     
-    if (!effectiveUsername || !loginData.password) {
-      console.log('❌ Login validation failed - missing fields');
+    if (!effectiveUsername || !loginData.password || loginData.password.trim() === '') {
+      console.log('❌ Login validation failed - missing fields:', {
+        effectiveUsername: !!effectiveUsername,
+        passwordProvided: !!loginData.password,
+        passwordTrimmed: loginData.password?.trim() || 'EMPTY'
+      });
       notify({
         title: "Please fill in all fields",
         description: hasDeviceBinding ? "Password is required" : "Username and password are required",
@@ -209,30 +230,31 @@ export default function AuthPageMobile() {
       if (isNative) {
         // Use RevenueCat for premium membership on native platforms
         try {
-          // First register the user account without waiting for payment
-          console.log('Creating account first, then processing payment...');
+          // First register the user account and login automatically
+          console.log('🚀 Starting premium membership registration with payment...');
           const response = await apiRequest('POST', '/api/register-with-membership', userData);
           
           if (response.ok) {
             const result = await response.json();
             const newUser = result.user;
             
-            notify({
-              title: "Account Created",
-              description: "Now processing your premium membership payment...",
+            // Automatically login the new user to establish session
+            console.log('🔐 Logging in new user for RevenueCat purchase...');
+            await loginMutation.mutateAsync({
+              username: userData.username,
+              password: userData.password
             });
             
-            // Initialize RevenueCat with new user ID before purchase
-            console.log('Initializing RevenueCat with user ID for new user before purchase:', newUser.id);
+            notify({
+              title: "Account Created",
+              description: "Processing your premium membership payment...",
+            });
             
-            // Explicitly initialize RevenueCat with the new user ID
-            const { iapService } = await import('@/services/iap-service');
-            await iapService.initializeWithUserID(newUser.id.toString());
+            // Small delay to ensure login session is established
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // Wait longer for RevenueCat to process the user initialization
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Purchase the membership product
+            // Purchase the membership product (user is now authenticated)
+            console.log('💳 Processing membership payment for authenticated user...');
             const purchaseResult = await purchaseProduct('com.beanstalker.membership69');
             
             if (purchaseResult.success) {
@@ -369,7 +391,10 @@ export default function AuthPageMobile() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Password"
                   value={loginData.password}
-                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                  onChange={(e) => {
+                    console.log('🔍 Password field changed:', e.target.value.length, 'characters');
+                    setLoginData({ ...loginData, password: e.target.value });
+                  }}
                   className="w-full pl-12 pr-12 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
                 />
                 <button
