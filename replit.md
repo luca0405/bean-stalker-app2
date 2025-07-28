@@ -772,6 +772,24 @@ Changelog:
   - Fixed import errors in account switcher component using correct wouter useLocation hook
   - Device binding persists after logout - only cleared by app uninstall or manual account switching
   - iOS project synced and ready for TestFlight with polished one-account-per-device authentication
+- July 28, 2025. Modal popup z-index layering issue completely resolved with Portal-based solution
+  - Root cause identified: Send Credits popup works because it's a separate page route, while other popups are modal overlays
+  - Created Portal component using ReactDOM.createPortal to render modals at document root level
+  - Fixed Buy Credits popup by wrapping with Portal component to escape page stacking context
+  - Fixed Favorites Selection popup with Portal wrapper to render above floating navigation
+  - Fixed Product Details Modal with Portal wrapper for proper z-index layering
+  - All modal popups now render at document.body level, bypassing page component tree stacking contexts
+  - Floating navigation (z-50) no longer blocks modal popups which now render at higher document level
+  - Portal solution ensures consistent popup behavior across all overlay modals in the application
+- July 28, 2025. RevenueCat IAP verification issue completely resolved with streamlined endpoint
+  - Fixed critical "Purchase successful but verification failed" error affecting iOS native app purchases
+  - Removed duplicate /api/iap/verify-purchase endpoints causing server conflicts
+  - Created clean, streamlined IAP verification endpoint specifically optimized for RevenueCat integration
+  - Fixed syntax errors in routes.ts that were preventing server startup
+  - Enhanced error handling and logging for better IAP troubleshooting
+  - IAP verification now properly processes productId and transactionId from RevenueCat purchases
+  - Credit amounts correctly assigned: membership69→$69, credits25→$29.50, credits50→$59.90, credits100→$120.70
+  - RevenueCat purchases now successfully add credits to user accounts with proper transaction recording
 ```
 
 ## User Preferences

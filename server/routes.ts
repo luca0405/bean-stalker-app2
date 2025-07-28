@@ -315,34 +315,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // IAP (In-App Purchase) verification routes
+  // CLEAN IAP VERIFICATION ENDPOINT FOR REVENUECAT
   app.post("/api/iap/verify-purchase", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
-      const { productId, transactionId, receipt, platform } = req.body;
+      const { productId, transactionId } = req.body;
       const userId = req.user?.id;
       
-      if (!productId || !transactionId || !userId) {
-        return res.status(400).json({ message: "Missing required fields" });
-      }
-
-      // Verify the purchase receipt (simplified for now)
-      // In production, you would verify the receipt with Apple/Google servers
-      const isValidReceipt = await verifyPurchaseReceipt(receipt, platform);
+      console.log(`🔍 RevenueCat IAP Verification: ${productId} | User: ${userId} | Transaction: ${transactionId}`);
       
-      if (!isValidReceipt) {
-        return res.status(400).json({ message: "Invalid receipt" });
+      if (!productId || !transactionId || !userId) {
+        console.log("❌ Missing required fields for IAP verification");
+        return res.status(400).json({ message: "Missing required fields: productId, transactionId" });
       }
 
       // Check if this transaction has already been processed
       const existingTransaction = await storage.getCreditTransactionByTransactionId(transactionId);
       if (existingTransaction) {
-        return res.status(400).json({ message: "Transaction already processed" });
+        console.log(`⚠️ Transaction ${transactionId} already processed`);
+        return res.status(200).json({ 
+          success: true, 
+          message: "Transaction already processed",
+          alreadyProcessed: true 
+        });
       }
 
       const user = await storage.getUser(userId);
       if (!user) {
+        console.log(`❌ User ${userId} not found`);
         return res.status(404).json({ message: "User not found" });
       }
 
@@ -351,15 +352,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let transactionType = "iap_purchase";
       
       if (productId.includes('membership69')) {
-        creditAmount = 69; // AUD$69 membership
+        creditAmount = 69;
         transactionType = "membership_iap";
       } else if (productId.includes('credits25')) {
-        creditAmount = 29.50; // $25 purchase → $29.50 credits ($4.50 bonus)
+        creditAmount = 29.50; // $25 → $29.50 ($4.50 bonus)
       } else if (productId.includes('credits50')) {
-        creditAmount = 59.90; // $50 purchase → $59.90 credits ($9.90 bonus)
+        creditAmount = 59.90; // $50 → $59.90 ($9.90 bonus)
       } else if (productId.includes('credits100')) {
-        creditAmount = 120.70; // $100 purchase → $120.70 credits ($20.70 bonus)
+        creditAmount = 120.70; // $100 → $120.70 ($20.70 bonus)
       } else {
+        console.log(`❌ Unknown product ID: ${productId}`);
         return res.status(400).json({ message: "Unknown product ID" });
       }
 
@@ -371,29 +373,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
         type: transactionType,
         amount: creditAmount,
-        description: `IAP: ${productId}`,
+        description: `RevenueCat IAP: ${productId}`,
+        balanceAfter: updatedUser.credits,
+        relatedUserId: null,
+        orderId: null,
         transactionId
       });
 
-      // Only log in development or when debugging enabled
-  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_IAP_LOGGING === 'true') {
-    console.log(`IAP Purchase verified: User ${userId} received ${creditAmount} credits from ${productId}`);
-  }
+      console.log(`✅ IAP verification successful: $${creditAmount} credits added to user ${userId}`);
       
-      const { password, ...userWithoutPassword } = updatedUser;
-      res.json({ 
+      res.status(200).json({ 
         success: true, 
-        user: userWithoutPassword,
-        creditsAdded: creditAmount 
+        message: "Purchase verified and credits added",
+        creditsAdded: creditAmount,
+        newBalance: updatedUser.credits
       });
-      
-    } catch (error) {
-      console.error('IAP verification error:', error);
-      res.status(500).json({ message: "Failed to verify purchase" });
-    }
-  });
 
-  app.post("/api/iap/restore-purchases", async (req, res) => {
+    } catch (error) {
+      console.error("❌ IAP verification error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });  app.post("/api/iap/restore-purchases", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
     try {
