@@ -26,6 +26,7 @@ import { IAPProvider } from "@/hooks/use-iap";
 import { Capacitor } from '@capacitor/core';
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SplashScreen } from "@/components/splash-screen";
+import { DeviceBindingManager } from "@/components/device-binding-manager";
 
 import { useState, useEffect } from 'react';
 
@@ -120,20 +121,22 @@ function App() {
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              <IAPProvider>
-                <MenuProvider>
-                  <CartProvider>
-                    <IOSNotificationProvider>
-                      <PushNotificationProvider>
-                        <AppUpdateProvider>
-                          <Router />
-                          <Toaster />
-                        </AppUpdateProvider>
-                      </PushNotificationProvider>
-                    </IOSNotificationProvider>
-                  </CartProvider>
-                </MenuProvider>
-              </IAPProvider>
+              <DeviceBindingManager>
+                <IAPProvider>
+                  <MenuProvider>
+                    <CartProvider>
+                      <IOSNotificationProvider>
+                        <PushNotificationProvider>
+                          <AppUpdateProvider>
+                            <Router />
+                            <Toaster />
+                          </AppUpdateProvider>
+                        </PushNotificationProvider>
+                      </IOSNotificationProvider>
+                    </CartProvider>
+                  </MenuProvider>
+                </IAPProvider>
+              </DeviceBindingManager>
             </AuthProvider>
           </QueryClientProvider>
         </ErrorBoundary>

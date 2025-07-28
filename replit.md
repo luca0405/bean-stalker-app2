@@ -770,6 +770,7 @@ Changelog:
   - Enhanced UX with device-aware authentication interface that adapts to binding status
   - Implemented complete account switching flow with device data clearing and unbinding
   - Fixed import errors in account switcher component using correct wouter useLocation hook
+  - Device binding persists after logout - only cleared by app uninstall or manual account switching
   - iOS project synced and ready for TestFlight with polished one-account-per-device authentication
 ```
 

@@ -21,6 +21,7 @@ import { useCart } from "@/contexts/cart-context";
 import { MenuItem } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
+import { Portal } from "@/components/portal";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -437,55 +438,58 @@ export default function HomePage() {
       
       {/* Buy Credits Popup */}
       {buyCreditsOpen && (
-        <div className="popup-container">
-          <div className="popup-content">
-            <div className="max-w-md mx-auto space-y-6">
-              {/* Header */}
-              <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="popup-header flex items-center space-x-4"
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setBuyCreditsOpen(false)}
-                  className="p-2 h-auto"
+        <Portal>
+          <div className="popup-container">
+            <div className="popup-content">
+              <div className="max-w-md mx-auto space-y-6">
+                {/* Header */}
+                <motion.div 
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="popup-header flex items-center space-x-4"
                 >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <h1 className="text-2xl font-bold text-slate-800">Buy Credits</h1>
-              </motion.div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setBuyCreditsOpen(false)}
+                    className="p-2 h-auto"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <h1 className="text-2xl font-bold text-slate-800">Buy Credits</h1>
+                </motion.div>
 
-              <div className="scroll-container momentum-scroll">
-                <EnhancedBuyCredits />
+                <div className="scroll-container momentum-scroll">
+                  <EnhancedBuyCredits />
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </Portal>
       )}
 
       {/* Favorites Selection Popup */}
       {favoritesPopupOpen && (
-        <div className="popup-container">
-          <div className="popup-content">
-            <div className="max-w-md mx-auto space-y-6">
-              {/* Header */}
-              <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="popup-header flex items-center space-x-4"
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFavoritesPopupOpen(false)}
-                  className="p-2 h-auto"
+        <Portal>
+          <div className="popup-container">
+            <div className="popup-content">
+              <div className="max-w-md mx-auto space-y-6">
+                {/* Header */}
+                <motion.div 
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="popup-header flex items-center space-x-4"
                 >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <h1 className="text-2xl font-bold text-slate-800">Select Favorites</h1>
-              </motion.div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFavoritesPopupOpen(false)}
+                    className="p-2 h-auto"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <h1 className="text-2xl font-bold text-slate-800">Select Favorites</h1>
+                </motion.div>
 
             {/* Favorites Count */}
             <motion.div
@@ -669,9 +673,10 @@ export default function HomePage() {
                   </Card>
                 </motion.div>
               </div>
+              </div>
             </div>
           </div>
-        </div>
+        </Portal>
       )}
 
     </div>

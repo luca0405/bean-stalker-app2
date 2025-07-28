@@ -48,12 +48,16 @@ export default function AuthPageMobile() {
   useEffect(() => {
     const checkDeviceBinding = async () => {
       try {
+        console.log('🔍 Checking device binding status...');
         const isDeviceBound = await deviceService.isDeviceBound();
+        console.log('🔍 Device bound result:', isDeviceBound);
         setHasDeviceBinding(isDeviceBound);
         
         if (isDeviceBound) {
           // Get the bound user's username
           const boundUserId = await deviceService.getBoundUserId();
+          console.log('🔍 Bound user ID:', boundUserId);
+          
           if (boundUserId) {
             try {
               // Fetch user data to get username
@@ -62,25 +66,35 @@ export default function AuthPageMobile() {
                 const userData = await response.json();
                 setBoundUsername(userData.username);
                 setLoginData(prev => ({ ...prev, username: userData.username }));
-                console.log('Device bound to user:', userData.username);
+                console.log('✅ Device bound to user:', userData.username);
+                console.log('✅ Username field should be HIDDEN');
+                console.log('✅ Become a Member should be HIDDEN');
+              } else {
+                console.error('❌ Failed to fetch user data, response:', response.status);
               }
             } catch (error) {
-              console.error('Failed to fetch bound user data:', error);
+              console.error('❌ Failed to fetch bound user data:', error);
             }
+          } else {
+            console.log('❌ No bound user ID found');
           }
-          console.log('Device has existing binding - hiding registration option');
+        } else {
+          console.log('ℹ️ Device has no binding - showing full registration options');
         }
       } catch (error) {
-        console.error('Failed to check device binding:', error);
+        console.error('❌ Failed to check device binding:', error);
         setHasDeviceBinding(false);
       }
     };
 
     // Only check on native platforms where device binding is active
     if (Capacitor.isNativePlatform()) {
+      console.log('📱 Native platform detected - checking device binding');
       checkDeviceBinding();
+    } else {
+      console.log('🌐 Web platform - device binding disabled');
     }
-  }, []);
+  }, []); // Only run once on mount - device binding persists after logout
 
   if (user) {
     return <Redirect to="/" />;

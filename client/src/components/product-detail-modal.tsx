@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Heart, Minus, Plus } from "lucide-react";
+import { Portal } from "@/components/portal";
+import { X, Heart, Minus, Plus, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -242,36 +243,28 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center">
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/50"
-            onClick={onClose}
-          />
-
-          {/* Modal */}
-          <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="relative w-full max-w-md bg-white rounded-t-3xl shadow-2xl max-h-[85vh] overflow-y-auto"
-          >
-            {/* Header */}
-            <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 p-4 flex justify-between items-center rounded-t-3xl z-10">
-              <h2 className="text-lg font-semibold text-gray-900">Product Details</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                className="p-2 h-auto"
+        <Portal>
+          <div className="popup-container">
+          <div className="popup-content">
+            <div className="max-w-md mx-auto space-y-6">
+              {/* Header */}
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="popup-header flex items-center space-x-4"
               >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClose}
+                  className="p-2 h-auto"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <h1 className="text-2xl font-bold text-slate-800">Product Details</h1>
+              </motion.div>
+
+              <div className="scroll-container momentum-scroll">
 
             {/* Content */}
             <div className="p-6 space-y-6 pb-24">
@@ -489,36 +482,38 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
             </div>
 
             {/* Sticky Footer with Actions */}
-            <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 p-6 z-10">
-              <div className="space-y-3">
-                {/* Add to Favorites Button */}
-                {user && (
-                  <Button 
-                    onClick={toggleFavorite}
-                    variant="outline"
-                    className={`w-full py-3 h-auto rounded-xl border-2 transition-all ${
-                      favoriteStatus?.isFavorite 
-                        ? 'border-red-500 text-red-500 hover:bg-red-50' 
-                        : 'border-green-600 text-green-600 hover:bg-green-50'
-                    }`}
-                    disabled={addFavoriteMutation.isPending || removeFavoriteMutation.isPending}
-                  >
-                    <Heart className={`h-5 w-5 mr-2 ${favoriteStatus?.isFavorite ? 'fill-current' : ''}`} />
-                    {favoriteStatus?.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
-                  </Button>
-                )}
-                
-                {/* Add to Cart Button */}
+            {/* Sticky Footer with Actions */}
+            <div className="space-y-3 pt-6">
+              {/* Add to Favorites Button */}
+              {user && (
                 <Button 
-                  onClick={handleAddToCart} 
-                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 h-auto rounded-xl shadow-lg"
+                  onClick={toggleFavorite}
+                  variant="outline"
+                  className={`w-full py-3 h-auto rounded-xl border-2 transition-all ${
+                    favoriteStatus?.isFavorite 
+                      ? 'border-red-500 text-red-500 hover:bg-red-50' 
+                      : 'border-green-600 text-green-600 hover:bg-green-50'
+                  }`}
+                  disabled={addFavoriteMutation.isPending || removeFavoriteMutation.isPending}
                 >
-                  Add to Cart • ${(getPrice() * quantity).toFixed(2)}
+                  <Heart className={`h-5 w-5 mr-2 ${favoriteStatus?.isFavorite ? 'fill-current' : ''}`} />
+                  {favoriteStatus?.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
                 </Button>
+              )}
+              
+              {/* Add to Cart Button */}
+              <Button 
+                onClick={handleAddToCart} 
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 h-auto rounded-xl shadow-lg"
+              >
+                Add to Cart • ${(getPrice() * quantity).toFixed(2)}
+              </Button>
+            </div>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
+        </Portal>
       )}
     </AnimatePresence>
   );

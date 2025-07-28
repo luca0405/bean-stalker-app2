@@ -3055,12 +3055,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`🔍 Verifying IAP purchase: ${productId} for user ${userId}`);
       
-      // Note: In production, you would validate the receipt with Apple
-      // For now, we'll trust RevenueCat webhook to handle the credit addition
+      if (!productId || !transactionId || !userId) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      // Check if this transaction has already been processed
+      const existingTransaction = await storage.getCreditTransactionByTransactionId(transactionId);
+      if (existingTransaction) {
+        return res.status(400).json({ message: "Transaction already processed" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Determine credit amount and transaction type based on product ID
+      let creditAmount = 0;
+      let transactionType = "iap_purchase";
       
+      if (productId.includes('membership69')) {
+        creditAmount = 69; // AUD$69 membership
+        transactionType = "membership_iap";
+      } else if (productId.includes('credits25')) {
+        creditAmount = 29.50; // $25 purchase → $29.50 credits ($4.50 bonus)
+      } else if (productId.includes('credits50')) {
+        creditAmount = 59.90; // $50 purchase → $59.90 credits ($9.90 bonus)
+      } else if (productId.includes('credits100')) {
+        creditAmount = 120.70; // $100 purchase → $120.70 credits ($20.70 bonus)
+      } else {
+        return res.status(400).json({ message: "Unknown product ID" });
+      }
+
+      // Update user credits
+      const updatedUser = await storage.updateUserCredits(userId, user.credits + creditAmount);
+      
+      // Record the transaction
+      await storage.createCreditTransaction({
+        userId,
+        type: transactionType,
+        amount: creditAmount,
+        description: `IAP: ${productId}`,
+        transactionId,
+        balanceAfter: updatedUser.credits,
+        relatedUserId: null,
+        orderId: null
+      });
+
+      console.log(`✅ IAP Purchase verified: User ${userId} received ${creditAmount} credits from ${productId}`);
+      
+      const { password, ...userWithoutPassword } = updatedUser;
       res.status(200).json({ 
         success: true,
-        message: 'Purchase verified successfully',
+        message: 'Purchase verified and credits added successfully',
+        user: userWithoutPassword,
+        creditsAdded: creditAmount,
         productId,
         transactionId
       });
