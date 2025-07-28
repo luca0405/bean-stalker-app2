@@ -96,16 +96,8 @@ class IAPService {
   }
   
   async initializeWithUserID(userID: string): Promise<boolean> {
-    const isWebPlatform = !Capacitor.isNativePlatform();
-    
-    if (isWebPlatform) {
-      console.log('IAP: Running in web development mode - simulating IAP functionality');
-      this.isInitialized = true;
-      return true;
-    }
-    
     try {
-      // Initialize with specific user ID
+      // Native mobile app - initialize RevenueCat with specific user ID
       const initSuccess = await SandboxForceOverride.initializeForcesSandbox(userID);
       if (!initSuccess) {
         console.error('🔥 IAP: Sandbox force initialization with user ID failed');
@@ -282,52 +274,7 @@ class IAPService {
       throw new Error('IAP service not initialized');
     }
 
-    // Development mode - return mock products (web only)
-    const isDevelopmentMode = !Capacitor.isNativePlatform();
-    
-    if (isDevelopmentMode) {
-      console.log('IAP: Running in development mode - returning mock products');
-      return [
-        {
-          id: this.PRODUCT_IDS.PREMIUM_MEMBERSHIP,
-          title: 'Premium Membership',
-          description: 'Full access to Bean Stalker premium features',
-          price: 'AUD $69.00',
-          priceAmountMicros: 69000000,
-          priceCurrencyCode: 'AUD',
-          type: 'membership'
-        },
-        {
-          id: this.PRODUCT_IDS.CREDITS_25,
-          title: '$29.50 Credits',
-          description: 'Get $29.50 credits for $25 - $4.50 bonus!',
-          price: 'AUD $25.00',
-          priceAmountMicros: 25000000,
-          priceCurrencyCode: 'AUD',
-          type: 'credits'
-        },
-        {
-          id: this.PRODUCT_IDS.CREDITS_50,
-          title: '$59.90 Credits',
-          description: 'Get $59.90 credits for $50 - $9.90 bonus!',
-          price: 'AUD $50.00',
-          priceAmountMicros: 50000000,
-          priceCurrencyCode: 'AUD',
-          type: 'credits'
-        },
-        {
-          id: this.PRODUCT_IDS.CREDITS_100,
-          title: '$120.70 Credits',
-          description: 'Get $120.70 credits for $100 - $20.70 bonus!',
-          price: 'AUD $100.00',
-          priceAmountMicros: 100000000,
-          priceCurrencyCode: 'AUD',
-          type: 'credits'
-        }
-      ];
-    }
-
-    // Production mode - use RevenueCat
+    // Native mobile app - always use RevenueCat
     console.log('IAP: Running in production mode - extracting products from RevenueCat offerings');
     console.log('IAP: Available offerings count:', this.offerings.length);
     
@@ -369,28 +316,7 @@ class IAPService {
       throw new Error('IAP service not initialized');
     }
 
-    // Development mode - simulate successful purchase (web only)
-    const isDevelopmentMode = !Capacitor.isNativePlatform();
-    
-    if (isDevelopmentMode) {
-      console.log(`IAP: Simulating purchase for ${productId}`);
-      
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      return {
-        success: true,
-        productId,
-        transactionId: `dev_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        receipt: JSON.stringify({
-          productId,
-          purchaseDate: new Date().toISOString(),
-          environment: 'development'
-        })
-      };
-    }
-
-    // Production mode - use RevenueCat
+    // Native mobile app - always use RevenueCat
     try {
       // Find the package for this product
       let targetPackage: PurchasesPackage | null = null;

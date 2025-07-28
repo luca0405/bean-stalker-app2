@@ -684,14 +684,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email already exists" });
       }
       
-      // Create user account with premium membership (simulating AUD$69 payment)
+      // Create user account WITHOUT initial credits (RevenueCat IAP will add $69)
       const hashedPassword = await hashPassword(password);
       const newUser = await storage.createUser({
         username,
         password: hashedPassword,
         email,
         fullName,
-        credits: 69, // AUD$69 credit from membership fee
+        credits: 0, // No initial credits - RevenueCat IAP will add $69
         isActive: true
       });
       
@@ -699,14 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const qrCodeData = await QRCode.toDataURL(`user:${newUser.id}`);
       await storage.updateUserQrCode(newUser.id, qrCodeData);
       
-      // Record the membership transaction
-      await storage.createCreditTransaction({
-        userId: newUser.id,
-        type: "membership",
-        amount: 69,
-        balanceAfter: 69,
-        description: "Premium membership activation - AUD$69 credit (sandbox)",
-      });
+      // Note: No credit transaction here - RevenueCat IAP will handle crediting
       
       // Remove password from response
       const { password: _, ...userWithoutPassword } = newUser;

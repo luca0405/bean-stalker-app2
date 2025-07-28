@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useBiometricAuth } from "@/hooks/use-biometric-auth";
 import { useIAP } from "@/hooks/use-iap";
+import { iapService } from "@/services/iap-service";
 import { Capacitor } from '@capacitor/core';
 import { Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -168,6 +169,17 @@ export default function AuthPageMobile() {
       console.log('Starting biometric authentication...');
       console.log('Biometric state:', biometricState);
       
+      // Extra safety check before calling authenticateWithBiometrics
+      if (!authenticateWithBiometrics) {
+        console.error('authenticateWithBiometrics function not available');
+        notify({
+          title: "Service Unavailable",
+          description: "Biometric service is not available",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       const success = await authenticateWithBiometrics();
       
       if (!success) {
@@ -180,6 +192,7 @@ export default function AuthPageMobile() {
       }
     } catch (error: any) {
       console.error('Biometric authentication error:', error);
+      console.error('Error stack:', error.stack);
       
       let errorMessage = "Please try again";
       if (error.message?.includes('cancelled') || error.message?.includes('cancel')) {
@@ -227,8 +240,7 @@ export default function AuthPageMobile() {
     };
 
     if (registerData.joinPremium) {
-      if (isNative) {
-        // Use RevenueCat for premium membership on native platforms
+      // Native mobile app - always use RevenueCat for premium membership
         try {
           // First register the user account and login automatically
           console.log('🚀 Starting premium membership registration with payment...');
@@ -253,8 +265,15 @@ export default function AuthPageMobile() {
             // Small delay to ensure login session is established
             await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // Purchase the membership product (user is now authenticated)
+            // Set RevenueCat user ID and purchase the membership product
+            console.log('💳 Setting RevenueCat user ID for new user before purchase:', newUser.id);
+            await iapService.setUserID(newUser.id.toString());
+            
+            // Extra delay to ensure RevenueCat user change is processed
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
             console.log('💳 Processing membership payment for authenticated user...');
+            console.log('💳 Triggering native payment popup for com.beanstalker.membership69');
             const purchaseResult = await purchaseProduct('com.beanstalker.membership69');
             
             if (purchaseResult.success) {
@@ -282,33 +301,7 @@ export default function AuthPageMobile() {
             variant: "destructive",
           });
         }
-      } else {
-        // Web platform - register with premium membership directly (mandatory premium)
-        try {
-          notify({
-            title: "Creating Premium Account",
-            description: "Setting up your premium membership with $69 credit...",
-          });
-          
-          const response = await apiRequest('POST', '/api/register-with-membership', userData);
-          if (response.ok) {
-            // Reload user data and invalidate cache
-            await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-            notify({
-              title: "Premium Membership Activated!",
-              description: "Your account has been created with $69 credit. Welcome to Bean Stalker Premium!",
-            });
-          } else {
-            throw new Error('Registration failed');
-          }
-        } catch (error: any) {
-          notify({
-            title: "Registration failed",
-            description: error.message || "Please try again",
-            variant: "destructive",
-          });
-        }
-      }
+
     } else {
       // Regular registration without premium membership
       try {
@@ -580,7 +573,14 @@ export default function AuthPageMobile() {
                       ? "Authenticating..." 
                       : biometricState.isLoading
                       ? "Checking availability..."
-                      : `Sign in with ${getBiometricDisplayName(biometricState.biometricType || 'biometric')}`
+                      : `Sign in with ${(() => {
+                          try {
+                            return getBiometricDisplayName(biometricState.biometricType || 'biometric');
+                          } catch (error) {
+                            console.error('Error getting biometric display name:', error);
+                            return 'Biometric Authentication';
+                          }
+                        })()}`
                     }
                   </Button>
                 )}

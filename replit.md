@@ -816,6 +816,19 @@ Changelog:
   - Enhanced authentication flow with fallback reasoning when biometric type detection fails
   - Removed potential null reference errors that were causing app crashes
   - Face ID authentication now stable with proper error handling and user feedback
+- July 28, 2025. CRITICAL FIX: Membership double-crediting issue completely resolved ($138 → $69)
+  - Fixed server-side /api/register-with-membership endpoint to create accounts with 0 credits instead of $69
+  - Removed duplicate credit transaction creation that was causing double-crediting (server $69 + RevenueCat webhook $69 = $138)
+  - Enhanced membership registration flow to properly set RevenueCat user ID before purchase attempts
+  - Updated authentication flow messages to clarify that credits come from actual IAP purchase, not registration
+  - Native membership payment now relies solely on RevenueCat IAP → webhook → credit addition process
+  - Registration creates account structure, RevenueCat purchase adds the actual $69 credit through webhook
+- July 28, 2025. CRITICAL ARCHITECTURE FIX: Eliminated all web platform detection logic
+  - Removed all web platform fallbacks and detection code from IAP service and authentication flows
+  - Bean Stalker is exclusively a NATIVE MOBILE APP - no web platform support needed
+  - IAP service now always uses RevenueCat without platform detection checks
+  - Simplified authentication flow to be purely native mobile focused
+  - Enhanced user experience by removing unnecessary platform branching logic
 ```
 
 ## User Preferences

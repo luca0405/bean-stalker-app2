@@ -94,7 +94,7 @@ export function useBiometricAuth() {
           saveBiometric: false // Don't save credentials again for biometric login
         });
 
-        const authType = getBiometricDisplayName(biometricState.biometricType);
+        const authType = getBiometricDisplayName(biometricState.biometricType || 'biometric');
         notify({
           title: "Authentication Successful",
           description: `Signed in with ${authType}`,
@@ -159,7 +159,7 @@ export function useBiometricAuth() {
           hasStoredCredentials: true 
         }));
 
-        const authType = getBiometricDisplayName(biometricState.biometricType);
+        const authType = getBiometricDisplayName(biometricState.biometricType || 'biometric');
         notify({
           title: "Biometric Login Enabled",
           description: `You can now sign in with ${authType}`,

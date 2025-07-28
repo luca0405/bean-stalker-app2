@@ -91,24 +91,32 @@ class BiometricService {
         throw new Error('No biometric credentials stored. Please sign in with your password first.');
       }
 
-      // Get biometric type for customized messaging with error handling
+      // Get biometric type for customized messaging with comprehensive error handling
       let biometricType = 'biometric';
       let reason = 'Use biometric authentication to access Bean Stalker';
       
       try {
         biometricType = await this.getBiometricType();
         console.log('BiometricService: Biometric type:', biometricType);
-        reason = this.getAuthenticationReason(biometricType);
+        
+        if (biometricType && typeof biometricType === 'string') {
+          reason = this.getAuthenticationReason(biometricType);
+        }
       } catch (error) {
         console.log('BiometricService: Could not get biometric type, using default:', error);
+        // Continue with default values
       }
 
-      // Perform biometric authentication
+      // Perform biometric authentication with extra safety checks
       console.log('BiometricService: Verifying identity...');
       console.log('BiometricService: Authentication reason:', reason);
       
+      if (!NativeBiometric || !NativeBiometric.verifyIdentity) {
+        throw new Error('Biometric verification service not available');
+      }
+      
       await NativeBiometric.verifyIdentity({
-        reason: reason,
+        reason: reason || 'Use biometric authentication to access Bean Stalker',
         title: 'Bean Stalker Authentication',
         subtitle: 'Access your coffee account securely',
         description: 'Use your biometric authentication to sign in'
