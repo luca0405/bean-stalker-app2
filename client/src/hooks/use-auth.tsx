@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize RevenueCat with dynamic user ID for sandbox testing
   useEffect(() => {
-    if (user && 'id' in user && user.id && Capacitor.isNativePlatform()) {
+    if (user && typeof user === 'object' && 'id' in user && user.id && Capacitor.isNativePlatform()) {
       // Initialize with actual user ID for sandbox testing
       iapService.initializeWithUserID(user.id.toString()).then(success => {
         if (success) {
@@ -132,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       // CRITICAL: Re-initialize RevenueCat after login with user's ID for native payment popups
-      if (Capacitor.isNativePlatform() && userData && 'id' in userData && userData.id) {
+      if (Capacitor.isNativePlatform() && userData && typeof userData === 'object' && 'id' in userData && userData.id) {
         console.log('💳 AUTH: Re-initializing RevenueCat after login for user:', userData.id);
         iapService.initializeWithUserID(userData.id.toString()).then(success => {
           if (success) {
@@ -143,6 +143,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }).catch(error => {
           console.error('💳 AUTH: RevenueCat initialization error:', error);
         });
+      }
+      
+      // CRITICAL: Handle device binding for native platforms after successful login
+      if (Capacitor.isNativePlatform() && userData && typeof userData === 'object' && 'id' in userData && userData.id) {
+        console.log('🔍 NATIVE LOGIN SUCCESS - Starting device binding process...');
+        console.log('🔍 User logged in:', { id: userData.id, username: userData.username });
+        
+        try {
+          const isDeviceBound = await deviceService.isDeviceBound();
+          console.log('🔍 NATIVE DEVICE BINDING: Current status:', isDeviceBound);
+          
+          if (!isDeviceBound) {
+            console.log('🔗 NATIVE DEVICE BINDING: Device not bound - binding to user:', userData.id);
+            await deviceService.bindDeviceToAccount(userData.id.toString());
+            console.log('✅ NATIVE DEVICE BINDING: Successfully bound device to user:', userData.id);
+            
+            // CRITICAL: Verify binding was successful
+            const verifyBinding = await deviceService.isDeviceBound();
+            const verifyUserId = await deviceService.getBoundUserId();
+            console.log('✅ NATIVE DEVICE BINDING VERIFICATION:');
+            console.log('✅ - Device bound:', verifyBinding);
+            console.log('✅ - Bound to user ID:', verifyUserId);
+            
+            if (verifyBinding && verifyUserId === userData.id.toString()) {
+              console.log('✅ NATIVE DEVICE BINDING: Verification successful');
+            } else {
+              console.error('❌ NATIVE DEVICE BINDING: Verification failed');
+              console.error('❌ Expected:', userData.id.toString());
+              console.error('❌ Got:', verifyUserId);
+            }
+          } else {
+            const existingUserId = await deviceService.getBoundUserId();
+            console.log('✅ NATIVE DEVICE BINDING: Device already bound to user:', existingUserId);
+            
+            // Check if bound to the correct user
+            if (existingUserId !== userData.id.toString()) {
+              console.warn('⚠️ NATIVE DEVICE BINDING: Device bound to different user');
+              console.warn('⚠️ Current login:', userData.id.toString());
+              console.warn('⚠️ Device bound to:', existingUserId);
+              // This shouldn't happen with one-account-per-device system
+            }
+          }
+        } catch (error) {
+          console.error('❌ NATIVE DEVICE BINDING: Failed to handle device binding:', error);
+          // Don't throw error - login was successful, device binding is optional
+        }
       }
     },
     onError: (error: Error) => {
@@ -198,7 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       // CRITICAL: Re-initialize RevenueCat after registration with new user's ID for native payment popups
-      if (Capacitor.isNativePlatform() && userData && 'id' in userData && userData.id) {
+      if (Capacitor.isNativePlatform() && userData && typeof userData === 'object' && 'id' in userData && userData.id) {
         console.log('💳 AUTH: Re-initializing RevenueCat after registration for user:', userData.id);
         iapService.initializeWithUserID(userData.id.toString()).then(success => {
           if (success) {

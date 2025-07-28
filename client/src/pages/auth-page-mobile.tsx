@@ -58,46 +58,78 @@ export default function AuthPageMobile() {
   useEffect(() => {
     const checkDeviceBinding = async () => {
       try {
-        console.log('🔍 Checking device binding status...');
+        console.log('🔍 NATIVE DEVICE BINDING CHECK: Starting device binding verification...');
+        
+        // ENHANCED: Force detailed device binding check
         const isDeviceBound = await deviceService.isDeviceBound();
-        console.log('🔍 Device bound result:', isDeviceBound);
+        console.log('🔍 NATIVE DEVICE BINDING: Device bound result:', isDeviceBound);
+        
+        // CRITICAL DEBUG: Check Capacitor preferences directly
+        const { Preferences } = await import('@capacitor/preferences');
+        const rawBoundValue = await Preferences.get({ key: 'bean-stalker-account-bound' });
+        const rawUserIdValue = await Preferences.get({ key: 'bound-user-id' });
+        
+        console.log('🔍 NATIVE DEBUG: Raw device binding preferences:', {
+          rawBoundValue: rawBoundValue.value,
+          rawUserIdValue: rawUserIdValue.value,
+          isDeviceBound,
+          platformCheck: 'Native iPhone testing'
+        });
+        
         setHasDeviceBinding(isDeviceBound);
         
         if (isDeviceBound) {
-          // Get the bound user's username
+          // Get the bound user's username with enhanced debugging
           const boundUserId = await deviceService.getBoundUserId();
-          console.log('🔍 Bound user ID:', boundUserId);
+          console.log('🔍 NATIVE DEVICE BINDING: Bound user ID from service:', boundUserId);
           
           if (boundUserId) {
             try {
-              // Fetch user data to get username
+              // ENHANCED: Fetch user data with full URL and error handling
+              console.log('🔍 NATIVE DEVICE BINDING: Fetching user data for ID:', boundUserId);
               const response = await fetch(`/api/users/${boundUserId}`);
+              console.log('🔍 NATIVE DEVICE BINDING: API response status:', response.status);
+              
               if (response.ok) {
                 const userData = await response.json();
+                console.log('🔍 NATIVE DEVICE BINDING: User data received:', userData);
+                
                 setBoundUsername(userData.username);
-                // Only update username, preserve password
+                // CRITICAL: Update username in login data for device-bound users
                 setLoginData(prev => ({ 
                   ...prev, 
                   username: userData.username 
                 }));
+                
+                console.log('✅ NATIVE DEVICE BINDING SUCCESS:');
                 console.log('✅ Device bound to user:', userData.username);
-                console.log('✅ Device bound to user:', userData.username);
-                console.log('✅ Username field should be HIDDEN');
-                console.log('✅ Become a Member should be HIDDEN');
+                console.log('✅ Username auto-filled in login data');
+                console.log('✅ hasDeviceBinding state set to true');
+                console.log('✅ User should only see password field');
               } else {
-                console.error('❌ Failed to fetch user data, response:', response.status);
+                console.error('❌ NATIVE DEVICE BINDING ERROR: Failed to fetch user data');
+                console.error('❌ Response status:', response.status);
+                console.error('❌ Response text:', await response.text());
+                
+                // FALLBACK: Reset device binding if user fetch fails
+                setHasDeviceBinding(false);
               }
             } catch (error) {
-              console.error('❌ Failed to fetch bound user data:', error);
+              console.error('❌ NATIVE DEVICE BINDING ERROR: Failed to fetch bound user data:', error);
+              // FALLBACK: Reset device binding on fetch error
+              setHasDeviceBinding(false);
             }
           } else {
-            console.log('❌ No bound user ID found');
+            console.error('❌ NATIVE DEVICE BINDING ERROR: No bound user ID found despite device being bound');
+            console.error('❌ This indicates corrupted device binding data');
+            // FALLBACK: Reset device binding if user ID is missing
+            setHasDeviceBinding(false);
           }
         } else {
-          console.log('ℹ️ Device has no binding - showing full registration options');
+          console.log('ℹ️ NATIVE DEVICE BINDING: Device has no binding - showing full registration options'); 
         }
       } catch (error) {
-        console.error('❌ Failed to check device binding:', error);
+        console.error('❌ NATIVE DEVICE BINDING CRITICAL ERROR:', error);
         setHasDeviceBinding(false);
       }
     };
@@ -118,11 +150,11 @@ export default function AuthPageMobile() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // For device-bound users, username should already be set, only validate password
-    // For non-bound users, validate both username and password
-    const effectiveUsername = hasDeviceBinding ? boundUsername : loginData.username;
+    // CRITICAL FIX: For device-bound users, username is already set in loginData by device binding check
+    // For non-bound users, validate both username and password  
+    const effectiveUsername = loginData.username; // Always use loginData.username since it's set by device binding
     
-    console.log('🔍 Login validation:', {
+    console.log('🔍 DEVICE BINDING LOGIN VALIDATION:', {
       hasDeviceBinding,
       boundUsername,
       loginDataUsername: loginData.username,
@@ -130,16 +162,61 @@ export default function AuthPageMobile() {
       passwordProvided: !!loginData.password,
       passwordLength: loginData.password?.length || 0,
       passwordNonEmpty: loginData.password && loginData.password.trim() !== '',
+      loginDataSet: !!loginData.username,
       rawLoginData: JSON.stringify(loginData)
     });
     
-    // Fixed validation logic - check password properly
-    if (!effectiveUsername) {
-      notify({
-        title: "Username required",
-        description: "Please enter your username",
-        variant: "destructive",
-      });
+    // CRITICAL DEBUG: Enhanced validation with detailed native debugging
+    console.log('🚨 NATIVE LOGIN VALIDATION - COMPREHENSIVE CHECK:');
+    console.log('🚨 effectiveUsername:', effectiveUsername);
+    console.log('🚨 effectiveUsername type:', typeof effectiveUsername);
+    console.log('🚨 effectiveUsername length:', effectiveUsername?.length);
+    console.log('🚨 effectiveUsername trimmed:', effectiveUsername?.trim());
+    console.log('🚨 hasDeviceBinding:', hasDeviceBinding);
+    console.log('🚨 boundUsername:', boundUsername);
+    console.log('🚨 loginData:', JSON.stringify(loginData, null, 2));
+    console.log('🚨 Platform check:', Capacitor.getPlatform());
+    console.log('🚨 Is native platform:', Capacitor.isNativePlatform());
+    
+    if (!effectiveUsername || effectiveUsername.trim() === '') {
+      console.error('🚨 NATIVE LOGIN FAILED: No effective username found');
+      console.error('🚨 DETAILED STATE DUMP:');
+      console.error('🚨 - hasDeviceBinding:', hasDeviceBinding);
+      console.error('🚨 - boundUsername:', boundUsername);
+      console.error('🚨 - loginData.username:', loginData.username);
+      console.error('🚨 - loginData full:', JSON.stringify(loginData));
+      
+      // ENHANCED: Different error messages based on device binding state
+      if (hasDeviceBinding && boundUsername) {
+        console.error('🚨 CRITICAL BUG: Device is bound but username not set in loginData');
+        // Force set the username if we have boundUsername but loginData.username is empty
+        if (boundUsername && !loginData.username) {
+          console.log('🔧 EMERGENCY FIX: Forcing username from boundUsername');
+          setLoginData(prev => ({ ...prev, username: boundUsername }));
+          // Don't return, let it continue with the fixed username
+          return; // Trigger re-render with fixed data
+        }
+        
+        notify({
+          title: "Device Binding Error",
+          description: "Your device is bound but username sync failed. Restarting app may help.",
+          variant: "destructive",
+        });
+      } else if (hasDeviceBinding && !boundUsername) {
+        console.error('🚨 CRITICAL BUG: Device claims to be bound but no bound username found');
+        notify({
+          title: "Corrupted Device Binding",
+          description: "Device binding data is corrupted. Please use account switcher to reset.",
+          variant: "destructive",
+        });
+      } else {
+        // Regular case - no device binding, user needs to enter username
+        notify({
+          title: "Username required",
+          description: "Please enter your username to continue",
+          variant: "destructive",
+        });
+      }
       return;
     }
     

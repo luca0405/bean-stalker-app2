@@ -69,6 +69,21 @@ class BiometricService {
   }
 
   /**
+   * Check if credentials are saved for biometric authentication
+   */
+  async hasCredentials(): Promise<boolean> {
+    try {
+      await NativeBiometric.getCredentials({
+        server: this.CREDENTIAL_KEY,
+      });
+      return true;
+    } catch (error) {
+      console.log('No biometric credentials found:', error);
+      return false;
+    }
+  }
+
+  /**
    * Authenticate user with biometrics and retrieve credentials
    */
   async authenticateWithBiometrics(): Promise<BiometricCredentials | null> {
@@ -83,8 +98,8 @@ class BiometricService {
         throw new Error('Biometric authentication not available');
       }
 
-      // Check if credentials are stored
-      const hasCredentials = await this.hasStoredCredentials();
+      // Check if credentials are stored using the new method
+      const hasCredentials = await this.hasCredentials();
       console.log('BiometricService: Has stored credentials:', hasCredentials);
       
       if (!hasCredentials) {
@@ -196,17 +211,10 @@ class BiometricService {
   }
 
   /**
-   * Check if user has biometric credentials saved
+   * Legacy alias for backward compatibility
    */
   async hasStoredCredentials(): Promise<boolean> {
-    try {
-      const credentials = await NativeBiometric.getCredentials({
-        server: this.CREDENTIAL_KEY,
-      });
-      return !!(credentials.username && credentials.password);
-    } catch (error) {
-      return false;
-    }
+    return this.hasCredentials();
   }
 }
 

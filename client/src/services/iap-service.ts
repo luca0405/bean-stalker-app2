@@ -84,14 +84,11 @@ class IAPService {
       return;
     }
     
+    // Use the fixed RevenueCat user switching logic
     try {
-      console.log('IAP: Logging in user with ID:', userID);
-      const result = await Purchases.logIn({ appUserID: userID });
-      console.log('IAP: User login successful:', result.customerInfo.originalAppUserId);
-      console.log('IAP: Customer info:', JSON.stringify(result.customerInfo, null, 2));
+      await SandboxForceOverride.setUserID(userID);
     } catch (error) {
-      console.error('IAP: Failed to set user ID', error);
-      console.error('IAP: User login error details:', JSON.stringify(error, null, 2));
+      console.error('IAP: Failed to set user ID via sandbox override:', error);
     }
   }
   

@@ -35,7 +35,7 @@ export function useBiometricAuth() {
       const [isAvailable, biometricType, hasStoredCredentials] = await Promise.all([
         biometricService.isAvailable(),
         biometricService.getBiometricType(),
-        biometricService.hasStoredCredentials(),
+        biometricService.hasCredentials(),
       ]);
 
       console.log('🔐 BIOMETRIC: Check results:', {
@@ -71,7 +71,7 @@ export function useBiometricAuth() {
       });
 
       // Re-check credentials in real-time in case they were just saved
-      const hasRealTimeCredentials = await biometricService.hasStoredCredentials();
+      const hasRealTimeCredentials = await biometricService.hasCredentials();
       console.log('🔐 Real-time credential check:', hasRealTimeCredentials);
 
       if (!biometricState.isAvailable) {
@@ -93,8 +93,8 @@ export function useBiometricAuth() {
       }
 
       // Perform biometric authentication with enhanced error handling
-      console.log('Calling biometric service authenticate...');
-      const credentials = await biometricService.authenticate();
+      console.log('Calling biometric service authenticateWithBiometrics...');
+      const credentials = await biometricService.authenticateWithBiometrics();
       console.log('Biometric authentication result:', credentials ? 'success' : 'failed');
       
       if (credentials && credentials.username && credentials.password) {

@@ -13,41 +13,52 @@ export class SandboxForceOverride {
 
   static async initializeForcesSandbox(userID?: string): Promise<boolean> {
     try {
-      console.log('💳 NATIVE IAP: Initializing RevenueCat for native payment popups');
-      console.log('💳 NATIVE IAP: User ID for IAP:', userID);
+      console.log('💳 REVENUECAT FIX: Initializing RevenueCat to prevent transfer behavior');
+      console.log('💳 REVENUECAT FIX: Target user ID:', userID || 'anonymous');
       
       // Always use verbose logging for IAP debugging
       await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
-      console.log('💳 NATIVE IAP: Debug logging enabled');
+      console.log('💳 REVENUECAT FIX: Debug logging enabled');
       
-      // Configure with sandbox settings and dynamic user ID
+      // CRITICAL FIX: Configure with consistent user ID to prevent transfers
+      // Don't use userID in configure() - use logIn() instead to prevent transfer behavior
       const config = {
         ...this.HARDCODED_CONFIG,
-        appUserID: userID || undefined, // Critical: Use actual user ID for payments
+        appUserID: undefined, // ALWAYS start anonymous, then logIn to specific user
       };
       
-      console.log('💳 NATIVE IAP: Configuring RevenueCat with settings:');
-      console.log('💳 NATIVE IAP: API Key:', config.apiKey.substring(0, 12) + '...');
-      console.log('💳 NATIVE IAP: User ID:', userID || 'anonymous');
-      console.log('💳 NATIVE IAP: Observer Mode:', config.observerMode);
-      console.log('💳 NATIVE IAP: StoreKit2:', config.usesStoreKit2IfAvailable);
+      console.log('💳 REVENUECAT FIX: Configuring RevenueCat anonymously first');
+      console.log('💳 REVENUECAT FIX: API Key:', config.apiKey.substring(0, 12) + '...');
+      console.log('💳 REVENUECAT FIX: Starting anonymous, will login to user:', userID || 'none');
       
       await Purchases.configure(config);
-      console.log('💳 NATIVE IAP: RevenueCat configured successfully');
+      console.log('💳 REVENUECAT FIX: RevenueCat configured anonymously');
+      
+      // CRITICAL FIX: If userID provided, login after configuration
+      if (userID) {
+        console.log('💳 REVENUECAT FIX: Logging in to user:', userID);
+        const loginResult = await Purchases.logIn({ appUserID: userID });
+        console.log('💳 REVENUECAT FIX: Login successful - no transfer should occur');
+        console.log('💳 REVENUECAT FIX: Customer info:', {
+          originalAppUserId: loginResult.customerInfo.originalAppUserId,
+          activeSubscriptions: Object.keys(loginResult.customerInfo.activeSubscriptions),
+          created: loginResult.created ? 'New customer' : 'Existing customer'
+        });
+      }
       
       // Verify payment capability
       const canMakePayments = await Purchases.canMakePayments();
-      console.log('💳 NATIVE IAP: Payment capability check:', canMakePayments);
+      console.log('💳 REVENUECAT FIX: Payment capability check:', canMakePayments);
       if (!canMakePayments) {
-        console.error('💳 NATIVE IAP: CRITICAL - Payment capability disabled!');
-        console.error('💳 NATIVE IAP: Check Apple ID sandbox account and device settings');
+        console.error('💳 REVENUECAT FIX: CRITICAL - Payment capability disabled!');
+        console.error('💳 REVENUECAT FIX: Check Apple ID sandbox account and device settings');
       } else {
-        console.log('💳 NATIVE IAP: Payment capability confirmed - native popups should work');
+        console.log('💳 REVENUECAT FIX: Payment capability confirmed - native popups should work');
       }
       
       return true;
     } catch (error) {
-      console.error('💳 NATIVE IAP: Failed to initialize:', error);
+      console.error('💳 REVENUECAT FIX: Failed to initialize:', error);
       return false;
     }
   }
@@ -55,12 +66,33 @@ export class SandboxForceOverride {
   // Set user ID for RevenueCat after initialization
   static async setUserID(userID: string): Promise<boolean> {
     try {
-      console.log('💳 NATIVE IAP: Changing user ID to:', userID);
-      await Purchases.logIn({ appUserID: userID });
-      console.log('💳 NATIVE IAP: User ID changed successfully');
+      console.log('💳 REVENUECAT FIX: Switching to user ID (this should NOT cause transfers):', userID);
+      
+      // Check current user first
+      const { customerInfo } = await Purchases.getCustomerInfo();
+      const currentUser = customerInfo.originalAppUserId;
+      console.log('💳 REVENUECAT FIX: Current user:', currentUser);
+      console.log('💳 REVENUECAT FIX: Target user:', userID);
+      
+      if (currentUser === userID) {
+        console.log('💳 REVENUECAT FIX: Already logged in as target user - no action needed');
+        return true;
+      }
+      
+      const loginResult = await Purchases.logIn({ appUserID: userID });
+      console.log('💳 REVENUECAT FIX: User login completed');
+      console.log('💳 REVENUECAT FIX: Created new customer:', loginResult.created);
+      console.log('💳 REVENUECAT FIX: Final user ID:', loginResult.customerInfo.originalAppUserId);
+      
+      if (loginResult.created) {
+        console.log('💳 REVENUECAT FIX: This is a NEW customer - no transfer should occur');
+      } else {
+        console.log('💳 REVENUECAT FIX: This is an EXISTING customer - purchases preserved');
+      }
+      
       return true;
     } catch (error) {
-      console.error('💳 NATIVE IAP: Failed to set user ID:', error);
+      console.error('💳 REVENUECAT FIX: Failed to set user ID:', error);
       return false;
     }
   }
