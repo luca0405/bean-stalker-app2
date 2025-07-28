@@ -104,6 +104,12 @@ export function IAPProvider({ children }: { children: ReactNode }) {
 
   const verifyPurchase = async (purchaseResult: PurchaseResult) => {
     try {
+      console.log('🔍 Verifying purchase with server:', {
+        productId: purchaseResult.productId,
+        transactionId: purchaseResult.transactionId,
+        hasReceipt: !!purchaseResult.receipt
+      });
+
       const response = await apiRequest('POST', '/api/iap/verify-purchase', {
         productId: purchaseResult.productId,
         transactionId: purchaseResult.transactionId,
@@ -112,11 +118,18 @@ export function IAPProvider({ children }: { children: ReactNode }) {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Purchase verification successful:', result);
+        
         // Refresh user data to get updated credits/membership
         window.location.reload();
+      } else {
+        const errorData = await response.text();
+        console.error('❌ Purchase verification failed:', response.status, errorData);
+        throw new Error(`Verification failed: ${response.status} - ${errorData}`);
       }
     } catch (error) {
-      console.error('Failed to verify purchase:', error);
+      console.error('❌ Failed to verify purchase:', error);
       notify({
         title: "Verification Error",
         description: "Purchase successful but verification failed. Please contact support.",

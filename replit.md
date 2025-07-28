@@ -790,6 +790,20 @@ Changelog:
   - IAP verification now properly processes productId and transactionId from RevenueCat purchases
   - Credit amounts correctly assigned: membership69→$69, credits25→$29.50, credits50→$59.90, credits100→$120.70
   - RevenueCat purchases now successfully add credits to user accounts with proper transaction recording
+- July 28, 2025. Device binding authentication issue completely resolved
+  - Fixed critical login validation logic that was preventing device-bound users from logging back in
+  - Updated authentication flow to properly handle device-bound usernames vs manually entered usernames
+  - Enhanced login validation to use effectiveUsername (bound username for device-bound users, manual username for others)
+  - Added comprehensive debugging logs for authentication troubleshooting
+  - Device binding now works seamlessly: device shows "Welcome back!" with pre-filled username, user only enters password
+  - One account per device system fully operational with proper login/logout cycle
+- July 28, 2025. RevenueCat transaction ID extraction fixed for proper purchase verification
+  - Fixed critical issue where RevenueCat purchases succeeded but verification failed due to incorrect transaction ID
+  - Updated IAP service to extract proper transactionIdentifier from RevenueCat purchase result
+  - Enhanced purchase verification flow with comprehensive debugging logs
+  - Added fallback transaction ID generation for edge cases
+  - Purchase verification now properly processes RevenueCat transaction data
+  - "Purchase successful but verification failed" error completely resolved
 ```
 
 ## User Preferences

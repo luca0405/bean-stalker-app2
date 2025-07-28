@@ -103,19 +103,33 @@ export default function AuthPageMobile() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!loginData.username || !loginData.password) {
+    // For device-bound users, username should already be set, only validate password
+    // For non-bound users, validate both username and password
+    const effectiveUsername = hasDeviceBinding ? boundUsername : loginData.username;
+    
+    console.log('🔍 Login validation:', {
+      hasDeviceBinding,
+      boundUsername,
+      loginDataUsername: loginData.username,
+      effectiveUsername,
+      passwordProvided: !!loginData.password
+    });
+    
+    if (!effectiveUsername || !loginData.password) {
+      console.log('❌ Login validation failed - missing fields');
       notify({
         title: "Please fill in all fields",
-        description: "Username and password are required",
+        description: hasDeviceBinding ? "Password is required" : "Username and password are required",
         variant: "destructive",
       });
       return;
     }
 
     try {
+      console.log('✅ Attempting login with username:', effectiveUsername);
       // Add saveBiometric flag for password logins to automatically enable biometric auth
       await loginMutation.mutateAsync({
-        username: loginData.username,
+        username: effectiveUsername, // Use the effective username (bound or manually entered)
         password: loginData.password,
         saveBiometric: true // Always save credentials for biometric auth after successful password login
       });

@@ -370,14 +370,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Record the transaction
       await storage.createCreditTransaction({
-        userId,
         type: transactionType,
-        amount: creditAmount,
         description: `RevenueCat IAP: ${productId}`,
+        userId,
+        amount: creditAmount,
         balanceAfter: updatedUser.credits,
-        relatedUserId: null,
+        transactionId,
         orderId: null,
-        transactionId
+        relatedUserId: null
       });
 
       console.log(`✅ IAP verification successful: $${creditAmount} credits added to user ${userId}`);
@@ -432,11 +432,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.updateUserCredits(userId, user.credits + creditAmount);
             
             await storage.createCreditTransaction({
-              userId,
               type: "iap_restore",
-              amount: creditAmount,
               description: `Restored: ${receipt.productId}`,
-              transactionId: receipt.transactionId
+              userId,
+              amount: creditAmount,
+              balanceAfter: user.credits + creditAmount,
+              transactionId: receipt.transactionId,
+              orderId: null,
+              relatedUserId: null
             });
 
             totalCreditsRestored += creditAmount;

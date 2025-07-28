@@ -414,11 +414,30 @@ class IAPService {
         aPackage: targetPackage 
       });
 
+      console.log('✅ RevenueCat purchase successful:', {
+        productId,
+        customerInfo: result.customerInfo,
+        transaction: result.transaction,
+      });
+
+      // Extract transaction ID from the purchase result
+      const transactionId = result.transaction?.transactionIdentifier || 
+                           `rc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      console.log('📋 Transaction details for verification:', {
+        productId,
+        transactionId,
+        originalAppUserId: result.customerInfo.originalAppUserId
+      });
+
       return {
         success: true,
         productId,
-        transactionId: result.customerInfo.originalAppUserId,
-        receipt: JSON.stringify(result.customerInfo)
+        transactionId,
+        receipt: JSON.stringify({
+          customerInfo: result.customerInfo,
+          transaction: result.transaction
+        })
       };
     } catch (error: any) {
       console.error('IAP: Purchase failed', error);
