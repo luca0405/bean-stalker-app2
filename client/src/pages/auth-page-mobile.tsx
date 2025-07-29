@@ -12,6 +12,7 @@ import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { deviceService } from "@/services/device-service";
+import { MembershipDebugDisplay } from "@/components/membership-debug-display";
 
 
 export default function AuthPageMobile() {
@@ -53,6 +54,20 @@ export default function AuthPageMobile() {
     confirmPassword: "",
     joinPremium: true // Premium membership enabled by default
   });
+
+  // Debug state for membership registration
+  const [debugSteps, setDebugSteps] = useState<Array<{
+    step: string;
+    status: 'pending' | 'success' | 'warning' | 'error';
+    details: string;
+    timestamp: string;
+  }>>([]);
+  const [showDebug, setShowDebug] = useState(false);
+
+  const addDebugStep = (step: string, status: 'pending' | 'success' | 'warning' | 'error', details: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugSteps(prev => [...prev, { step, status, details, timestamp }]);
+  };
 
   // Check for existing device binding on component mount
   useEffect(() => {
@@ -334,20 +349,28 @@ export default function AuthPageMobile() {
     if (registerData.joinPremium) {
       // Native mobile app - always use RevenueCat for premium membership
         try {
+          // Clear previous debug steps and show debug display
+          setDebugSteps([]);
+          setShowDebug(true);
+          
           // First register the user account and login automatically
+          addDebugStep('Account Registration', 'pending', 'Creating new Bean Stalker account...');
           console.log('🚀 Starting premium membership registration with payment...');
           const response = await apiRequest('POST', '/api/register-with-membership', userData);
           
           if (response.ok) {
             const result = await response.json();
             const newUser = result.user;
+            addDebugStep('Account Registration', 'success', `Account created with ID: ${newUser.id}`);
             
             // Automatically login the new user to establish session
+            addDebugStep('User Login', 'pending', 'Logging in to establish session...');
             console.log('🔐 Logging in new user for RevenueCat purchase...');
             await loginMutation.mutateAsync({
               username: userData.username,
               password: userData.password
             });
+            addDebugStep('User Login', 'success', 'Login successful - session established');
             
             notify({
               title: "Account Created",
@@ -358,12 +381,15 @@ export default function AuthPageMobile() {
             await new Promise(resolve => setTimeout(resolve, 1000));
             
             // CRITICAL: Re-initialize RevenueCat with authenticated user's ID for native payment popup
+            addDebugStep('RevenueCat Init', 'pending', `Initializing RevenueCat with user ID: ${newUser.id}`);
             console.log('💳 MEMBERSHIP PAYMENT: Re-initializing RevenueCat with authenticated user ID:', newUser.id);
             const iapInitSuccess = await iapService.initializeWithUserID(newUser.id.toString());
             if (!iapInitSuccess) {
+              addDebugStep('RevenueCat Init', 'error', 'RevenueCat initialization failed');
               console.error('💳 MEMBERSHIP PAYMENT ERROR: Failed to initialize RevenueCat');
               throw new Error('Failed to initialize RevenueCat for payment processing');
             }
+            addDebugStep('RevenueCat Init', 'success', 'RevenueCat initialized successfully');
             console.log('💳 MEMBERSHIP PAYMENT: RevenueCat initialization successful');
             
             // CRITICAL: Verify IAP service availability for native payment popup
@@ -400,31 +426,68 @@ export default function AuthPageMobile() {
               price: membershipProduct.price
             });
             
-            // CRITICAL: Set and verify RevenueCat user ID before purchase to prevent Customer ID "45" issue
-            console.log('💳 MEMBERSHIP PAYMENT: CRITICAL FIX - Setting RevenueCat user ID to prevent Customer ID "45"');
-            await iapService.setUserID(newUser.id.toString());
-            
-            // CRITICAL: Verify the user ID was set correctly before purchase
-            console.log('💳 MEMBERSHIP PAYMENT: Verifying RevenueCat user ID...');
+            // CRITICAL: Verify RevenueCat is using the correct user ID after initialization
+            addDebugStep('Customer ID Verification', 'pending', 'Verifying RevenueCat Customer ID...');
+            console.log('💳 MEMBERSHIP PAYMENT: Verifying RevenueCat user ID after initialization...');
             const { Purchases } = await import('@revenuecat/purchases-capacitor');
-            const { customerInfo } = await Purchases.getCustomerInfo();
-            console.log('💳 MEMBERSHIP PAYMENT: Current RevenueCat Customer ID:', customerInfo.originalAppUserId);
-            console.log('💳 MEMBERSHIP PAYMENT: Expected Customer ID:', newUser.id.toString());
             
-            if (customerInfo.originalAppUserId !== newUser.id.toString()) {
-              console.error('💳 MEMBERSHIP PAYMENT: CRITICAL ERROR - Customer ID mismatch detected!');
-              console.error('💳 MEMBERSHIP PAYMENT: This would cause Customer ID "45" issue in dashboard');
-              throw new Error('RevenueCat user ID verification failed - please try again');
+            let verificationAttempts = 0;
+            let customerIdMatch = false;
+            
+            while (verificationAttempts < 3 && !customerIdMatch) {
+              try {
+                const { customerInfo } = await Purchases.getCustomerInfo();
+                const currentCustomerId = customerInfo.originalAppUserId;
+                const expectedCustomerId = newUser.id.toString();
+                
+                addDebugStep('Customer ID Check', 'pending', `Attempt ${verificationAttempts + 1}: Current ID: ${currentCustomerId}, Expected: ${expectedCustomerId}`);
+                
+                console.log('💳 MEMBERSHIP PAYMENT: Verification attempt', verificationAttempts + 1);
+                console.log('💳 MEMBERSHIP PAYMENT: Current RevenueCat Customer ID:', currentCustomerId);
+                console.log('💳 MEMBERSHIP PAYMENT: Expected Customer ID:', expectedCustomerId);
+                
+                if (currentCustomerId === expectedCustomerId) {
+                  addDebugStep('Customer ID Verification', 'success', `✅ Customer ID verified: ${currentCustomerId}`);
+                  console.log('💳 MEMBERSHIP PAYMENT: ✅ Customer ID verified - purchase will use correct user ID');
+                  customerIdMatch = true;
+                } else {
+                  addDebugStep('Customer ID Check', 'warning', `❌ Mismatch detected - attempting fix...`);
+                  console.warn('💳 MEMBERSHIP PAYMENT: Customer ID mismatch on attempt', verificationAttempts + 1);
+                  
+                  // Try to fix the user ID
+                  console.log('💳 MEMBERSHIP PAYMENT: Attempting to fix RevenueCat user ID...');
+                  await iapService.setUserID(newUser.id.toString());
+                  await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+                }
+              } catch (error) {
+                addDebugStep('Customer ID Check', 'error', `Error on attempt ${verificationAttempts + 1}: ${error}`);
+                console.error('💳 MEMBERSHIP PAYMENT: Error during verification attempt', verificationAttempts + 1, ':', error);
+              }
+              
+              verificationAttempts++;
             }
-            console.log('💳 MEMBERSHIP PAYMENT: ✅ Customer ID verified - purchase will use correct user ID');
+            
+            if (!customerIdMatch) {
+              addDebugStep('Customer ID Verification', 'error', 'FAILED: Could not set correct Customer ID after 3 attempts');
+              console.error('💳 MEMBERSHIP PAYMENT: CRITICAL ERROR - Could not set correct Customer ID after 3 attempts');
+              console.error('💳 MEMBERSHIP PAYMENT: This would cause Customer ID "45" issue in dashboard');
+              throw new Error('RevenueCat user ID verification failed after multiple attempts - please try again');
+            }
 
             // CRITICAL: Launch native payment popup
             console.log('💳 MEMBERSHIP PAYMENT: Starting native Apple Pay popup...');
             console.log('💳 MEMBERSHIP PAYMENT: Product ID:', 'com.beanstalker.membership69');
             console.log('💳 MEMBERSHIP PAYMENT: Expected: Native payment interface should appear');
             
+            addDebugStep('Membership Purchase', 'pending', 'Launching native payment popup...');
             const purchaseResult = await iapService.purchaseProduct('com.beanstalker.membership69');
             console.log('💳 MEMBERSHIP PAYMENT: Purchase completed with result:', purchaseResult);
+            
+            if (purchaseResult.success) {
+              addDebugStep('Membership Purchase', 'success', 'Payment completed successfully!');
+            } else {
+              addDebugStep('Membership Purchase', 'error', `Payment failed: ${purchaseResult.error || 'Unknown error'}`);
+            }
             
             if (purchaseResult.success) {
               // Reload user data and invalidate cache
@@ -444,6 +507,7 @@ export default function AuthPageMobile() {
             throw new Error('Registration failed');
           }
         } catch (error: any) {
+          addDebugStep('Registration Process', 'error', `Failed: ${error.message || 'Unknown error'}`);
           console.error('Premium membership process failed:', error);
           notify({
             title: "Registration Failed",
@@ -739,6 +803,13 @@ export default function AuthPageMobile() {
           </div>
         </div>
       </div>
+      
+      {/* Debug Display for Membership Registration */}
+      <MembershipDebugDisplay 
+        debugSteps={debugSteps}
+        isVisible={showDebug}
+        onClose={() => setShowDebug(false)}
+      />
     </div>
   );
 }
