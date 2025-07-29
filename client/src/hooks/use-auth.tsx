@@ -245,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/register", userData);
       return await res.json();
     },
-    onSuccess: (userData) => {
+    onSuccess: async (userData) => {
       queryClient.setQueryData(["/api/user"], userData);
       notify({
         title: "Registration successful",
