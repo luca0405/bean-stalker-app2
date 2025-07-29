@@ -57,10 +57,20 @@ class DeviceService {
    */
   async isDeviceBound(): Promise<boolean> {
     try {
+      console.log('🔍 DEVICE BINDING DEBUG: Checking if device is bound...');
       const result = await Preferences.get({ key: this.ACCOUNT_BOUND_KEY });
-      return result.value === 'true';
+      console.log('🔍 DEVICE BINDING DEBUG: Raw preferences result:', result);
+      console.log('🔍 DEVICE BINDING DEBUG: Bound key:', this.ACCOUNT_BOUND_KEY);
+      console.log('🔍 DEVICE BINDING DEBUG: Stored value:', result.value);
+      console.log('🔍 DEVICE BINDING DEBUG: Value type:', typeof result.value);
+      console.log('🔍 DEVICE BINDING DEBUG: Is bound calculation:', result.value === 'true');
+      
+      const isCurrentlyBound = result.value === 'true';
+      console.log('🔍 DEVICE BINDING DEBUG: Final result:', isCurrentlyBound);
+      
+      return isCurrentlyBound;
     } catch (error) {
-      console.error('Failed to check device binding:', error);
+      console.error('❌ DEVICE BINDING ERROR: Failed to check device binding:', error);
       return false;
     }
   }
@@ -70,6 +80,10 @@ class DeviceService {
    */
   async bindDeviceToAccount(userId: string): Promise<void> {
     try {
+      console.log('🔗 DEVICE BINDING: Starting device binding for user:', userId);
+      console.log('🔗 DEVICE BINDING: Setting bound key:', this.ACCOUNT_BOUND_KEY);
+      console.log('🔗 DEVICE BINDING: Setting user ID:', userId);
+      
       await Preferences.set({
         key: this.ACCOUNT_BOUND_KEY,
         value: 'true'
@@ -80,7 +94,23 @@ class DeviceService {
         value: userId
       });
 
-      console.log('Device bound to user:', userId);
+      console.log('🔗 DEVICE BINDING: Device binding completed for user:', userId);
+      
+      // CRITICAL: Verify binding was successful immediately
+      const verifyBound = await Preferences.get({ key: this.ACCOUNT_BOUND_KEY });
+      const verifyUserId = await Preferences.get({ key: 'bound-user-id' });
+      console.log('🔗 DEVICE BINDING VERIFICATION:');
+      console.log('🔗 - Bound key stored:', verifyBound.value);
+      console.log('🔗 - User ID stored:', verifyUserId.value);
+      
+      if (verifyBound.value !== 'true' || verifyUserId.value !== userId) {
+        console.error('❌ DEVICE BINDING VERIFICATION FAILED!');
+        console.error('❌ Expected bound: true, got:', verifyBound.value);
+        console.error('❌ Expected user ID:', userId, ', got:', verifyUserId.value);
+        throw new Error('Device binding verification failed');
+      } else {
+        console.log('✅ DEVICE BINDING VERIFICATION: All data stored correctly');
+      }
     } catch (error) {
       console.error('Failed to bind device:', error);
       throw new Error('Could not bind device to account');
@@ -92,10 +122,18 @@ class DeviceService {
    */
   async getBoundUserId(): Promise<string | null> {
     try {
+      console.log('🔍 DEVICE BINDING DEBUG: Getting bound user ID...');
       const result = await Preferences.get({ key: 'bound-user-id' });
-      return result.value || null;
+      console.log('🔍 DEVICE BINDING DEBUG: Raw user ID result:', result);
+      console.log('🔍 DEVICE BINDING DEBUG: User ID value:', result.value);
+      console.log('🔍 DEVICE BINDING DEBUG: User ID type:', typeof result.value);
+      
+      const userId = result.value || null;
+      console.log('🔍 DEVICE BINDING DEBUG: Final user ID:', userId);
+      
+      return userId;
     } catch (error) {
-      console.error('Failed to get bound user ID:', error);
+      console.error('❌ DEVICE BINDING ERROR: Failed to get bound user ID:', error);
       return null;
     }
   }

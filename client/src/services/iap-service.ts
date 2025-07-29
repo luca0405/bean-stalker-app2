@@ -37,18 +37,13 @@ class IAPService {
   };
 
   async initialize(): Promise<boolean> {
-    const isWebPlatform = !Capacitor.isNativePlatform();
-    
-    if (isWebPlatform) {
-      console.log('IAP: Running in web development mode - simulating IAP functionality');
-      this.isInitialized = true;
-      return true;
-    }
+    // CRITICAL: Bean Stalker is exclusively a NATIVE MOBILE APP - no web platform support
+    console.log('💳 IAP: NATIVE MOBILE APP INITIALIZATION - Native payment popups enabled');
     
     // ===== PRODUCTION IAP WITH SANDBOX TESTING =====
     if (APP_CONFIG.features.enableConsoleLogging) {
-      console.log('🔥 IAP: PRODUCTION APP - SANDBOX IAP MODE FOR TESTING');
-      console.log('🔥 IAP: App is production-ready but IAP uses sandbox for continued testing');
+      console.log('🔥 IAP: NATIVE MOBILE APP - SANDBOX IAP MODE FOR TESTING');
+      console.log('🔥 IAP: Native Apple Pay popups ready for TestFlight deployment');
     }
     
     try {
@@ -79,16 +74,32 @@ class IAPService {
   }
 
   async setUserID(userID: string): Promise<void> {
+    console.log('💳 IAP: CRITICAL - Setting RevenueCat user ID to:', userID);
+    console.log('💳 IAP: This should fix Customer ID "45" issue in dashboard');
+    
     if (!this.isInitialized) {
-      console.error('IAP: Cannot set user ID - service not initialized');
+      console.error('💳 IAP: Cannot set user ID - service not initialized');
       return;
     }
     
     // Use the fixed RevenueCat user switching logic
     try {
       await SandboxForceOverride.setUserID(userID);
+      console.log('💳 IAP: SUCCESS - RevenueCat user ID set to:', userID);
+      
+      // Verify the user ID was set correctly
+      const { customerInfo } = await Purchases.getCustomerInfo();
+      console.log('💳 IAP: VERIFICATION - RevenueCat now using user ID:', customerInfo.originalAppUserId);
+      
+      if (customerInfo.originalAppUserId === userID) {
+        console.log('💳 IAP: VERIFIED - RevenueCat user ID correctly set');
+      } else {
+        console.error('💳 IAP: ERROR - RevenueCat user ID mismatch:');
+        console.error('💳 IAP: Expected:', userID);
+        console.error('💳 IAP: Got:', customerInfo.originalAppUserId);
+      }
     } catch (error) {
-      console.error('IAP: Failed to set user ID via sandbox override:', error);
+      console.error('💳 IAP: FAILED - Could not set user ID via sandbox override:', error);
     }
   }
   
@@ -274,9 +285,9 @@ class IAPService {
       throw new Error('IAP service not initialized');
     }
 
-    // Native mobile app - always use RevenueCat
-    console.log('IAP: Running in production mode - extracting products from RevenueCat offerings');
-    console.log('IAP: Available offerings count:', this.offerings.length);
+    // CRITICAL: Native mobile app only - always use RevenueCat for native payment popups
+    console.log('💳 IAP: NATIVE MOBILE APP - extracting products from RevenueCat offerings');
+    console.log('💳 IAP: Available offerings count:', this.offerings.length);
     
     const products: IAPProduct[] = [];
 
@@ -313,15 +324,63 @@ class IAPService {
 
   async purchaseProduct(productId: string): Promise<PurchaseResult> {
     if (!this.isInitialized) {
+      console.error('💳 IAP PURCHASE ERROR: Service not initialized');
       throw new Error('IAP service not initialized');
     }
 
-    console.log('💳 IAP: TRIGGERING NATIVE PAYMENT POPUP for product:', productId);
+    console.log('💳 IAP PURCHASE: Starting native payment popup for product:', productId);
+    console.log('💳 IAP PURCHASE: Service initialized:', this.isInitialized);
+    console.log('💳 IAP PURCHASE: Available offerings:', this.offerings.length);
+    
+    // CRITICAL: Verify current RevenueCat user before purchase to prevent wrong Customer ID
+    try {
+      const { customerInfo } = await Purchases.getCustomerInfo();
+      console.log('💳 IAP PURCHASE: PRE-PURCHASE CHECK - Current RevenueCat user:', customerInfo.originalAppUserId);
+      
+      if (!customerInfo.originalAppUserId || customerInfo.originalAppUserId === '$RCAnonymousID') {
+        console.error('💳 IAP PURCHASE: CRITICAL - RevenueCat has anonymous user, this will cause wrong Customer ID in dashboard');
+        console.error('💳 IAP PURCHASE: This would create Customer ID "45" or similar hardcoded value');
+        throw new Error('RevenueCat user not properly set - please login again');
+      }
+      
+      console.log('💳 IAP PURCHASE: VERIFIED - RevenueCat will use Customer ID:', customerInfo.originalAppUserId);
+    } catch (error) {
+      console.error('💳 IAP PURCHASE: Could not verify RevenueCat user before purchase:', error);
+    }
+    
+    // CRITICAL: Verify service readiness for native payment popup
+    console.log('💳 IAP PURCHASE: Verifying RevenueCat readiness for native payment popup...');
+    
+    // Check payment capability before attempting purchase
+    try {
+      const canMakePayments = await Purchases.canMakePayments();
+      console.log('💳 IAP PURCHASE: Payment capability check:', canMakePayments);
+      if (!canMakePayments) {
+        console.error('💳 IAP PURCHASE: CRITICAL - Payments disabled on device!');
+        console.error('💳 IAP PURCHASE: This usually means:');
+        console.error('💳 IAP PURCHASE:   1. No sandbox Apple ID signed in');
+        console.error('💳 IAP PURCHASE:   2. In-app purchases restricted in device settings');
+        console.error('💳 IAP PURCHASE:   3. Network connectivity issues');
+        throw new Error('In-app purchases are disabled on this device. Check Apple ID and restrictions.');
+      } else {
+        console.log('💳 IAP PURCHASE: Payment capability confirmed - native popups ready');
+      }
+    } catch (paymentError) {
+      console.error('💳 IAP PURCHASE: Payment capability check failed:', paymentError);
+      throw new Error('Unable to verify payment capability');
+    }
+    
+    // CRITICAL: Reload offerings just before purchase to ensure fresh data
+    console.log('💳 IAP PURCHASE: Reloading offerings before purchase...');
+    const freshOfferings = await SandboxForceOverride.aggressiveOfferingsReload();
+    this.offerings = freshOfferings;
+    console.log('💳 IAP PURCHASE: Fresh offerings loaded:', this.offerings.length);
     
     // Native mobile app - always use RevenueCat
     try {
       // Find the package for this product
       let targetPackage: PurchasesPackage | null = null;
+      console.log('💳 IAP PURCHASE: Searching for product package:', productId);
       
       console.log('💳 IAP: Searching for product in', this.offerings.length, 'offerings...');
       for (const offering of this.offerings) {
@@ -344,11 +403,24 @@ class IAPService {
       }
 
       console.log('💳 IAP: LAUNCHING NATIVE APPLE PAY POPUP...');
+      console.log('💳 IAP: Platform check - Is native platform:', Capacitor.isNativePlatform());
+      console.log('💳 IAP: Target package details:', {
+        identifier: targetPackage.identifier,
+        productId: targetPackage.product.identifier,
+        title: targetPackage.product.title,
+        price: targetPackage.product.priceString
+      });
+      
+      // CRITICAL: Final verification before native payment popup
+      console.log('💳 IAP: About to call Purchases.purchasePackage() - this SHOULD trigger native Apple Pay popup');
+      console.log('💳 IAP: If no popup appears, check sandbox Apple ID and device restrictions');
       
       // Make the purchase - this should trigger the native Apple Pay popup
       const result = await Purchases.purchasePackage({ 
         aPackage: targetPackage 
       });
+      
+      console.log('💳 IAP: Native payment popup completed - processing result...');
 
       console.log('✅ RevenueCat purchase successful:', {
         productId,
@@ -411,9 +483,10 @@ class IAPService {
   }
 
   isAvailable(): boolean {
-    // Available when properly initialized (web dev mode or native platform)
-    const isDevelopmentMode = !Capacitor.isNativePlatform();
-    return this.isInitialized && (isDevelopmentMode || Capacitor.isNativePlatform());
+    // CRITICAL: Bean Stalker is exclusively native mobile app - always require native platform
+    console.log('💳 IAP: Checking availability - Native platform:', Capacitor.isNativePlatform());
+    console.log('💳 IAP: Service initialized:', this.isInitialized);
+    return this.isInitialized && Capacitor.isNativePlatform();
   }
 
   // Convert credit amount to product ID

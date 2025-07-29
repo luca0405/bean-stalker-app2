@@ -131,18 +131,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // CRITICAL: Re-initialize RevenueCat after login with user's ID for native payment popups
+      // CRITICAL: Re-initialize RevenueCat after login with user's actual ID for native payment popups
       if (Capacitor.isNativePlatform() && userData && typeof userData === 'object' && 'id' in userData && userData.id) {
-        console.log('💳 AUTH: Re-initializing RevenueCat after login for user:', userData.id);
-        iapService.initializeWithUserID(userData.id.toString()).then(success => {
+        console.log('💳 AUTH LOGIN: CRITICAL - Re-initializing RevenueCat for user ID:', userData.id);
+        console.log('💳 AUTH LOGIN: This will fix Customer ID "45" issue by using actual user ID:', userData.id);
+        
+        // Set RevenueCat user ID immediately to prevent hardcoded ID usage
+        try {
+          await iapService.setUserID(userData.id.toString());
+          console.log('💳 AUTH LOGIN: RevenueCat user ID set successfully to:', userData.id);
+          
+          // Then reinitialize with the correct user ID
+          const success = await iapService.initializeWithUserID(userData.id.toString());
           if (success) {
-            console.log('💳 AUTH: RevenueCat re-initialized successfully for native payments');
+            console.log('💳 AUTH LOGIN: SUCCESS - RevenueCat properly initialized with user ID:', userData.id);
+            console.log('💳 AUTH LOGIN: All future purchases should now use Customer ID:', userData.id);
           } else {
-            console.error('💳 AUTH: RevenueCat re-initialization failed');
+            console.error('💳 AUTH LOGIN: FAILED - RevenueCat re-initialization failed for user:', userData.id);
           }
-        }).catch(error => {
-          console.error('💳 AUTH: RevenueCat initialization error:', error);
-        });
+        } catch (error) {
+          console.error('💳 AUTH LOGIN: ERROR - RevenueCat initialization error for user:', userData.id, error);
+        }
       }
       
       // CRITICAL: Handle device binding for native platforms after successful login
@@ -245,16 +254,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // CRITICAL: Re-initialize RevenueCat after registration with new user's ID for native payment popups
       if (Capacitor.isNativePlatform() && userData && typeof userData === 'object' && 'id' in userData && userData.id) {
-        console.log('💳 AUTH: Re-initializing RevenueCat after registration for user:', userData.id);
-        iapService.initializeWithUserID(userData.id.toString()).then(success => {
+        console.log('💳 AUTH REGISTER: CRITICAL - Initializing RevenueCat for NEW user ID:', userData.id);
+        console.log('💳 AUTH REGISTER: This will fix Customer ID "45" issue by using actual user ID:', userData.id);
+        
+        // Immediately set RevenueCat user ID to prevent hardcoded values
+        try {
+          await iapService.setUserID(userData.id.toString());
+          console.log('💳 AUTH REGISTER: RevenueCat user ID set to:', userData.id);
+          
+          const success = await iapService.initializeWithUserID(userData.id.toString());
           if (success) {
-            console.log('💳 AUTH: RevenueCat re-initialized successfully for native payments after registration');
+            console.log('💳 AUTH REGISTER: SUCCESS - RevenueCat initialized with user ID:', userData.id);
+            console.log('💳 AUTH REGISTER: Future purchases will use Customer ID:', userData.id);
           } else {
-            console.error('💳 AUTH: RevenueCat re-initialization failed after registration');
+            console.error('💳 AUTH REGISTER: FAILED - RevenueCat initialization failed for user:', userData.id);
           }
-        }).catch(error => {
-          console.error('💳 AUTH: RevenueCat initialization error after registration:', error);
-        });
+        } catch (error) {
+          console.error('💳 AUTH REGISTER: ERROR - RevenueCat initialization failed:', error);
+        }
       }
     },
     onError: (error: Error) => {

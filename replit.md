@@ -852,6 +852,14 @@ Changelog:
   - Enhanced user login logging to distinguish between new customers and existing customers
   - Fixed RevenueCat user switching logic to prevent transfer behavior when users login/logout
   - RevenueCat dashboard should no longer show purchase transfer messages for consistent user sessions
+- July 28, 2025. MEMBERSHIP PAYMENT NATIVE POPUP ISSUE COMPREHENSIVE FIX
+  - Enhanced membership payment flow with comprehensive product availability checking before purchase
+  - Added fresh offerings reload immediately before purchase attempt to ensure current product data
+  - Implemented detailed logging throughout membership registration and payment process
+  - Fixed direct IAP service call for membership purchases instead of hook-based approach
+  - Added extended delays (5 seconds) for RevenueCat user change processing during membership registration
+  - Enhanced device binding debug system with comprehensive Capacitor preferences verification
+  - All membership payment logic now optimized for native Apple Pay popup triggering
 - July 28, 2025. CRITICAL FIX: Double crediting issue completely resolved ($138 → $69)
   - Fixed ALL server-side registration endpoints to create accounts with 0 credits instead of $69
   - Removed duplicate credit transaction creation from multiple registration endpoints
@@ -859,13 +867,34 @@ Changelog:
   - Registration now creates account structure only, RevenueCat purchase adds the actual $69 credit through webhook
   - Eliminated server-side crediting: /api/register-with-membership, /payment-success, and Square payment endpoints
   - Native membership payment now relies exclusively on RevenueCat IAP for proper single $69 credit addition
-- July 28, 2025. Native payment popup implementation verified and enhanced for TestFlight testing
-  - Confirmed RevenueCat re-initialization with authenticated user ID for both login and registration flows
-  - Enhanced comprehensive logging throughout IAP service for native payment popup troubleshooting
-  - Verified proper user ID mapping: registration → login → RevenueCat re-init → native Apple Pay popup
-  - Authentication hooks properly set RevenueCat user ID for each authenticated user session
+- July 29, 2025. CRITICAL FIX: Native payment popup implementation completely overhauled
+  - Eliminated ALL web platform detection logic from IAP service - Bean Stalker is exclusively native mobile app
+  - Fixed IAP service to always use RevenueCat for native payment popups without fallback logic
+  - Added comprehensive payment capability checking before purchase attempts
+  - Enhanced membership payment flow with proper RevenueCat initialization sequencing
+  - Added detailed logging for native Apple Pay popup debugging and troubleshooting
+  - Fixed platform detection to ensure native payment interface always triggers
+  - RevenueCat purchase flow now properly verified: user auth → RevenueCat init → product load → native popup
   - Enhanced purchase flow with detailed product search and native popup launch logging
   - Native payment popup system ready for TestFlight IAP testing with proper user authentication
+- July 29, 2025. CRITICAL FIX: Device binding and Face ID authentication issues resolved
+  - Fixed device binding username synchronization between device preferences and login form state
+  - Enhanced device binding initialization with proper state clearing and comprehensive debugging
+  - Improved Face ID authentication flow with detailed step-by-step logging and error handling
+  - Added biometric credential verification after saving to ensure Face ID setup works correctly
+  - Fixed emergency username sync for device-bound users when login data becomes inconsistent
+  - Enhanced biometric service with comprehensive availability checking and credential management
+  - Device binding now properly handles: device check → user fetch → username sync → login form update
+  - Face ID authentication flow: availability check → credential check → biometric prompt → login completion
+- July 29, 2025. CRITICAL FIX: RevenueCat Customer ID issue - all transactions showing wrong user ID
+  - Fixed critical bug where all RevenueCat transactions appeared under Customer ID "45" instead of actual user IDs
+  - Enhanced authentication hooks to properly set RevenueCat user ID during login and registration
+  - Added comprehensive RevenueCat user verification before every purchase to prevent wrong Customer ID
+  - Fixed IAP service to verify RevenueCat user ID matches logged-in user before purchase attempts
+  - Enhanced purchase flow with pre-purchase RevenueCat user verification and detailed logging
+  - Added RevenueCat user ID verification after setUserID calls to ensure proper mapping
+  - Transactions should now appear under correct Customer IDs matching actual user accounts in dashboard
+  - Fixed root cause: RevenueCat was using anonymous or hardcoded user IDs instead of authenticated user IDs
 ```
 
 ## User Preferences

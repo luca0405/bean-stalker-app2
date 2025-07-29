@@ -56,14 +56,31 @@ class BiometricService {
    */
   async saveCredentials(username: string, password: string): Promise<boolean> {
     try {
+      console.log('💾 BIOMETRIC: Saving credentials for user:', username);
+      console.log('💾 BIOMETRIC: Using credential key:', this.CREDENTIAL_KEY);
+      
+      // First check if biometric authentication is available
+      const isAvailable = await this.isAvailable();
+      if (!isAvailable) {
+        console.error('💾 BIOMETRIC: Cannot save credentials - biometric authentication not available');
+        return false;
+      }
+      
       await NativeBiometric.setCredentials({
         username,
         password,
         server: this.CREDENTIAL_KEY,
       });
-      return true;
+      
+      console.log('💾 BIOMETRIC: Credentials saved successfully');
+      
+      // Verify credentials were saved
+      const verifyCredentials = await this.hasCredentials();
+      console.log('💾 BIOMETRIC: Verification check:', verifyCredentials);
+      
+      return verifyCredentials;
     } catch (error) {
-      console.error('Failed to save biometric credentials:', error);
+      console.error('💾 BIOMETRIC: Failed to save credentials:', error);
       return false;
     }
   }
@@ -73,12 +90,15 @@ class BiometricService {
    */
   async hasCredentials(): Promise<boolean> {
     try {
-      await NativeBiometric.getCredentials({
+      console.log('🔍 BIOMETRIC: Checking for stored credentials...');
+      const credentials = await NativeBiometric.getCredentials({
         server: this.CREDENTIAL_KEY,
       });
+      console.log('🔍 BIOMETRIC: Credentials found:', !!credentials);
+      console.log('🔍 BIOMETRIC: Username present:', !!credentials?.username);
       return true;
-    } catch (error) {
-      console.log('No biometric credentials found:', error);
+    } catch (error: any) {
+      console.log('🔍 BIOMETRIC: No credentials found:', error.message || error);
       return false;
     }
   }
@@ -130,12 +150,18 @@ class BiometricService {
         throw new Error('Biometric verification service not available');
       }
       
+      console.log('🔐 BIOMETRIC: About to prompt for biometric authentication...');
+      console.log('🔐 BIOMETRIC: Expected popup type:', biometricType);
+      console.log('🔐 BIOMETRIC: Authentication reason:', reason);
+      
       await NativeBiometric.verifyIdentity({
         reason: reason || 'Use biometric authentication to access Bean Stalker',
         title: 'Bean Stalker Authentication',
         subtitle: 'Access your coffee account securely',
         description: 'Use your biometric authentication to sign in'
       });
+      
+      console.log('🔐 BIOMETRIC: Identity verification completed successfully');
 
       console.log('BiometricService: Identity verified, retrieving credentials...');
       

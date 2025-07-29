@@ -29,29 +29,44 @@ export function useBiometricAuth() {
 
   const checkBiometricAvailability = async () => {
     try {
-      console.log('🔐 BIOMETRIC: Checking availability and stored credentials...');
+      console.log('🔐 BIOMETRIC: Starting comprehensive biometric availability check...');
       setBiometricState(prev => ({ ...prev, isLoading: true }));
 
-      const [isAvailable, biometricType, hasStoredCredentials] = await Promise.all([
-        biometricService.isAvailable(),
-        biometricService.getBiometricType(),
-        biometricService.hasCredentials(),
-      ]);
+      // Run checks sequentially for better error handling
+      console.log('🔐 BIOMETRIC: Step 1 - Checking availability...');
+      const isAvailable = await biometricService.isAvailable();
+      console.log('🔐 BIOMETRIC: Availability result:', isAvailable);
+      
+      if (!isAvailable) {
+        console.log('🔐 BIOMETRIC: Biometric authentication not available on this device');
+        setBiometricState({
+          isAvailable: false,
+          biometricType: 'unknown',
+          hasStoredCredentials: false,
+          isLoading: false,
+        });
+        return;
+      }
+      
+      console.log('🔐 BIOMETRIC: Step 2 - Getting biometric type...');
+      const biometricType = await biometricService.getBiometricType();
+      console.log('🔐 BIOMETRIC: Biometric type:', biometricType);
+      
+      console.log('🔐 BIOMETRIC: Step 3 - Checking stored credentials...');
+      const hasStoredCredentials = await biometricService.hasCredentials();
+      console.log('🔐 BIOMETRIC: Has stored credentials:', hasStoredCredentials);
 
-      console.log('🔐 BIOMETRIC: Check results:', {
-        isAvailable,
-        biometricType,
-        hasStoredCredentials
-      });
-
-      setBiometricState({
+      const finalState = {
         isAvailable,
         biometricType,
         hasStoredCredentials,
         isLoading: false,
-      });
+      };
+      
+      console.log('🔐 BIOMETRIC: Final state:', finalState);
+      setBiometricState(finalState);
     } catch (error) {
-      console.error('🔐 BIOMETRIC: Error checking availability:', error);
+      console.error('🔐 BIOMETRIC: Error during availability check:', error);
       setBiometricState(prev => ({ 
         ...prev, 
         isLoading: false,

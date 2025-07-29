@@ -58,18 +58,22 @@ export default function AuthPageMobile() {
   useEffect(() => {
     const checkDeviceBinding = async () => {
       try {
-        console.log('🔍 NATIVE DEVICE BINDING CHECK: Starting device binding verification...');
+        console.log('🔍 DEVICE BINDING: Starting comprehensive device binding check...');
+        
+        // CRITICAL: Always clear previous state first
+        setHasDeviceBinding(false);
+        setBoundUsername('');
         
         // ENHANCED: Force detailed device binding check
         const isDeviceBound = await deviceService.isDeviceBound();
-        console.log('🔍 NATIVE DEVICE BINDING: Device bound result:', isDeviceBound);
+        console.log('🔍 DEVICE BINDING: Device bound result:', isDeviceBound);
         
-        // CRITICAL DEBUG: Check Capacitor preferences directly
+        // CRITICAL DEBUG: Check Capacitor preferences directly for diagnostics
         const { Preferences } = await import('@capacitor/preferences');
         const rawBoundValue = await Preferences.get({ key: 'bean-stalker-account-bound' });
         const rawUserIdValue = await Preferences.get({ key: 'bound-user-id' });
         
-        console.log('🔍 NATIVE DEBUG: Raw device binding preferences:', {
+        console.log('🔍 DEVICE BINDING DEBUG: Raw preferences:', {
           rawBoundValue: rawBoundValue.value,
           rawUserIdValue: rawUserIdValue.value,
           isDeviceBound,
@@ -100,6 +104,11 @@ export default function AuthPageMobile() {
                   ...prev, 
                   username: userData.username 
                 }));
+                
+                // CRITICAL: Force re-render to ensure UI shows correct state
+                console.log('✅ DEVICE BINDING FIX: Username set in both boundUsername and loginData');
+                console.log('✅ DEVICE BINDING FIX: boundUsername =', userData.username);
+                console.log('✅ DEVICE BINDING FIX: loginData.username will be =', userData.username);
                 
                 console.log('✅ NATIVE DEVICE BINDING SUCCESS:');
                 console.log('✅ Device bound to user:', userData.username);
@@ -189,12 +198,13 @@ export default function AuthPageMobile() {
       // ENHANCED: Different error messages based on device binding state
       if (hasDeviceBinding && boundUsername) {
         console.error('🚨 CRITICAL BUG: Device is bound but username not set in loginData');
-        // Force set the username if we have boundUsername but loginData.username is empty
+        // CRITICAL FIX: Force set the username if we have boundUsername but loginData.username is empty
         if (boundUsername && !loginData.username) {
           console.log('🔧 EMERGENCY FIX: Forcing username from boundUsername');
+          console.log('🔧 EMERGENCY FIX: Setting', boundUsername, 'as username');
           setLoginData(prev => ({ ...prev, username: boundUsername }));
-          // Don't return, let it continue with the fixed username
-          return; // Trigger re-render with fixed data
+          // Trigger re-render with fixed data - user can try login again
+          return;
         }
         
         notify({
@@ -348,18 +358,55 @@ export default function AuthPageMobile() {
             await new Promise(resolve => setTimeout(resolve, 1000));
             
             // CRITICAL: Re-initialize RevenueCat with authenticated user's ID for native payment popup
-            console.log('💳 Re-initializing RevenueCat with authenticated user ID for native payment popup:', newUser.id);
+            console.log('💳 MEMBERSHIP PAYMENT: Re-initializing RevenueCat with authenticated user ID:', newUser.id);
             const iapInitSuccess = await iapService.initializeWithUserID(newUser.id.toString());
             if (!iapInitSuccess) {
+              console.error('💳 MEMBERSHIP PAYMENT ERROR: Failed to initialize RevenueCat');
               throw new Error('Failed to initialize RevenueCat for payment processing');
             }
+            console.log('💳 MEMBERSHIP PAYMENT: RevenueCat initialization successful');
             
-            // Allow RevenueCat user initialization to complete
+            // CRITICAL: Verify IAP service availability for native payment popup
+            const isIAPAvailable = iapService.isAvailable();
+            console.log('💳 MEMBERSHIP PAYMENT: IAP service availability check:', isIAPAvailable);
+            if (!isIAPAvailable) {
+              console.error('💳 MEMBERSHIP PAYMENT ERROR: IAP service not available for native payments');
+              throw new Error('In-app purchase service not available. Please ensure you are on a native mobile device.');
+            }
+            
+            // CRITICAL: Longer delay to ensure RevenueCat user change is fully processed
+            console.log('💳 MEMBERSHIP PAYMENT: Waiting for RevenueCat user change to complete...');
             await new Promise(resolve => setTimeout(resolve, 3000));
             
-            console.log('💳 Processing membership payment with native IAP popup...');
-            console.log('💳 Triggering Apple Pay popup for com.beanstalker.membership69');
-            const purchaseResult = await purchaseProduct('com.beanstalker.membership69');
+            // CRITICAL: Verify products are loaded before attempting purchase
+            console.log('💳 MEMBERSHIP PAYMENT: Verifying products are loaded for native payment popup...');
+            const availableProducts = await iapService.getAvailableProducts();
+            console.log('💳 MEMBERSHIP PAYMENT: Available products count:', availableProducts.length);
+            console.log('💳 MEMBERSHIP PAYMENT: Available product IDs:', availableProducts.map(p => p.id));
+            
+            const membershipProduct = availableProducts.find(p => p.id === 'com.beanstalker.membership69');
+            if (!membershipProduct) {
+              console.error('💳 MEMBERSHIP PAYMENT ERROR: Membership product not found');
+              console.error('💳 MEMBERSHIP PAYMENT ERROR: This usually means:');
+              console.error('💳 MEMBERSHIP PAYMENT ERROR:   1. App Store Connect product not "Ready to Submit"');
+              console.error('💳 MEMBERSHIP PAYMENT ERROR:   2. RevenueCat offerings not configured');
+              console.error('💳 MEMBERSHIP PAYMENT ERROR:   3. Bundle ID mismatch');
+              console.error('💳 MEMBERSHIP PAYMENT ERROR:   4. Network connectivity issues');
+              throw new Error('Membership product not available for purchase. Please check your internet connection and try again.');
+            }
+            console.log('💳 MEMBERSHIP PAYMENT: Membership product verified:', {
+              id: membershipProduct.id,
+              title: membershipProduct.title,
+              price: membershipProduct.price
+            });
+            
+            // CRITICAL: Launch native payment popup
+            console.log('💳 MEMBERSHIP PAYMENT: Starting native Apple Pay popup...');
+            console.log('💳 MEMBERSHIP PAYMENT: Product ID:', 'com.beanstalker.membership69');
+            console.log('💳 MEMBERSHIP PAYMENT: Expected: Native payment interface should appear');
+            
+            const purchaseResult = await iapService.purchaseProduct('com.beanstalker.membership69');
+            console.log('💳 MEMBERSHIP PAYMENT: Purchase completed with result:', purchaseResult);
             
             if (purchaseResult.success) {
               // Reload user data and invalidate cache
