@@ -7,6 +7,7 @@ import { useIAP } from '@/hooks/use-iap';
 import { useNativeNotification } from '@/services/native-notification-service';
 import { RevenueCatTroubleshooter } from '@/components/revenuecat-troubleshooter';
 import { RevenueCatForceReload } from '@/components/revenuecat-force-reload';
+import { RevenueCatDiagnostic } from '@/components/revenuecat-diagnostic';
 import { APP_CONFIG } from '../config/environment';
 
 import { formatCurrency } from '@/lib/utils';
@@ -61,6 +62,9 @@ export function EnhancedBuyCredits() {
 
   return (
     <div className="space-y-6">
+      {/* CRITICAL: RevenueCat Customer ID Diagnostic - Always show for debugging */}
+      <RevenueCatDiagnostic />
+
       {/* Account Balance Header */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}

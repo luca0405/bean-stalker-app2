@@ -1,148 +1,196 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Purchases } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
-import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
+import { useAuth } from '@/hooks/use-auth';
+import { Badge } from '@/components/ui/badge';
 
 export function RevenueCatDiagnostic() {
-  const [diagnosticInfo, setDiagnosticInfo] = useState<any>({});
-  const [isRunning, setIsRunning] = useState(false);
+  const { user } = useAuth();
+  const [diagnosticData, setDiagnosticData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
 
   const runDiagnostic = async () => {
-    setIsRunning(true);
-    const info: any = {
+    setLoading(true);
+    const results: any = {
       timestamp: new Date().toISOString(),
       platform: Capacitor.getPlatform(),
       isNative: Capacitor.isNativePlatform(),
-      apiKey: !!import.meta.env.VITE_REVENUECAT_API_KEY,
-      apiKeyLength: import.meta.env.VITE_REVENUECAT_API_KEY?.length || 0,
+      currentUser: user,
     };
 
     try {
-      // Only run RevenueCat tests on native platforms
-      if (Capacitor.isNativePlatform()) {
-        console.log('🔍 Running RevenueCat Native Diagnostic...');
+      console.log('🔍 REVENUECAT DIAGNOSTIC: Starting comprehensive analysis...');
+      
+      // 1. Check current RevenueCat customer info
+      try {
+        const { customerInfo } = await Purchases.getCustomerInfo();
+        results.revenueCatCustomerInfo = {
+          originalAppUserId: customerInfo.originalAppUserId,
+          activeSubscriptions: Object.keys(customerInfo.activeSubscriptions),
+          allPurchasedProductIdentifiers: customerInfo.allPurchasedProductIdentifiers,
+          latestExpirationDate: customerInfo.latestExpirationDate,
+        };
         
-        // Set debug logging
-        await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
-        info.debugLogSet = true;
-
-        // Configure RevenueCat
-        const apiKey = import.meta.env.VITE_REVENUECAT_API_KEY;
-        if (apiKey) {
-          await Purchases.configure({
-            apiKey,
-            appUserID: undefined,
-          });
-          info.configured = true;
-          console.log('✅ RevenueCat configured successfully');
-        } else {
-          info.configured = false;
-          info.error = 'No API key found';
-        }
-
-        // Check payment capability
-        try {
-          const canMakePayments = await Purchases.canMakePayments();
-          info.canMakePayments = canMakePayments;
-          console.log('💳 Can make payments:', canMakePayments);
-        } catch (error) {
-          info.canMakePayments = false;
-          info.paymentError = String(error);
-        }
-
-        // Get customer info
-        try {
-          const customerInfo = await Purchases.getCustomerInfo();
-          info.customerInfo = {
-            originalAppUserId: customerInfo.customerInfo.originalAppUserId,
-            activeSubscriptions: customerInfo.customerInfo.activeSubscriptions,
-            allPurchasedProductIdentifiers: customerInfo.customerInfo.allPurchasedProductIdentifiers,
-          };
-          console.log('👤 Customer info retrieved:', customerInfo.customerInfo.originalAppUserId);
-        } catch (error) {
-          info.customerInfoError = String(error);
-        }
-
-        // Get offerings
-        try {
-          const offerings = await Purchases.getOfferings();
-          info.offerings = {
-            current: offerings.current?.identifier,
-            availableCount: offerings.all ? Object.keys(offerings.all).length : 0,
-            packages: offerings.current?.availablePackages?.map(pkg => ({
-              identifier: pkg.identifier,
-              productId: pkg.product.identifier,
-              price: pkg.product.price,
-              priceString: pkg.product.priceString,
-            })) || [],
-          };
-          console.log('🎁 Offerings retrieved:', offerings);
-        } catch (error) {
-          info.offeringsError = String(error);
-          console.error('❌ Offerings error:', error);
-        }
-
-      } else {
-        info.note = 'RevenueCat diagnostic only runs on native platforms';
-        console.log('ℹ️ Web platform - RevenueCat diagnostic skipped');
+        console.log('🔍 DIAGNOSTIC: Current RevenueCat customer:', customerInfo.originalAppUserId);
+        console.log('🔍 DIAGNOSTIC: Bean Stalker user ID:', user?.id);
+        
+        // CRITICAL CHECK: Does RevenueCat user match Bean Stalker user?
+        results.userIdMatch = customerInfo.originalAppUserId === user?.id?.toString();
+        results.revenueCatUserId = customerInfo.originalAppUserId;
+        results.beanStalkerUserId = user?.id?.toString();
+        
+      } catch (error: any) {
+        results.revenueCatError = error?.message || 'Unknown RevenueCat error';
+        console.error('🔍 DIAGNOSTIC: RevenueCat error:', error);
       }
 
-    } catch (error) {
-      info.mainError = String(error);
-      console.error('❌ Main diagnostic error:', error);
+      // 2. Check offerings availability
+      try {
+        const offerings = await Purchases.getOfferings();
+        results.offerings = {
+          current: offerings.current ? {
+            identifier: offerings.current.identifier,
+            packagesCount: offerings.current.availablePackages.length,
+            packages: offerings.current.availablePackages.map(pkg => ({
+              identifier: pkg.identifier,
+              packageType: pkg.packageType,
+              product: {
+                identifier: pkg.product.identifier,
+                price: pkg.product.price,
+                currencyCode: pkg.product.currencyCode
+              }
+            }))
+          } : null,
+          allCount: Object.keys(offerings.all).length
+        };
+        
+        console.log('🔍 DIAGNOSTIC: Offerings loaded:', Object.keys(offerings.all).length);
+      } catch (error: any) {
+        results.offeringsError = error?.message || 'Unknown offerings error';
+        console.error('🔍 DIAGNOSTIC: Offerings error:', error);
+      }
+
+      // 3. Check payment capability
+      try {
+        const canMakePayments = await Purchases.canMakePayments();
+        results.canMakePayments = canMakePayments;
+        console.log('🔍 DIAGNOSTIC: Can make payments:', canMakePayments);
+      } catch (error: any) {
+        results.paymentCapabilityError = error?.message || 'Unknown payment capability error';
+      }
+
+      console.log('🔍 DIAGNOSTIC COMPLETE:', results);
+      
+    } catch (error: any) {
+      console.error('🔍 DIAGNOSTIC: Fatal error:', error);
+      results.fatalError = error?.message || 'Unknown fatal error';
     }
 
-    setDiagnosticInfo(info);
-    setIsRunning(false);
+    setDiagnosticData(results);
+    setLoading(false);
   };
 
   useEffect(() => {
-    // Auto-run diagnostic on mount if on native platform
-    if (Capacitor.isNativePlatform()) {
+    if (user && Capacitor.isNativePlatform()) {
       runDiagnostic();
     }
-  }, []);
+  }, [user]);
+
+  if (!Capacitor.isNativePlatform()) {
+    return (
+      <Card className="mb-4 border-yellow-200 bg-yellow-50">
+        <CardContent className="p-4">
+          <p className="text-sm text-yellow-800">RevenueCat diagnostic only available on native platforms</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
-    <Card className="w-full">
+    <Card className="mb-4">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <span>🔍</span>
-          RevenueCat Diagnostic
-          <span className="text-sm font-normal text-gray-500">
-            ({Capacitor.getPlatform()})
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Button 
-          onClick={runDiagnostic} 
-          disabled={isRunning}
-          className="w-full"
-        >
-          {isRunning ? 'Running Diagnostic...' : 'Run Diagnostic'}
+        <CardTitle className="text-lg">RevenueCat Customer ID Diagnostic</CardTitle>
+        <Button onClick={runDiagnostic} disabled={loading}>
+          {loading ? 'Running Diagnostic...' : 'Refresh Diagnostic'}
         </Button>
+      </CardHeader>
+      <CardContent>
+        {diagnosticData ? (
+          <div className="space-y-4">
+            {/* Critical Issue Check */}
+            <div className="p-4 border rounded-lg bg-red-50 border-red-200">
+              <h3 className="font-semibold text-red-800 mb-2">Customer ID Mapping Check</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span>Bean Stalker User ID:</span>
+                  <Badge variant="outline">{diagnosticData.beanStalkerUserId || 'None'}</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>RevenueCat Customer ID:</span>
+                  <Badge variant="outline">{diagnosticData.revenueCatUserId || 'None'}</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>IDs Match:</span>
+                  <Badge variant={diagnosticData.userIdMatch ? "default" : "destructive"}>
+                    {diagnosticData.userIdMatch ? 'YES' : 'NO - THIS IS THE PROBLEM'}
+                  </Badge>
+                </div>
+              </div>
+            </div>
 
-        {Object.keys(diagnosticInfo).length > 0 && (
-          <div className="space-y-2">
-            <h4 className="font-semibold">Diagnostic Results:</h4>
-            <pre className="bg-gray-100 p-3 rounded text-xs overflow-auto max-h-96">
-              {JSON.stringify(diagnosticInfo, null, 2)}
-            </pre>
+            {/* Platform Info */}
+            <div className="p-4 border rounded-lg">
+              <h3 className="font-semibold mb-2">Platform Information</h3>
+              <div className="text-sm space-y-1">
+                <p>Platform: {diagnosticData.platform}</p>
+                <p>Native: {diagnosticData.isNative ? 'Yes' : 'No'}</p>
+                <p>Timestamp: {diagnosticData.timestamp}</p>
+              </div>
+            </div>
+
+            {/* RevenueCat Status */}
+            <div className="p-4 border rounded-lg">
+              <h3 className="font-semibold mb-2">RevenueCat Status</h3>
+              <div className="text-sm space-y-1">
+                {diagnosticData.canMakePayments !== undefined && (
+                  <p>Can Make Payments: <Badge variant={diagnosticData.canMakePayments ? "default" : "destructive"}>
+                    {diagnosticData.canMakePayments ? 'Yes' : 'No'}
+                  </Badge></p>
+                )}
+                {diagnosticData.offerings && (
+                  <p>Available Packages: {diagnosticData.offerings.current?.packagesCount || 0}</p>
+                )}
+                {diagnosticData.revenueCatCustomerInfo && (
+                  <p>Active Subscriptions: {diagnosticData.revenueCatCustomerInfo.activeSubscriptions.length}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Errors */}
+            {(diagnosticData.revenueCatError || diagnosticData.offeringsError || diagnosticData.fatalError) && (
+              <div className="p-4 border rounded-lg bg-red-50 border-red-200">
+                <h3 className="font-semibold text-red-800 mb-2">Errors</h3>
+                <div className="text-sm space-y-1">
+                  {diagnosticData.revenueCatError && <p>RevenueCat: {diagnosticData.revenueCatError}</p>}
+                  {diagnosticData.offeringsError && <p>Offerings: {diagnosticData.offeringsError}</p>}
+                  {diagnosticData.fatalError && <p>Fatal: {diagnosticData.fatalError}</p>}
+                </div>
+              </div>
+            )}
+
+            {/* Raw Data */}
+            <details>
+              <summary className="cursor-pointer font-semibold">Raw Diagnostic Data</summary>
+              <pre className="text-xs bg-gray-100 p-2 rounded mt-2 overflow-x-auto">
+                {JSON.stringify(diagnosticData, null, 2)}
+              </pre>
+            </details>
           </div>
+        ) : (
+          <p className="text-gray-500">Click "Refresh Diagnostic" to analyze RevenueCat configuration</p>
         )}
-
-        <div className="text-sm space-y-2">
-          <h4 className="font-semibold">Common Issues & Solutions:</h4>
-          <ul className="space-y-1 text-gray-600">
-            <li>• <strong>No products:</strong> Check App Store Connect product status (Ready for Sale)</li>
-            <li>• <strong>Cannot make payments:</strong> Verify device is signed into sandbox Apple ID</li>
-            <li>• <strong>Configuration error:</strong> Check VITE_REVENUECAT_API_KEY in environment</li>
-            <li>• <strong>Bundle ID mismatch:</strong> Ensure RevenueCat app matches iOS bundle ID</li>
-            <li>• <strong>Sandbox account:</strong> Create/use a sandbox Apple ID account for testing</li>
-          </ul>
-        </div>
       </CardContent>
     </Card>
   );

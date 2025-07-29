@@ -400,6 +400,24 @@ export default function AuthPageMobile() {
               price: membershipProduct.price
             });
             
+            // CRITICAL: Set and verify RevenueCat user ID before purchase to prevent Customer ID "45" issue
+            console.log('💳 MEMBERSHIP PAYMENT: CRITICAL FIX - Setting RevenueCat user ID to prevent Customer ID "45"');
+            await iapService.setUserID(newUser.id.toString());
+            
+            // CRITICAL: Verify the user ID was set correctly before purchase
+            console.log('💳 MEMBERSHIP PAYMENT: Verifying RevenueCat user ID...');
+            const { Purchases } = await import('@revenuecat/purchases-capacitor');
+            const { customerInfo } = await Purchases.getCustomerInfo();
+            console.log('💳 MEMBERSHIP PAYMENT: Current RevenueCat Customer ID:', customerInfo.originalAppUserId);
+            console.log('💳 MEMBERSHIP PAYMENT: Expected Customer ID:', newUser.id.toString());
+            
+            if (customerInfo.originalAppUserId !== newUser.id.toString()) {
+              console.error('💳 MEMBERSHIP PAYMENT: CRITICAL ERROR - Customer ID mismatch detected!');
+              console.error('💳 MEMBERSHIP PAYMENT: This would cause Customer ID "45" issue in dashboard');
+              throw new Error('RevenueCat user ID verification failed - please try again');
+            }
+            console.log('💳 MEMBERSHIP PAYMENT: ✅ Customer ID verified - purchase will use correct user ID');
+
             // CRITICAL: Launch native payment popup
             console.log('💳 MEMBERSHIP PAYMENT: Starting native Apple Pay popup...');
             console.log('💳 MEMBERSHIP PAYMENT: Product ID:', 'com.beanstalker.membership69');

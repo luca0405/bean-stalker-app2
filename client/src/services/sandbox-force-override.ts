@@ -34,16 +34,30 @@ export class SandboxForceOverride {
       await Purchases.configure(config);
       console.log('💳 REVENUECAT FIX: RevenueCat configured anonymously');
       
-      // CRITICAL FIX: If userID provided, login after configuration
+      // CRITICAL FIX: If userID provided, login after configuration  
       if (userID) {
         console.log('💳 REVENUECAT FIX: Logging in to user:', userID);
-        const loginResult = await Purchases.logIn({ appUserID: userID });
-        console.log('💳 REVENUECAT FIX: Login successful - no transfer should occur');
-        console.log('💳 REVENUECAT FIX: Customer info:', {
-          originalAppUserId: loginResult.customerInfo.originalAppUserId,
-          activeSubscriptions: Object.keys(loginResult.customerInfo.activeSubscriptions),
-          created: loginResult.created ? 'New customer' : 'Existing customer'
-        });
+        
+        // Check if we're already logged in as the correct user to avoid unnecessary transfers
+        try {
+          const { customerInfo } = await Purchases.getCustomerInfo();
+          if (customerInfo.originalAppUserId === userID) {
+            console.log('💳 REVENUECAT FIX: Already logged in as correct user:', userID);
+          } else {
+            console.log('💳 REVENUECAT FIX: Current user:', customerInfo.originalAppUserId, '- logging in as:', userID);
+            const loginResult = await Purchases.logIn({ appUserID: userID });
+            console.log('💳 REVENUECAT FIX: Login successful - Customer ID should be:', userID);
+            console.log('💳 REVENUECAT FIX: Actual Customer ID:', loginResult.customerInfo.originalAppUserId);
+            console.log('💳 REVENUECAT FIX: Customer info:', {
+              originalAppUserId: loginResult.customerInfo.originalAppUserId,
+              activeSubscriptions: Object.keys(loginResult.customerInfo.activeSubscriptions),
+              created: loginResult.created ? 'New customer' : 'Existing customer'
+            });
+          }
+        } catch (error) {
+          console.error('💳 REVENUECAT FIX: Failed to login with user ID:', error);
+          throw error;
+        }
       }
       
       // Verify payment capability
@@ -73,6 +87,12 @@ export class SandboxForceOverride {
       const currentUser = customerInfo.originalAppUserId;
       console.log('💳 REVENUECAT FIX: Current user:', currentUser);
       console.log('💳 REVENUECAT FIX: Target user:', userID);
+      
+      // CRITICAL FIX: If already the correct user, don't switch to avoid transfer messages
+      if (currentUser === userID) {
+        console.log('💳 REVENUECAT FIX: User already correct - no switch needed');
+        return true;
+      }
       
       if (currentUser === userID) {
         console.log('💳 REVENUECAT FIX: Already logged in as target user - no action needed');

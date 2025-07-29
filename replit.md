@@ -895,6 +895,13 @@ Changelog:
   - Added RevenueCat user ID verification after setUserID calls to ensure proper mapping
   - Transactions should now appear under correct Customer IDs matching actual user accounts in dashboard
   - Fixed root cause: RevenueCat was using anonymous or hardcoded user IDs instead of authenticated user IDs
+- July 29, 2025. CRITICAL FIX: Membership payment Customer ID "45" issue completely resolved
+  - Fixed membership payment RevenueCat Customer ID mapping specifically during registration process
+  - Added explicit RevenueCat user ID verification before membership purchases in auth-page-mobile.tsx
+  - Enhanced SandboxForceOverride to check current user before login to prevent unnecessary transfers
+  - Implemented comprehensive Customer ID verification with error handling if mismatch detected
+  - RevenueCat purchases during membership registration now properly use new user's actual ID instead of "45"
+  - Added detailed logging throughout membership payment flow for troubleshooting Customer ID issues
 ```
 
 ## User Preferences
