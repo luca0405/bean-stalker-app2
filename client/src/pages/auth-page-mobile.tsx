@@ -380,17 +380,40 @@ export default function AuthPageMobile() {
             // Small delay to ensure login session is established
             await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // CRITICAL: Re-initialize RevenueCat with authenticated user's ID for native payment popup
-            addDebugStep('RevenueCat Init', 'pending', `Initializing RevenueCat with user ID: ${newUser.id}`);
-            console.log('💳 MEMBERSHIP PAYMENT: Re-initializing RevenueCat with authenticated user ID:', newUser.id);
-            const iapInitSuccess = await iapService.initializeWithUserID(newUser.id.toString());
-            if (!iapInitSuccess) {
-              addDebugStep('RevenueCat Init', 'error', 'RevenueCat initialization failed');
-              console.error('💳 MEMBERSHIP PAYMENT ERROR: Failed to initialize RevenueCat');
-              throw new Error('Failed to initialize RevenueCat for payment processing');
+            // CRITICAL: Clean RevenueCat setup with authenticated user's ID for native payment popup
+            addDebugStep('RevenueCat Setup', 'pending', `Setting up RevenueCat with user ID: ${newUser.id}`);
+            console.log('💳 MEMBERSHIP PAYMENT: Setting up RevenueCat with authenticated user ID:', newUser.id);
+            
+            // Import RevenueCat directly for clean setup
+            const { Purchases } = await import('@revenuecat/purchases-capacitor');
+            
+            // Force logout to clear any cached state
+            addDebugStep('RevenueCat Cleanup', 'pending', 'Clearing RevenueCat cache...');
+            try {
+              await Purchases.logOut();
+              console.log('💳 MEMBERSHIP PAYMENT: RevenueCat logout completed');
+            } catch (logoutError) {
+              console.log('💳 MEMBERSHIP PAYMENT: Logout error (expected for first user):', logoutError);
             }
-            addDebugStep('RevenueCat Init', 'success', 'RevenueCat initialized successfully');
-            console.log('💳 MEMBERSHIP PAYMENT: RevenueCat initialization successful');
+            addDebugStep('RevenueCat Cleanup', 'success', 'Cache cleared');
+            
+            // Wait for logout to complete
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Login with the new user ID
+            addDebugStep('RevenueCat Login', 'pending', `Logging in as user ${newUser.id}...`);
+            const loginResult = await Purchases.logIn({ appUserID: newUser.id.toString() });
+            console.log('💳 MEMBERSHIP PAYMENT: Login result:', {
+              created: loginResult.created,
+              userID: loginResult.customerInfo.originalAppUserId
+            });
+            
+            if (loginResult.customerInfo.originalAppUserId === newUser.id.toString()) {
+              addDebugStep('RevenueCat Login', 'success', `✅ Logged in as user ${newUser.id}`);
+            } else {
+              addDebugStep('RevenueCat Login', 'error', `Login failed - got user ${loginResult.customerInfo.originalAppUserId}`);
+              throw new Error('RevenueCat login verification failed');
+            }
             
             // CRITICAL: Verify IAP service availability for native payment popup
             const isIAPAvailable = iapService.isAvailable();
@@ -426,53 +449,21 @@ export default function AuthPageMobile() {
               price: membershipProduct.price
             });
             
-            // CRITICAL: Verify RevenueCat is using the correct user ID after initialization
-            addDebugStep('Customer ID Verification', 'pending', 'Verifying RevenueCat Customer ID...');
-            console.log('💳 MEMBERSHIP PAYMENT: Verifying RevenueCat user ID after initialization...');
-            const { Purchases } = await import('@revenuecat/purchases-capacitor');
+            // Verify customer ID is correct
+            addDebugStep('Customer ID Check', 'pending', 'Final verification...');
+            const { customerInfo } = await Purchases.getCustomerInfo();
+            const finalCustomerId = customerInfo.originalAppUserId;
+            const expectedCustomerId = newUser.id.toString();
             
-            let verificationAttempts = 0;
-            let customerIdMatch = false;
+            console.log('💳 MEMBERSHIP PAYMENT: Final verification - Customer ID:', finalCustomerId);
+            console.log('💳 MEMBERSHIP PAYMENT: Expected Customer ID:', expectedCustomerId);
             
-            while (verificationAttempts < 3 && !customerIdMatch) {
-              try {
-                const { customerInfo } = await Purchases.getCustomerInfo();
-                const currentCustomerId = customerInfo.originalAppUserId;
-                const expectedCustomerId = newUser.id.toString();
-                
-                addDebugStep('Customer ID Check', 'pending', `Attempt ${verificationAttempts + 1}: Current ID: ${currentCustomerId}, Expected: ${expectedCustomerId}`);
-                
-                console.log('💳 MEMBERSHIP PAYMENT: Verification attempt', verificationAttempts + 1);
-                console.log('💳 MEMBERSHIP PAYMENT: Current RevenueCat Customer ID:', currentCustomerId);
-                console.log('💳 MEMBERSHIP PAYMENT: Expected Customer ID:', expectedCustomerId);
-                
-                if (currentCustomerId === expectedCustomerId) {
-                  addDebugStep('Customer ID Verification', 'success', `✅ Customer ID verified: ${currentCustomerId}`);
-                  console.log('💳 MEMBERSHIP PAYMENT: ✅ Customer ID verified - purchase will use correct user ID');
-                  customerIdMatch = true;
-                } else {
-                  addDebugStep('Customer ID Check', 'warning', `❌ Mismatch detected - attempting fix...`);
-                  console.warn('💳 MEMBERSHIP PAYMENT: Customer ID mismatch on attempt', verificationAttempts + 1);
-                  
-                  // Try to fix the user ID
-                  console.log('💳 MEMBERSHIP PAYMENT: Attempting to fix RevenueCat user ID...');
-                  await iapService.setUserID(newUser.id.toString());
-                  await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-                }
-              } catch (error) {
-                addDebugStep('Customer ID Check', 'error', `Error on attempt ${verificationAttempts + 1}: ${error}`);
-                console.error('💳 MEMBERSHIP PAYMENT: Error during verification attempt', verificationAttempts + 1, ':', error);
-              }
-              
-              verificationAttempts++;
+            if (finalCustomerId !== expectedCustomerId) {
+              addDebugStep('Customer ID Check', 'error', `MISMATCH: Got ${finalCustomerId}, expected ${expectedCustomerId}`);
+              throw new Error(`Customer ID mismatch: ${finalCustomerId} vs ${expectedCustomerId}`);
             }
             
-            if (!customerIdMatch) {
-              addDebugStep('Customer ID Verification', 'error', 'FAILED: Could not set correct Customer ID after 3 attempts');
-              console.error('💳 MEMBERSHIP PAYMENT: CRITICAL ERROR - Could not set correct Customer ID after 3 attempts');
-              console.error('💳 MEMBERSHIP PAYMENT: This would cause Customer ID "45" issue in dashboard');
-              throw new Error('RevenueCat user ID verification failed after multiple attempts - please try again');
-            }
+            addDebugStep('Customer ID Check', 'success', `✅ Verified: Customer ID ${finalCustomerId}`);
 
             // CRITICAL: Launch native payment popup
             console.log('💳 MEMBERSHIP PAYMENT: Starting native Apple Pay popup...');
@@ -485,18 +476,22 @@ export default function AuthPageMobile() {
             
             if (purchaseResult.success) {
               addDebugStep('Membership Purchase', 'success', 'Payment completed successfully!');
-            } else {
-              addDebugStep('Membership Purchase', 'error', `Payment failed: ${purchaseResult.error || 'Unknown error'}`);
-            }
-            
-            if (purchaseResult.success) {
+              addDebugStep('Registration Complete', 'success', '🎉 Premium membership activated! Debug will close in 8 seconds...');
+              
               // Reload user data and invalidate cache
               await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
               notify({
                 title: "Premium Membership Activated!",
                 description: "Your account has been created with $69 credit. Welcome to Bean Stalker Premium!",
               });
+              
+              // Keep debug visible for 8 seconds so user can see the results
+              setTimeout(() => {
+                setShowDebug(false);
+              }, 8000);
+              
             } else {
+              addDebugStep('Membership Purchase', 'error', `Payment failed: ${purchaseResult.error || 'Unknown error'}`);
               notify({
                 title: "Payment Warning",
                 description: "Account created but payment failed. You can retry payment from the Buy Credits page.",
@@ -514,6 +509,9 @@ export default function AuthPageMobile() {
             description: error.message || "Please try again or contact support.",
             variant: "destructive",
           });
+          
+          // Keep debug visible on error so user can see what went wrong
+          // Don't auto-hide debug display on errors
         }
 
     } else {

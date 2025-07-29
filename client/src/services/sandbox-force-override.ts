@@ -80,7 +80,7 @@ export class SandboxForceOverride {
   // Set user ID for RevenueCat after initialization
   static async setUserID(userID: string): Promise<boolean> {
     try {
-      console.log('💳 REVENUECAT FIX: Switching to user ID (this should NOT cause transfers):', userID);
+      console.log('💳 REVENUECAT FIX: Switching to user ID:', userID);
       
       // Check current user first
       const { customerInfo } = await Purchases.getCustomerInfo();
@@ -94,23 +94,31 @@ export class SandboxForceOverride {
         return true;
       }
       
-      if (currentUser === userID) {
-        console.log('💳 REVENUECAT FIX: Already logged in as target user - no action needed');
-        return true;
-      }
+      // Force logout first to clear any cached user state
+      console.log('💳 REVENUECAT FIX: Logging out current user to clear state');
+      await Purchases.logOut();
       
+      // Small delay to ensure logout is processed
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Now login with the new user ID
+      console.log('💳 REVENUECAT FIX: Logging in with fresh user ID:', userID);
       const loginResult = await Purchases.logIn({ appUserID: userID });
       console.log('💳 REVENUECAT FIX: User login completed');
       console.log('💳 REVENUECAT FIX: Created new customer:', loginResult.created);
       console.log('💳 REVENUECAT FIX: Final user ID:', loginResult.customerInfo.originalAppUserId);
       
-      if (loginResult.created) {
-        console.log('💳 REVENUECAT FIX: This is a NEW customer - no transfer should occur');
+      // Verify the user ID was set correctly
+      if (loginResult.customerInfo.originalAppUserId === userID) {
+        console.log('💳 REVENUECAT FIX: ✅ User ID correctly set to:', userID);
+        return true;
       } else {
-        console.log('💳 REVENUECAT FIX: This is an EXISTING customer - purchases preserved');
+        console.error('💳 REVENUECAT FIX: ❌ User ID mismatch after login');
+        console.error('💳 REVENUECAT FIX: Expected:', userID);
+        console.error('💳 REVENUECAT FIX: Got:', loginResult.customerInfo.originalAppUserId);
+        return false;
       }
       
-      return true;
     } catch (error) {
       console.error('💳 REVENUECAT FIX: Failed to set user ID:', error);
       return false;
