@@ -80,19 +80,44 @@ export class SandboxForceOverride {
   // Set user ID for RevenueCat after initialization
   static async setUserID(userID: string): Promise<boolean> {
     try {
-      console.log('💳 REVENUECAT FIX: Switching to user ID:', userID);
+      console.log('💳 REVENUECAT FIX: CRITICAL - Setting user ID to fix anonymous ID issue:', userID);
       
-      // Check current user first
+      // STEP 1: Check current user first
       const { customerInfo } = await Purchases.getCustomerInfo();
       const currentUser = customerInfo.originalAppUserId;
       console.log('💳 REVENUECAT FIX: Current user:', currentUser);
       console.log('💳 REVENUECAT FIX: Target user:', userID);
       
-      // CRITICAL FIX: If already the correct user, don't switch to avoid transfer messages
+      // STEP 2: If current user is anonymous, force login with specific user ID
+      if (currentUser.startsWith('$RCAnonymous')) {
+        console.log('💳 REVENUECAT FIX: ANONYMOUS USER DETECTED - Force login with user ID:', userID);
+        
+        // Login directly without logout (since user is anonymous)
+        const loginResult = await Purchases.logIn({ appUserID: userID });
+        console.log('💳 REVENUECAT FIX: Login from anonymous completed');
+        console.log('💳 REVENUECAT FIX: Created new customer:', loginResult.created);
+        console.log('💳 REVENUECAT FIX: Final user ID:', loginResult.customerInfo.originalAppUserId);
+        
+        // Verify the user ID was set correctly
+        if (loginResult.customerInfo.originalAppUserId === userID) {
+          console.log('💳 REVENUECAT FIX: ✅ Successfully fixed anonymous ID - now using:', userID);
+          return true;
+        } else {
+          console.error('💳 REVENUECAT FIX: ❌ Failed to fix anonymous ID');
+          console.error('💳 REVENUECAT FIX: Expected:', userID);
+          console.error('💳 REVENUECAT FIX: Got:', loginResult.customerInfo.originalAppUserId);
+          return false;
+        }
+      }
+      
+      // STEP 3: If already the correct user, no change needed
       if (currentUser === userID) {
         console.log('💳 REVENUECAT FIX: User already correct - no switch needed');
         return true;
       }
+      
+      // STEP 4: Switch from one user to another
+      console.log('💳 REVENUECAT FIX: Switching from user', currentUser, 'to', userID);
       
       // Force logout first to clear any cached user state
       console.log('💳 REVENUECAT FIX: Logging out current user to clear state');
@@ -104,16 +129,16 @@ export class SandboxForceOverride {
       // Now login with the new user ID
       console.log('💳 REVENUECAT FIX: Logging in with fresh user ID:', userID);
       const loginResult = await Purchases.logIn({ appUserID: userID });
-      console.log('💳 REVENUECAT FIX: User login completed');
+      console.log('💳 REVENUECAT FIX: User switch completed');
       console.log('💳 REVENUECAT FIX: Created new customer:', loginResult.created);
       console.log('💳 REVENUECAT FIX: Final user ID:', loginResult.customerInfo.originalAppUserId);
       
       // Verify the user ID was set correctly
       if (loginResult.customerInfo.originalAppUserId === userID) {
-        console.log('💳 REVENUECAT FIX: ✅ User ID correctly set to:', userID);
+        console.log('💳 REVENUECAT FIX: ✅ User ID correctly switched to:', userID);
         return true;
       } else {
-        console.error('💳 REVENUECAT FIX: ❌ User ID mismatch after login');
+        console.error('💳 REVENUECAT FIX: ❌ User ID mismatch after switch');
         console.error('💳 REVENUECAT FIX: Expected:', userID);
         console.error('💳 REVENUECAT FIX: Got:', loginResult.customerInfo.originalAppUserId);
         return false;

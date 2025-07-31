@@ -108,12 +108,15 @@ class IAPService {
         return false;
       }
       
+      // Mark service as initialized and load offerings
+      this.isInitialized = true;
+      
+      // Load offerings aggressively for native payment popup
       const loadedOfferings = await SandboxForceOverride.aggressiveOfferingsReload();
       this.offerings = loadedOfferings;
       
-      this.isInitialized = true;
-      console.log('💳 IAP: SUCCESS - RevenueCat re-initialized with user ID for native payment popups:', userID);
-      console.log('💳 IAP: Offerings loaded:', this.offerings.length, '- Native Apple Pay popups should now work');
+      console.log('💳 IAP: Service initialized successfully with', this.offerings.length, 'offerings');
+      console.log('💳 IAP: Ready for native payment popups');
       
       return true;
     } catch (error) {

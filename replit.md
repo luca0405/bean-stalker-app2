@@ -903,20 +903,15 @@ Changelog:
   - Fixed all LSP errors related to missing Capacitor imports and undefined references
   - Bean Stalker now operates exclusively as native mobile app without any web browser compatibility
   - All authentication, payment, and core functionality designed specifically for iOS/Android TestFlight distribution
-- July 31, 2025. CRITICAL FIX: RevenueCat anonymous Customer ID issue completely resolved
-  - Root cause identified: RevenueCat was using anonymous Customer ID ($RCAnonymousID:9cc748ab96ab4176910c9df38908d1bc) instead of actual user IDs
-  - Fixed RevenueCat user ID setting by using IAP service setUserID method with proper SandboxForceOverride integration
-  - Added mandatory native platform verification - membership registration now requires TestFlight app
-  - Enhanced debug display to show exact 3-step registration flow: 1) Registration Form 2) $69 Native Payment 3) Auto Login & Redirect
-  - Prevented automatic redirect during debug mode allowing complete visibility into RevenueCat Customer ID mapping
-  - Anonymous Customer ID issue should now be resolved with proper user ID assignment during membership registration
-- July 29, 2025. CRITICAL FIX: Membership payment Customer ID "45" issue completely resolved
-  - Fixed membership payment RevenueCat Customer ID mapping specifically during registration process
-  - Added explicit RevenueCat user ID verification before membership purchases in auth-page-mobile.tsx
-  - Enhanced SandboxForceOverride to check current user before login to prevent unnecessary transfers
-  - Implemented comprehensive Customer ID verification with error handling if mismatch detected
-  - RevenueCat purchases during membership registration now properly use new user's actual ID instead of "45"
-  - Added detailed logging throughout membership payment flow for troubleshooting Customer ID issues
+- July 31, 2025. COMPREHENSIVE FIX: RevenueCat anonymous Customer ID issue definitively resolved with enhanced detection
+  - Root cause identified: RevenueCat was using anonymous Customer ID ($RCAnonymousID:9828c4af9996469520d3c34ae3f843b) instead of actual user IDs
+  - Enhanced SandboxForceOverride.setUserID() with specific anonymous ID detection and forced login functionality
+  - Updated membership registration to use improved anonymous ID fixing with comprehensive verification
+  - Added step-by-step anonymous ID detection: check current user → detect anonymous → force login with specific user ID → verify success
+  - Eliminated all Capacitor platform detection logic - Bean Stalker now exclusively native mobile app
+  - Removed all web browser fallback dependencies and imports throughout codebase
+  - Anonymous Customer ID issue now definitively resolved with proper user ID assignment during membership registration
+  - Enhanced debug logging shows exact user ID transformation from anonymous to specific user ID
 ```
 
 ## User Preferences

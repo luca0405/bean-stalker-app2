@@ -6,7 +6,7 @@ import {
 import { InsertUser, User } from "@shared/schema";
 import { apiRequest, getQueryFn, queryClient } from "../lib/queryClient";
 import { useNativeNotification } from "@/services/native-notification-service";
-import { Capacitor } from '@capacitor/core';
+
 import { iapService } from "@/services/iap-service";
 import { deviceService } from "@/services/device-service";
 
@@ -80,18 +80,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
-  // Initialize RevenueCat with dynamic user ID for sandbox testing
+  // Initialize RevenueCat with dynamic user ID - Native mobile app only
   useEffect(() => {
-    if (user && typeof user === 'object' && 'id' in user && user.id && Capacitor.isNativePlatform()) {
-      // Initialize with actual user ID for sandbox testing
+    if (user && typeof user === 'object' && 'id' in user && user.id) {
+      // Native mobile app - initialize with actual user ID
       iapService.initializeWithUserID(user.id.toString()).then(success => {
         if (success) {
-          console.log('RevenueCat initialized for sandbox testing with user ID:', user.id);
+          console.log('💳 NATIVE APP: RevenueCat initialized with user ID:', user.id);
         } else {
-          console.error('Failed to initialize RevenueCat with user ID:', user.id);
+          console.error('💳 NATIVE APP: Failed to initialize RevenueCat with user ID:', user.id);
         }
       }).catch(error => {
-        console.error('RevenueCat initialization error:', error);
+        console.error('💳 NATIVE APP: RevenueCat initialization error:', error);
       });
     }
   }, [user]);
@@ -113,8 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Scroll to top after successful login
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
-      // Save biometric credentials after successful password login (not for biometric login)
-      if (originalCredentials.saveBiometric && Capacitor.isNativePlatform()) {
+      // Save biometric credentials after successful password login - Native mobile app
+      if (originalCredentials.saveBiometric) {
         try {
           const { biometricService } = await import('@/services/biometric-service');
           const saved = await biometricService.saveCredentials(
@@ -122,21 +122,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             originalCredentials.password
           );
           if (saved) {
-            console.log('Biometric credentials saved successfully for user:', originalCredentials.username);
+            console.log('💳 NATIVE APP: Biometric credentials saved for user:', originalCredentials.username);
           } else {
-            console.log('Failed to save biometric credentials');
+            console.log('💳 NATIVE APP: Failed to save biometric credentials');
           }
         } catch (error) {
-          console.error('Error saving biometric credentials:', error);
+          console.error('💳 NATIVE APP: Error saving biometric credentials:', error);
         }
       }
       
-      // CRITICAL: Re-initialize RevenueCat after login with user's actual ID for native payment popups
-      if (Capacitor.isNativePlatform() && userData && typeof userData === 'object' && 'id' in userData && userData.id) {
+      // CRITICAL: Re-initialize RevenueCat after login with user's actual ID - Native mobile app
+      if (userData && typeof userData === 'object' && 'id' in userData && userData.id) {
         console.log('💳 AUTH LOGIN: CRITICAL - Re-initializing RevenueCat for user ID:', userData.id);
-        console.log('💳 AUTH LOGIN: This will fix Customer ID "45" issue by using actual user ID:', userData.id);
+        console.log('💳 AUTH LOGIN: This will fix anonymous Customer ID issue by using actual user ID:', userData.id);
         
-        // Set RevenueCat user ID immediately to prevent hardcoded ID usage
+        // Set RevenueCat user ID immediately to prevent anonymous ID usage
         try {
           await iapService.setUserID(userData.id.toString());
           console.log('💳 AUTH LOGIN: RevenueCat user ID set successfully to:', userData.id);

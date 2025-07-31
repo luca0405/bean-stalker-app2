@@ -389,122 +389,45 @@ export default function AuthPageMobile() {
             addDebugStep('Step 2: Native Payment', 'pending', `Setting up RevenueCat with user ID: ${newUser.id}`);
             console.log('💳 MEMBERSHIP PAYMENT: Setting up RevenueCat with authenticated user ID:', newUser.id);
             
-            // Import RevenueCat directly for clean setup
-            const { Purchases } = await import('@revenuecat/purchases-capacitor');
+            // Import DirectRevenueCat for foolproof user ID handling
+            const { DirectRevenueCat } = await import('@/services/revenuecat-direct');
             
-            // Clear any cached RevenueCat state for clean payment
-            addDebugStep('Step 2: Payment Cleanup', 'pending', 'Clearing RevenueCat cache for clean payment...');
+            // CRITICAL: Initialize RevenueCat with GUARANTEED user ID setting
+            addDebugStep('Step 2: RevenueCat Setup', 'pending', 'Initializing RevenueCat with DIRECT user ID...');
             try {
-              await Purchases.logOut();
-              console.log('💳 MEMBERSHIP PAYMENT: RevenueCat logout completed');
-            } catch (logoutError) {
-              console.log('💳 MEMBERSHIP PAYMENT: Logout error (expected for first user):', logoutError);
-            }
-            addDebugStep('Step 2: Payment Cleanup', 'success', 'RevenueCat cache cleared for clean payment');
-            
-            // Wait for logout to complete
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // CRITICAL FIX: Use IAP service setUserID method instead of direct RevenueCat calls
-            addDebugStep('Step 2: RevenueCat Login', 'pending', `Setting RevenueCat user ID to ${newUser.id} via IAP service...`);
-            
-            try {
-              // Use the IAP service method that handles user ID setting properly
-              console.log('💳 MEMBERSHIP PAYMENT: Using IAP service to set user ID:', newUser.id.toString());
-              await iapService.setUserID(newUser.id.toString());
+              console.log('💳 MEMBERSHIP PAYMENT: Using DirectRevenueCat for guaranteed user ID:', newUser.id);
+              const initSuccess = await DirectRevenueCat.initializeWithUserID(newUser.id.toString());
               
-              // Verify the user ID was set correctly
-              const { Purchases } = await import('@revenuecat/purchases-capacitor');
-              const { customerInfo } = await Purchases.getCustomerInfo();
-              const actualUserId = customerInfo.originalAppUserId;
-              const expectedUserId = newUser.id.toString();
-              
-              console.log('💳 MEMBERSHIP PAYMENT: User ID verification:', {
-                actual: actualUserId,
-                expected: expectedUserId,
-                match: actualUserId === expectedUserId
-              });
-              
-              addDebugStep('RevenueCat Login Result', 'pending', `Got user ID: ${actualUserId}, Expected: ${expectedUserId}`);
-              
-              if (actualUserId === expectedUserId) {
-                addDebugStep('Step 2: RevenueCat Login', 'success', `✅ RevenueCat user ID correctly set to ${newUser.id}`);
-              } else if (actualUserId.startsWith('$RCAnonymous')) {
-                addDebugStep('Step 2: RevenueCat Login', 'error', `❌ Still using anonymous ID: ${actualUserId}`);
-                throw new Error('RevenueCat user ID setting failed - still anonymous');
-              } else {
-                addDebugStep('Step 2: RevenueCat Login', 'warning', `⚠️ Different user ID but not anonymous: ${actualUserId}`);
-                // Continue with the purchase as it's not anonymous
+              if (!initSuccess) {
+                throw new Error('DirectRevenueCat initialization failed - user ID not set correctly');
               }
-            } catch (loginError) {
-              addDebugStep('Step 2: RevenueCat Login', 'error', `Login error: ${loginError}`);
-              throw new Error(`RevenueCat user ID setting failed: ${loginError}`);
+              
+              addDebugStep('Step 2: RevenueCat Setup', 'success', `✅ DirectRevenueCat initialized with user ID ${newUser.id}`);
+              console.log('💳 MEMBERSHIP PAYMENT: DirectRevenueCat setup completed - user ID GUARANTEED');
+            } catch (initError) {
+              addDebugStep('Step 2: RevenueCat Setup', 'error', `DirectRevenueCat init failed: ${initError}`);
+              throw new Error(`DirectRevenueCat initialization failed: ${initError}`);
             }
             
-            // CRITICAL: Verify IAP service availability for native payment popup
-            const isIAPAvailable = iapService.isAvailable();
-            console.log('💳 MEMBERSHIP PAYMENT: IAP service availability check:', isIAPAvailable);
-            if (!isIAPAvailable) {
-              addDebugStep('Step 2: Platform Check', 'error', `❌ IAP service not available`);
-              console.error('💳 MEMBERSHIP PAYMENT ERROR: IAP service not available for native payments');
-              throw new Error('RevenueCat service not available. Please ensure app is properly initialized.');
-            } else {
-              addDebugStep('Step 2: Platform Check', 'success', `✅ Native mobile app - IAP available`);
+            // Verify payment capability
+            addDebugStep('Step 2: Payment Check', 'pending', 'Verifying payment capability...');
+            try {
+              const canPay = await DirectRevenueCat.canMakePayments();
+              if (!canPay) {
+                throw new Error('In-app purchases disabled on device');
+              }
+              addDebugStep('Step 2: Payment Check', 'success', '✅ Device ready for in-app purchases');
+            } catch (payError) {
+              addDebugStep('Step 2: Payment Check', 'error', `Payment check failed: ${payError}`);
+              throw new Error(`Payment capability check failed: ${payError}`);
             }
             
-            // CRITICAL: Longer delay to ensure RevenueCat user change is fully processed
-            console.log('💳 MEMBERSHIP PAYMENT: Waiting for RevenueCat user change to complete...');
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // DIRECT PURCHASE - NO MORE COMPLEX WRAPPER LOGIC
+            addDebugStep('Step 2: $69 Payment', 'pending', 'Launching native Apple Pay popup...');
+            console.log('💳 MEMBERSHIP PAYMENT: Starting DirectRevenueCat purchase...');
             
-            // CRITICAL: Verify products are loaded before attempting purchase
-            console.log('💳 MEMBERSHIP PAYMENT: Verifying products are loaded for native payment popup...');
-            const availableProducts = await iapService.getAvailableProducts();
-            console.log('💳 MEMBERSHIP PAYMENT: Available products count:', availableProducts.length);
-            console.log('💳 MEMBERSHIP PAYMENT: Available product IDs:', availableProducts.map(p => p.id));
-            
-            const membershipProduct = availableProducts.find(p => p.id === 'com.beanstalker.membership69');
-            if (!membershipProduct) {
-              console.error('💳 MEMBERSHIP PAYMENT ERROR: Membership product not found');
-              console.error('💳 MEMBERSHIP PAYMENT ERROR: This usually means:');
-              console.error('💳 MEMBERSHIP PAYMENT ERROR:   1. App Store Connect product not "Ready to Submit"');
-              console.error('💳 MEMBERSHIP PAYMENT ERROR:   2. RevenueCat offerings not configured');
-              console.error('💳 MEMBERSHIP PAYMENT ERROR:   3. Bundle ID mismatch');
-              console.error('💳 MEMBERSHIP PAYMENT ERROR:   4. Network connectivity issues');
-              throw new Error('Membership product not available for purchase. Please check your internet connection and try again.');
-            }
-            console.log('💳 MEMBERSHIP PAYMENT: Membership product verified:', {
-              id: membershipProduct.id,
-              title: membershipProduct.title,
-              price: membershipProduct.price
-            });
-            
-            // Verify customer ID is correct
-            addDebugStep('Customer ID Check', 'pending', 'Final verification...');
-            const { customerInfo } = await Purchases.getCustomerInfo();
-            const finalCustomerId = customerInfo.originalAppUserId;
-            const expectedCustomerId = newUser.id.toString();
-            
-            console.log('💳 MEMBERSHIP PAYMENT: Final verification - Customer ID:', finalCustomerId);
-            console.log('💳 MEMBERSHIP PAYMENT: Expected Customer ID:', expectedCustomerId);
-            
-            if (finalCustomerId !== expectedCustomerId) {
-              addDebugStep('Customer ID Check', 'warning', `⚠️ MISMATCH: Got ${finalCustomerId}, expected ${expectedCustomerId} - continuing anyway`);
-              console.warn('💳 MEMBERSHIP PAYMENT: Customer ID mismatch but continuing with purchase attempt');
-            } else {
-              addDebugStep('Customer ID Check', 'success', `✅ Verified: Customer ID ${finalCustomerId}`);
-            }
-            
-            // Continue with purchase regardless of Customer ID match
-            addDebugStep('Purchase Preparation', 'pending', `Using Customer ID ${finalCustomerId} for purchase`);
-
-            // CRITICAL: Launch native payment popup
-            console.log('💳 MEMBERSHIP PAYMENT: Starting native Apple Pay popup...');
-            console.log('💳 MEMBERSHIP PAYMENT: Product ID:', 'com.beanstalker.membership69');
-            console.log('💳 MEMBERSHIP PAYMENT: Expected: Native payment interface should appear');
-            
-            addDebugStep('Step 2: $69 Payment', 'pending', 'Launching native Apple Pay popup for $69...');
-            const purchaseResult = await iapService.purchaseProduct('com.beanstalker.membership69');
-            console.log('💳 MEMBERSHIP PAYMENT: Purchase completed with result:', purchaseResult);
+            const purchaseResult = await DirectRevenueCat.purchaseMembership();
+            console.log('💳 MEMBERSHIP PAYMENT: DirectRevenueCat purchase result:', purchaseResult);
             
             if (purchaseResult.success) {
               addDebugStep('Step 2: $69 Payment', 'success', '✅ $69 payment completed via RevenueCat!');
