@@ -1,7 +1,4 @@
 import { Purchases, PurchasesOffering, PurchasesPackage, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
-import { Capacitor } from '@capacitor/core';
-import { FALLBACK_REVENUECAT_CONFIG } from './fallback-iap-config';
-import { SANDBOX_IAP_CONFIG } from './sandbox-iap-override';
 import { SandboxForceOverride } from './sandbox-force-override';
 import { APP_CONFIG } from '../config/environment';
 
@@ -37,13 +34,11 @@ class IAPService {
   };
 
   async initialize(): Promise<boolean> {
-    // CRITICAL: Bean Stalker is exclusively a NATIVE MOBILE APP - no web platform support
-    console.log('💳 IAP: NATIVE MOBILE APP INITIALIZATION - Native payment popups enabled');
+    // Bean Stalker - Native Mobile App Only
+    console.log('💳 IAP: Native Mobile App - Initializing RevenueCat');
     
-    // ===== PRODUCTION IAP WITH SANDBOX TESTING =====
     if (APP_CONFIG.features.enableConsoleLogging) {
-      console.log('🔥 IAP: NATIVE MOBILE APP - SANDBOX IAP MODE FOR TESTING');
-      console.log('🔥 IAP: Native Apple Pay popups ready for TestFlight deployment');
+      console.log('💳 IAP: Sandbox mode for TestFlight testing');
     }
     
     try {
@@ -60,9 +55,8 @@ class IAPService {
       
       this.isInitialized = true;
       if (APP_CONFIG.features.enableConsoleLogging) {
-        console.log('🔥 IAP: SANDBOX IAP INITIALIZATION COMPLETE');
-        console.log('🔥 IAP: Final offerings loaded:', this.offerings.length);
-        console.log('🔥 IAP: Debug environment:', SandboxForceOverride.getDebugEnvironment());
+        console.log('💳 IAP: Initialization complete');
+        console.log('💳 IAP: Offerings loaded:', this.offerings.length);
       }
       
       return true;
@@ -183,8 +177,8 @@ class IAPService {
 
   async getDebugInfo(): Promise<string> {
     const debugLines = [
-      `=== Simple RevenueCat Diagnostic ===`,
-      `Platform: ${Capacitor.isNativePlatform() ? 'Native (iOS/Android)' : 'Web'}`,
+      `=== RevenueCat Diagnostic ===`,
+      `Platform: Native Mobile App`,
       `API Key Present: ${!!import.meta.env.VITE_REVENUECAT_API_KEY}`,
       `Service Initialized: ${this.isInitialized}`,
       ``,
@@ -202,11 +196,11 @@ class IAPService {
       debugLines.push(`Current offering: ${offerings.current?.identifier || 'NONE'}`);
       debugLines.push(`Available offerings: ${Object.keys(offerings.all || {}).join(', ') || 'NONE'}`);
       
-      // Platform-specific debugging
+      // Platform info
       debugLines.push(``, `=== Platform Analysis ===`);
-      debugLines.push(`Platform: ${Capacitor.isNativePlatform() ? 'Native iOS/Android' : 'Web Browser'}`);
-      debugLines.push(`Bundle ID: ${Capacitor.isNativePlatform() ? 'com.beanstalker.member' : 'Web (no bundle)'}`);
-      debugLines.push(`StoreKit Version: ${Capacitor.isNativePlatform() ? 'StoreKit 2 (iOS 15+)' : 'N/A'}`);
+      debugLines.push(`Platform: Native iOS/Android`);
+      debugLines.push(`Bundle ID: com.beanstalker.member`);
+      debugLines.push(`StoreKit Version: StoreKit 2 (iOS 15+)`);
       
       // Enhanced debugging for product loading issues
       debugLines.push(``, `=== Detailed Investigation ===`);
@@ -232,21 +226,6 @@ class IAPService {
         });
       } else {
         debugLines.push(`❌ offerings.all is null/undefined`);
-      }
-      
-      // Platform-specific issue analysis
-      if (Object.keys(offerings.all || {}).length === 0) {
-        debugLines.push(``, `=== Native iOS Issues ===`);
-        if (Capacitor.isNativePlatform()) {
-          debugLines.push(`• Bundle ID mismatch: Check RevenueCat app settings`);
-          debugLines.push(`• Sandbox account: Sign out of main Apple ID`);
-          debugLines.push(`• Products status: Verify "Ready to Submit" in App Store Connect`);
-          debugLines.push(`• In-App Purchase Key: Check RevenueCat dashboard integration`);
-          debugLines.push(`• TestFlight sandbox: Ensure using sandbox environment`);
-        } else {
-          debugLines.push(`• Web testing: Products found - issue is native-specific`);
-          debugLines.push(`• Deploy to TestFlight: Test with enhanced native diagnostic`);
-        }
       }
       
       if (offerings.current) {
@@ -403,7 +382,6 @@ class IAPService {
       }
 
       console.log('💳 IAP: LAUNCHING NATIVE APPLE PAY POPUP...');
-      console.log('💳 IAP: Platform check - Is native platform:', Capacitor.isNativePlatform());
       console.log('💳 IAP: Target package details:', {
         identifier: targetPackage.identifier,
         productId: targetPackage.product.identifier,
@@ -483,10 +461,9 @@ class IAPService {
   }
 
   isAvailable(): boolean {
-    // CRITICAL: Bean Stalker is exclusively native mobile app - always require native platform
-    console.log('💳 IAP: Checking availability - Native platform:', Capacitor.isNativePlatform());
+    // Bean Stalker - Native mobile app only
     console.log('💳 IAP: Service initialized:', this.isInitialized);
-    return this.isInitialized && Capacitor.isNativePlatform();
+    return this.isInitialized;
   }
 
   // Convert credit amount to product ID

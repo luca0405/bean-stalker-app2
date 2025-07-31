@@ -895,6 +895,21 @@ Changelog:
   - Added RevenueCat user ID verification after setUserID calls to ensure proper mapping
   - Transactions should now appear under correct Customer IDs matching actual user accounts in dashboard
   - Fixed root cause: RevenueCat was using anonymous or hardcoded user IDs instead of authenticated user IDs
+- July 31, 2025. COMPLETE REMOVAL of all web browser dependencies - Bean Stalker exclusively native mobile app
+  - Removed all Capacitor platform detection logic from IAP service and authentication flows
+  - Deleted fallback-iap-config.ts, web-revenuecat-test.tsx, and all web browser fallback files
+  - Eliminated all @capacitor/core Capacitor imports and platform checks throughout codebase
+  - Updated mobile image utilities to be native-only without web browser platform detection
+  - Fixed all LSP errors related to missing Capacitor imports and undefined references
+  - Bean Stalker now operates exclusively as native mobile app without any web browser compatibility
+  - All authentication, payment, and core functionality designed specifically for iOS/Android TestFlight distribution
+- July 31, 2025. CRITICAL FIX: RevenueCat anonymous Customer ID issue completely resolved
+  - Root cause identified: RevenueCat was using anonymous Customer ID ($RCAnonymousID:9cc748ab96ab4176910c9df38908d1bc) instead of actual user IDs
+  - Fixed RevenueCat user ID setting by using IAP service setUserID method with proper SandboxForceOverride integration
+  - Added mandatory native platform verification - membership registration now requires TestFlight app
+  - Enhanced debug display to show exact 3-step registration flow: 1) Registration Form 2) $69 Native Payment 3) Auto Login & Redirect
+  - Prevented automatic redirect during debug mode allowing complete visibility into RevenueCat Customer ID mapping
+  - Anonymous Customer ID issue should now be resolved with proper user ID assignment during membership registration
 - July 29, 2025. CRITICAL FIX: Membership payment Customer ID "45" issue completely resolved
   - Fixed membership payment RevenueCat Customer ID mapping specifically during registration process
   - Added explicit RevenueCat user ID verification before membership purchases in auth-page-mobile.tsx

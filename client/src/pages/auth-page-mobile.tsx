@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useBiometricAuth } from "@/hooks/use-biometric-auth";
 import { useIAP } from "@/hooks/use-iap";
 import { iapService } from "@/services/iap-service";
-import { Capacitor } from '@capacitor/core';
+
 import { Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ export default function AuthPageMobile() {
   const { user, loginMutation, registerMutation } = useAuth();
   const { notify } = useNativeNotification();
   const { purchaseProduct, isAvailable: iapAvailable, isLoading: iapLoading } = useIAP();
-  const isNative = Capacitor.isNativePlatform();
+
   const {
     biometricState,
     authenticateWithBiometrics,
@@ -349,6 +349,8 @@ export default function AuthPageMobile() {
     };
 
     if (registerData.joinPremium) {
+      // Bean Stalker is exclusively a native mobile app
+      
       // Native mobile app - always use RevenueCat for premium membership
         try {
           // Clear previous debug steps and show debug display
@@ -403,55 +405,51 @@ export default function AuthPageMobile() {
             // Wait for logout to complete
             await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // Set RevenueCat user ID for payment
-            addDebugStep('Step 2: RevenueCat Login', 'pending', `Setting RevenueCat user ID to ${newUser.id}...`);
-            let loginResult;
+            // CRITICAL FIX: Use IAP service setUserID method instead of direct RevenueCat calls
+            addDebugStep('Step 2: RevenueCat Login', 'pending', `Setting RevenueCat user ID to ${newUser.id} via IAP service...`);
+            
             try {
-              loginResult = await Purchases.logIn({ appUserID: newUser.id.toString() });
-              console.log('💳 MEMBERSHIP PAYMENT: Login result:', {
-                created: loginResult.created,
-                userID: loginResult.customerInfo.originalAppUserId
-              });
+              // Use the IAP service method that handles user ID setting properly
+              console.log('💳 MEMBERSHIP PAYMENT: Using IAP service to set user ID:', newUser.id.toString());
+              await iapService.setUserID(newUser.id.toString());
               
-              const actualUserId = loginResult.customerInfo.originalAppUserId;
+              // Verify the user ID was set correctly
+              const { Purchases } = await import('@revenuecat/purchases-capacitor');
+              const { customerInfo } = await Purchases.getCustomerInfo();
+              const actualUserId = customerInfo.originalAppUserId;
               const expectedUserId = newUser.id.toString();
+              
+              console.log('💳 MEMBERSHIP PAYMENT: User ID verification:', {
+                actual: actualUserId,
+                expected: expectedUserId,
+                match: actualUserId === expectedUserId
+              });
               
               addDebugStep('RevenueCat Login Result', 'pending', `Got user ID: ${actualUserId}, Expected: ${expectedUserId}`);
               
               if (actualUserId === expectedUserId) {
-                addDebugStep('Step 2: RevenueCat Login', 'success', `✅ RevenueCat user ID set to ${newUser.id}`);
+                addDebugStep('Step 2: RevenueCat Login', 'success', `✅ RevenueCat user ID correctly set to ${newUser.id}`);
+              } else if (actualUserId.startsWith('$RCAnonymous')) {
+                addDebugStep('Step 2: RevenueCat Login', 'error', `❌ Still using anonymous ID: ${actualUserId}`);
+                throw new Error('RevenueCat user ID setting failed - still anonymous');
               } else {
-                addDebugStep('RevenueCat Login', 'warning', `⚠️ ID mismatch - trying to fix...`);
-                
-                // Try one more time with a different approach
-                addDebugStep('RevenueCat Retry', 'pending', `Retrying login after brief delay...`);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                const retryResult = await Purchases.logIn({ appUserID: newUser.id.toString() });
-                const retryUserId = retryResult.customerInfo.originalAppUserId;
-                
-                addDebugStep('RevenueCat Retry', 'pending', `Retry result: ${retryUserId}`);
-                
-                if (retryUserId === expectedUserId) {
-                  addDebugStep('RevenueCat Login', 'success', `✅ Retry successful - user ${newUser.id}`);
-                  loginResult = retryResult; // Use retry result
-                } else {
-                  addDebugStep('RevenueCat Login', 'error', `❌ Both attempts failed - using ${retryUserId} anyway`);
-                  // Continue with whatever user ID we got - the purchase might still work
-                  loginResult = retryResult;
-                }
+                addDebugStep('Step 2: RevenueCat Login', 'warning', `⚠️ Different user ID but not anonymous: ${actualUserId}`);
+                // Continue with the purchase as it's not anonymous
               }
             } catch (loginError) {
-              addDebugStep('RevenueCat Login', 'error', `Login error: ${loginError}`);
-              throw new Error(`RevenueCat login failed: ${loginError}`);
+              addDebugStep('Step 2: RevenueCat Login', 'error', `Login error: ${loginError}`);
+              throw new Error(`RevenueCat user ID setting failed: ${loginError}`);
             }
             
             // CRITICAL: Verify IAP service availability for native payment popup
             const isIAPAvailable = iapService.isAvailable();
             console.log('💳 MEMBERSHIP PAYMENT: IAP service availability check:', isIAPAvailable);
             if (!isIAPAvailable) {
+              addDebugStep('Step 2: Platform Check', 'error', `❌ IAP service not available`);
               console.error('💳 MEMBERSHIP PAYMENT ERROR: IAP service not available for native payments');
-              throw new Error('In-app purchase service not available. Please ensure you are on a native mobile device.');
+              throw new Error('RevenueCat service not available. Please ensure app is properly initialized.');
+            } else {
+              addDebugStep('Step 2: Platform Check', 'success', `✅ Native mobile app - IAP available`);
             }
             
             // CRITICAL: Longer delay to ensure RevenueCat user change is fully processed
