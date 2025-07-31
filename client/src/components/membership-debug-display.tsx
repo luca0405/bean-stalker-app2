@@ -15,9 +15,10 @@ interface MembershipDebugDisplayProps {
   debugSteps: DebugStep[];
   isVisible: boolean;
   onClose: () => void;
+  onGoToApp?: () => void;
 }
 
-export function MembershipDebugDisplay({ debugSteps, isVisible, onClose }: MembershipDebugDisplayProps) {
+export function MembershipDebugDisplay({ debugSteps, isVisible, onClose, onGoToApp }: MembershipDebugDisplayProps) {
   if (!isVisible || debugSteps.length === 0) return null;
 
   const getStatusIcon = (status: DebugStep['status']) => {
@@ -72,10 +73,18 @@ export function MembershipDebugDisplay({ debugSteps, isVisible, onClose }: Membe
             </div>
           ))}
           
-          <div className="pt-4">
-            <Button onClick={onClose} className="w-full">
+          <div className="pt-4 space-y-2">
+            {onGoToApp && (
+              <Button onClick={onGoToApp} className="w-full bg-green-600 hover:bg-green-700">
+                Go to Bean Stalker App
+              </Button>
+            )}
+            <Button onClick={onClose} variant="outline" className="w-full">
               Close Debug Info
             </Button>
+            <p className="text-xs text-gray-500 text-center">
+              Registration complete - redirect blocked for debugging
+            </p>
           </div>
         </CardContent>
       </Card>

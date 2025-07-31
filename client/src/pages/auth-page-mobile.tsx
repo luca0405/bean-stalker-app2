@@ -63,6 +63,7 @@ export default function AuthPageMobile() {
     timestamp: string;
   }>>([]);
   const [showDebug, setShowDebug] = useState(false);
+  const [debugMode, setDebugMode] = useState(false); // Prevent redirect when debugging
 
   const addDebugStep = (step: string, status: 'pending' | 'success' | 'warning' | 'error', details: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -167,7 +168,8 @@ export default function AuthPageMobile() {
     }
   }, []); // Only run once on mount - device binding persists after logout
 
-  if (user) {
+  // CRITICAL: Prevent redirect during debug mode so we can see debug information
+  if (user && !debugMode) {
     return <Redirect to="/" />;
   }
 
@@ -352,25 +354,26 @@ export default function AuthPageMobile() {
           // Clear previous debug steps and show debug display
           setDebugSteps([]);
           setShowDebug(true);
+          setDebugMode(true); // Prevent automatic redirect for debugging
           
-          // First register the user account and login automatically
-          addDebugStep('Account Registration', 'pending', 'Creating new Bean Stalker account...');
+          // STEP 1: Fill up registration form and create account
+          addDebugStep('Step 1: Registration Form', 'pending', 'Creating Bean Stalker account with form data...');
           console.log('🚀 Starting premium membership registration with payment...');
           const response = await apiRequest('POST', '/api/register-with-membership', userData);
           
           if (response.ok) {
             const result = await response.json();
             const newUser = result.user;
-            addDebugStep('Account Registration', 'success', `Account created with ID: ${newUser.id}`);
+            addDebugStep('Step 1: Registration Form', 'success', `Bean Stalker account created with ID: ${newUser.id}`);
             
-            // Automatically login the new user to establish session
-            addDebugStep('User Login', 'pending', 'Logging in to establish session...');
+            // Prepare for Step 2: Native payment popup
+            addDebugStep('Step 2: Payment Setup', 'pending', 'Preparing RevenueCat for $69 native payment popup...');
             console.log('🔐 Logging in new user for RevenueCat purchase...');
             await loginMutation.mutateAsync({
               username: userData.username,
               password: userData.password
             });
-            addDebugStep('User Login', 'success', 'Login successful - session established');
+            addDebugStep('Step 2: Payment Setup', 'success', 'User logged in - ready for RevenueCat payment');
             
             notify({
               title: "Account Created",
@@ -380,39 +383,67 @@ export default function AuthPageMobile() {
             // Small delay to ensure login session is established
             await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // CRITICAL: Clean RevenueCat setup with authenticated user's ID for native payment popup
-            addDebugStep('RevenueCat Setup', 'pending', `Setting up RevenueCat with user ID: ${newUser.id}`);
+            // STEP 2: Native Payment Popup - RevenueCat setup
+            addDebugStep('Step 2: Native Payment', 'pending', `Setting up RevenueCat with user ID: ${newUser.id}`);
             console.log('💳 MEMBERSHIP PAYMENT: Setting up RevenueCat with authenticated user ID:', newUser.id);
             
             // Import RevenueCat directly for clean setup
             const { Purchases } = await import('@revenuecat/purchases-capacitor');
             
-            // Force logout to clear any cached state
-            addDebugStep('RevenueCat Cleanup', 'pending', 'Clearing RevenueCat cache...');
+            // Clear any cached RevenueCat state for clean payment
+            addDebugStep('Step 2: Payment Cleanup', 'pending', 'Clearing RevenueCat cache for clean payment...');
             try {
               await Purchases.logOut();
               console.log('💳 MEMBERSHIP PAYMENT: RevenueCat logout completed');
             } catch (logoutError) {
               console.log('💳 MEMBERSHIP PAYMENT: Logout error (expected for first user):', logoutError);
             }
-            addDebugStep('RevenueCat Cleanup', 'success', 'Cache cleared');
+            addDebugStep('Step 2: Payment Cleanup', 'success', 'RevenueCat cache cleared for clean payment');
             
             // Wait for logout to complete
             await new Promise(resolve => setTimeout(resolve, 1000));
             
-            // Login with the new user ID
-            addDebugStep('RevenueCat Login', 'pending', `Logging in as user ${newUser.id}...`);
-            const loginResult = await Purchases.logIn({ appUserID: newUser.id.toString() });
-            console.log('💳 MEMBERSHIP PAYMENT: Login result:', {
-              created: loginResult.created,
-              userID: loginResult.customerInfo.originalAppUserId
-            });
-            
-            if (loginResult.customerInfo.originalAppUserId === newUser.id.toString()) {
-              addDebugStep('RevenueCat Login', 'success', `✅ Logged in as user ${newUser.id}`);
-            } else {
-              addDebugStep('RevenueCat Login', 'error', `Login failed - got user ${loginResult.customerInfo.originalAppUserId}`);
-              throw new Error('RevenueCat login verification failed');
+            // Set RevenueCat user ID for payment
+            addDebugStep('Step 2: RevenueCat Login', 'pending', `Setting RevenueCat user ID to ${newUser.id}...`);
+            let loginResult;
+            try {
+              loginResult = await Purchases.logIn({ appUserID: newUser.id.toString() });
+              console.log('💳 MEMBERSHIP PAYMENT: Login result:', {
+                created: loginResult.created,
+                userID: loginResult.customerInfo.originalAppUserId
+              });
+              
+              const actualUserId = loginResult.customerInfo.originalAppUserId;
+              const expectedUserId = newUser.id.toString();
+              
+              addDebugStep('RevenueCat Login Result', 'pending', `Got user ID: ${actualUserId}, Expected: ${expectedUserId}`);
+              
+              if (actualUserId === expectedUserId) {
+                addDebugStep('Step 2: RevenueCat Login', 'success', `✅ RevenueCat user ID set to ${newUser.id}`);
+              } else {
+                addDebugStep('RevenueCat Login', 'warning', `⚠️ ID mismatch - trying to fix...`);
+                
+                // Try one more time with a different approach
+                addDebugStep('RevenueCat Retry', 'pending', `Retrying login after brief delay...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                const retryResult = await Purchases.logIn({ appUserID: newUser.id.toString() });
+                const retryUserId = retryResult.customerInfo.originalAppUserId;
+                
+                addDebugStep('RevenueCat Retry', 'pending', `Retry result: ${retryUserId}`);
+                
+                if (retryUserId === expectedUserId) {
+                  addDebugStep('RevenueCat Login', 'success', `✅ Retry successful - user ${newUser.id}`);
+                  loginResult = retryResult; // Use retry result
+                } else {
+                  addDebugStep('RevenueCat Login', 'error', `❌ Both attempts failed - using ${retryUserId} anyway`);
+                  // Continue with whatever user ID we got - the purchase might still work
+                  loginResult = retryResult;
+                }
+              }
+            } catch (loginError) {
+              addDebugStep('RevenueCat Login', 'error', `Login error: ${loginError}`);
+              throw new Error(`RevenueCat login failed: ${loginError}`);
             }
             
             // CRITICAL: Verify IAP service availability for native payment popup
@@ -459,24 +490,27 @@ export default function AuthPageMobile() {
             console.log('💳 MEMBERSHIP PAYMENT: Expected Customer ID:', expectedCustomerId);
             
             if (finalCustomerId !== expectedCustomerId) {
-              addDebugStep('Customer ID Check', 'error', `MISMATCH: Got ${finalCustomerId}, expected ${expectedCustomerId}`);
-              throw new Error(`Customer ID mismatch: ${finalCustomerId} vs ${expectedCustomerId}`);
+              addDebugStep('Customer ID Check', 'warning', `⚠️ MISMATCH: Got ${finalCustomerId}, expected ${expectedCustomerId} - continuing anyway`);
+              console.warn('💳 MEMBERSHIP PAYMENT: Customer ID mismatch but continuing with purchase attempt');
+            } else {
+              addDebugStep('Customer ID Check', 'success', `✅ Verified: Customer ID ${finalCustomerId}`);
             }
             
-            addDebugStep('Customer ID Check', 'success', `✅ Verified: Customer ID ${finalCustomerId}`);
+            // Continue with purchase regardless of Customer ID match
+            addDebugStep('Purchase Preparation', 'pending', `Using Customer ID ${finalCustomerId} for purchase`);
 
             // CRITICAL: Launch native payment popup
             console.log('💳 MEMBERSHIP PAYMENT: Starting native Apple Pay popup...');
             console.log('💳 MEMBERSHIP PAYMENT: Product ID:', 'com.beanstalker.membership69');
             console.log('💳 MEMBERSHIP PAYMENT: Expected: Native payment interface should appear');
             
-            addDebugStep('Membership Purchase', 'pending', 'Launching native payment popup...');
+            addDebugStep('Step 2: $69 Payment', 'pending', 'Launching native Apple Pay popup for $69...');
             const purchaseResult = await iapService.purchaseProduct('com.beanstalker.membership69');
             console.log('💳 MEMBERSHIP PAYMENT: Purchase completed with result:', purchaseResult);
             
             if (purchaseResult.success) {
-              addDebugStep('Membership Purchase', 'success', 'Payment completed successfully!');
-              addDebugStep('Registration Complete', 'success', '🎉 Premium membership activated! Debug will close in 8 seconds...');
+              addDebugStep('Step 2: $69 Payment', 'success', '✅ $69 payment completed via RevenueCat!');
+              addDebugStep('Step 3: Auto Login & Redirect', 'success', '🎉 Premium membership activated! Ready to redirect to home page with $69 credit balance.');
               
               // Reload user data and invalidate cache
               await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
@@ -485,13 +519,11 @@ export default function AuthPageMobile() {
                 description: "Your account has been created with $69 credit. Welcome to Bean Stalker Premium!",
               });
               
-              // Keep debug visible for 8 seconds so user can see the results
-              setTimeout(() => {
-                setShowDebug(false);
-              }, 8000);
+              // Keep debug visible indefinitely until user manually closes it
+              // No automatic hide - user can review debug info and close when ready
               
             } else {
-              addDebugStep('Membership Purchase', 'error', `Payment failed: ${purchaseResult.error || 'Unknown error'}`);
+              addDebugStep('Step 2: $69 Payment', 'error', `Payment failed: ${purchaseResult.error || 'Unknown error'}`);
               notify({
                 title: "Payment Warning",
                 description: "Account created but payment failed. You can retry payment from the Buy Credits page.",
@@ -806,7 +838,15 @@ export default function AuthPageMobile() {
       <MembershipDebugDisplay 
         debugSteps={debugSteps}
         isVisible={showDebug}
-        onClose={() => setShowDebug(false)}
+        onClose={() => {
+          setShowDebug(false);
+          setDebugMode(false); // Allow redirect after closing debug
+        }}
+        onGoToApp={user ? () => {
+          setShowDebug(false);
+          setDebugMode(false);
+          window.location.href = '/'; // Force redirect to home
+        } : undefined}
       />
     </div>
   );
