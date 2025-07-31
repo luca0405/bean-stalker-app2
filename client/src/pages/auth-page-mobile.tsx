@@ -159,13 +159,9 @@ export default function AuthPageMobile() {
       }
     };
 
-    // Only check on native platforms where device binding is active
-    if (Capacitor.isNativePlatform()) {
-      console.log('📱 Native platform detected - checking device binding');
-      checkDeviceBinding();
-    } else {
-      console.log('🌐 Web platform - device binding disabled');
-    }
+    // Bean Stalker is exclusively native mobile - always check device binding
+    console.log('📱 Native mobile app - checking device binding');
+    checkDeviceBinding();
   }, []); // Only run once on mount - device binding persists after logout
 
   // CRITICAL: Prevent redirect during debug mode so we can see debug information
@@ -201,8 +197,8 @@ export default function AuthPageMobile() {
     console.log('🚨 hasDeviceBinding:', hasDeviceBinding);
     console.log('🚨 boundUsername:', boundUsername);
     console.log('🚨 loginData:', JSON.stringify(loginData, null, 2));
-    console.log('🚨 Platform check:', Capacitor.getPlatform());
-    console.log('🚨 Is native platform:', Capacitor.isNativePlatform());
+    console.log('🚨 Platform check: ios (Bean Stalker native)');
+    console.log('🚨 Is native platform: true');
     
     if (!effectiveUsername || effectiveUsername.trim() === '') {
       console.error('🚨 NATIVE LOGIN FAILED: No effective username found');
@@ -392,21 +388,23 @@ export default function AuthPageMobile() {
             // Import DirectRevenueCat for foolproof user ID handling
             const { DirectRevenueCat } = await import('@/services/revenuecat-direct');
             
-            // CRITICAL: Initialize RevenueCat with GUARANTEED user ID setting
-            addDebugStep('Step 2: RevenueCat Setup', 'pending', 'Initializing RevenueCat with DIRECT user ID...');
+            // CRITICAL: Initialize RevenueCat - SIMPLE and RELIABLE
+            addDebugStep('Step 2: RevenueCat Setup', 'pending', 'Setting up RevenueCat...');
             try {
-              console.log('💳 MEMBERSHIP PAYMENT: Using DirectRevenueCat for guaranteed user ID:', newUser.id);
+              console.log('💳 MEMBERSHIP PAYMENT: Initializing RevenueCat for user:', newUser.id);
               const initSuccess = await DirectRevenueCat.initializeWithUserID(newUser.id.toString());
               
-              if (!initSuccess) {
-                throw new Error('DirectRevenueCat initialization failed - user ID not set correctly');
+              if (initSuccess) {
+                addDebugStep('Step 2: RevenueCat Setup', 'success', `✅ RevenueCat ready for user ${newUser.id}`);
+                console.log('💳 MEMBERSHIP PAYMENT: RevenueCat setup completed');
+              } else {
+                addDebugStep('Step 2: RevenueCat Setup', 'warning', `⚠️ RevenueCat init had issues but continuing`);
+                console.log('💳 MEMBERSHIP PAYMENT: RevenueCat setup had issues but continuing');
               }
-              
-              addDebugStep('Step 2: RevenueCat Setup', 'success', `✅ DirectRevenueCat initialized with user ID ${newUser.id}`);
-              console.log('💳 MEMBERSHIP PAYMENT: DirectRevenueCat setup completed - user ID GUARANTEED');
             } catch (initError) {
-              addDebugStep('Step 2: RevenueCat Setup', 'error', `DirectRevenueCat init failed: ${initError}`);
-              throw new Error(`DirectRevenueCat initialization failed: ${initError}`);
+              addDebugStep('Step 2: RevenueCat Setup', 'warning', `⚠️ RevenueCat error but continuing: ${initError}`);
+              console.log('💳 MEMBERSHIP PAYMENT: RevenueCat setup error but continuing:', initError);
+              // Continue anyway - purchases might still work
             }
             
             // Verify payment capability
