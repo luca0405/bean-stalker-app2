@@ -33,6 +33,14 @@ export class SimpleRevenueCat {
       console.log('💳 SIMPLE REVENUECAT: Triggering native payment popup...');
       const result = await Purchases.purchasePackage({ aPackage: membershipPackage });
 
+      console.log('💳 SIMPLE REVENUECAT: REAL PAYMENT RESULT:', JSON.stringify(result, null, 2));
+      console.log('💳 SIMPLE REVENUECAT: Transaction ID:', result.customerInfo?.originalPurchaseDate);
+      console.log('💳 SIMPLE REVENUECAT: Entitlements:', Object.keys(result.customerInfo?.entitlements?.all || {}));
+      
+      // Wait for webhook processing
+      console.log('⏳ Waiting 3 seconds for webhook processing...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       console.log('💳 SIMPLE REVENUECAT: Payment completed for user:', userID);
       return { success: true };
 

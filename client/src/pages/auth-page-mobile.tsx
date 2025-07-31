@@ -386,45 +386,13 @@ export default function AuthPageMobile() {
             console.log('💳 MEMBERSHIP PAYMENT: Setting up RevenueCat with authenticated user ID:', newUser.id);
             
             // Import DirectRevenueCat for foolproof user ID handling
-            const { DirectRevenueCat } = await import('@/services/revenuecat-direct');
-            
-            // CRITICAL: Initialize RevenueCat - SIMPLE and RELIABLE
-            addDebugStep('Step 2: RevenueCat Setup', 'pending', 'Setting up RevenueCat...');
-            try {
-              console.log('💳 MEMBERSHIP PAYMENT: Initializing RevenueCat for user:', newUser.id);
-              const initSuccess = await DirectRevenueCat.initializeWithUserID(newUser.id.toString());
-              
-              if (initSuccess) {
-                addDebugStep('Step 2: RevenueCat Setup', 'success', `✅ RevenueCat ready for user ${newUser.id}`);
-                console.log('💳 MEMBERSHIP PAYMENT: RevenueCat setup completed');
-              } else {
-                addDebugStep('Step 2: RevenueCat Setup', 'warning', `⚠️ RevenueCat init had issues but continuing`);
-                console.log('💳 MEMBERSHIP PAYMENT: RevenueCat setup had issues but continuing');
-              }
-            } catch (initError) {
-              addDebugStep('Step 2: RevenueCat Setup', 'warning', `⚠️ RevenueCat error but continuing: ${initError}`);
-              console.log('💳 MEMBERSHIP PAYMENT: RevenueCat setup error but continuing:', initError);
-              // Continue anyway - purchases might still work
-            }
-            
-            // Verify payment capability
-            addDebugStep('Step 2: Payment Check', 'pending', 'Verifying payment capability...');
-            try {
-              const canPay = await DirectRevenueCat.canMakePayments();
-              if (!canPay) {
-                throw new Error('In-app purchases disabled on device');
-              }
-              addDebugStep('Step 2: Payment Check', 'success', '✅ Device ready for in-app purchases');
-            } catch (payError) {
-              addDebugStep('Step 2: Payment Check', 'error', `Payment check failed: ${payError}`);
-              throw new Error(`Payment capability check failed: ${payError}`);
-            }
+            const { DirectRevenueCat } = await import('@/services/direct-revenuecat');
             
             // DIRECT PURCHASE - NO MORE COMPLEX WRAPPER LOGIC
             addDebugStep('Step 2: $69 Payment', 'pending', 'Launching native Apple Pay popup...');
             console.log('💳 MEMBERSHIP PAYMENT: Starting DirectRevenueCat purchase...');
             
-            const purchaseResult = await DirectRevenueCat.purchaseMembership();
+            const purchaseResult = await DirectRevenueCat.configureAndProcessPayment(newUser.id.toString());
             console.log('💳 MEMBERSHIP PAYMENT: DirectRevenueCat purchase result:', purchaseResult);
             
             if (purchaseResult.success) {
