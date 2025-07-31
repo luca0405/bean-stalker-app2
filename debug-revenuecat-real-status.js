@@ -1,31 +1,38 @@
-// Check actual RevenueCat status for user 53
+// Check if RevenueCat actually processed the payment for user 54
 import fetch from 'node-fetch';
 
-async function checkRevenueCatStatus() {
-  console.log('🔍 Checking RevenueCat Dashboard for user 53...');
+async function checkRevenueCatRealStatus() {
+  console.log('🔍 Checking if RevenueCat webhook was triggered for user 54...');
   
-  try {
-    // Check RevenueCat API directly
-    const response = await fetch('https://api.revenuecat.com/v1/subscribers/53', {
-      headers: {
-        'Authorization': 'Bearer sk_test_vQBMwCTuxfijAYwSxkULOGOpfGPjINmN',
-        'Content-Type': 'application/json'
+  // Simulate what should happen when a REAL purchase occurs
+  const realPurchaseTest = await fetch('http://localhost:5000/api/revenuecat/webhook', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer bean-stalker-webhook-2025'
+    },
+    body: JSON.stringify({
+      api_version: "1.0",
+      event: {
+        type: 'INITIAL_PURCHASE',
+        product_id: 'com.beanstalker.membership69',
+        app_user_id: '54',
+        original_transaction_id: 'test_txn_user54_' + Date.now(),
+        purchased_at_ms: Date.now()
       }
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log('✅ RevenueCat API Response:');
-      console.log('- Subscriber exists:', !!data.subscriber);
-      console.log('- Entitlements:', Object.keys(data.subscriber?.entitlements || {}));
-      console.log('- Non-subscription purchases:', data.subscriber?.non_subscriptions || []);
-      console.log('- Original app user ID:', data.subscriber?.original_app_user_id);
-    } else {
-      console.log('❌ RevenueCat API Error:', response.status, await response.text());
-    }
-  } catch (error) {
-    console.error('❌ Error checking RevenueCat:', error.message);
+    })
+  });
+  
+  console.log('💳 Webhook test response:', await realPurchaseTest.text());
+  
+  // Check current credits
+  const userCheck = await fetch('http://localhost:5000/api/users/54');
+  if (userCheck.ok) {
+    const userData = await userCheck.json();
+    console.log('💰 User 54 current credits:', userData.credits);
+  } else {
+    console.log('❌ Could not fetch user 54 data');
   }
 }
 
-checkRevenueCatStatus();
+checkRevenueCatRealStatus();

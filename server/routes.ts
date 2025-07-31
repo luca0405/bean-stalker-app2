@@ -2971,18 +2971,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ error: 'Invalid user ID' });
         }
         
-        // Determine credit amount based on product ID
+        // Determine credit amount based on exact product IDs
         let creditAmount = 0;
         let transactionType = "iap_purchase";
         
-        if (product_id.includes('membership69')) {
+        if (product_id === 'com.beanstalker.membership69') {
           creditAmount = 69;
           transactionType = "membership_iap";
-        } else if (product_id.includes('credits25')) {
+        } else if (product_id === 'com.beanstalker.credits25') {
           creditAmount = 29.50; // $25 → $29.50 ($4.50 bonus)
-        } else if (product_id.includes('credits50')) {
+        } else if (product_id === 'com.beanstalker.credits50') {
           creditAmount = 59.90; // $50 → $59.90 ($9.90 bonus)
-        } else if (product_id.includes('credits100')) {
+        } else if (product_id === 'com.beanstalker.credits100') {
           creditAmount = 120.70; // $100 → $120.70 ($20.70 bonus)
         } else {
           console.error('❌ Unknown product ID:', product_id);

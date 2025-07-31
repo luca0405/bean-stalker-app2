@@ -385,25 +385,25 @@ export default function AuthPageMobile() {
             addDebugStep('Step 2: Native Payment', 'pending', `Setting up RevenueCat with user ID: ${newUser.id}`);
             console.log('💳 MEMBERSHIP PAYMENT: Setting up RevenueCat with authenticated user ID:', newUser.id);
             
-            // Import DirectRevenueCat for foolproof user ID handling
-            const { DirectRevenueCat } = await import('@/services/direct-revenuecat');
+            // Import RevenueCatDashboardFix to use actual dashboard configuration
+            const { RevenueCatDashboardFix } = await import('@/services/revenuecat-dashboard-fix');
             
-            // DIRECT PURCHASE - NO MORE COMPLEX WRAPPER LOGIC
-            addDebugStep('Step 2: $69 Payment', 'pending', 'Launching native Apple Pay popup...');
-            console.log('💳 MEMBERSHIP PAYMENT: Starting DirectRevenueCat purchase...');
+            // DASHBOARD FIX - USE ACTUAL REVENUECAT CONFIGURATION
+            addDebugStep('Step 2: $69 Payment', 'pending', 'Using actual RevenueCat dashboard products...');
+            console.log('💳 MEMBERSHIP PAYMENT: Starting with dashboard configuration...');
             
-            const purchaseResult = await DirectRevenueCat.configureAndProcessPayment(newUser.id.toString());
-            console.log('💳 MEMBERSHIP PAYMENT: DirectRevenueCat purchase result:', purchaseResult);
+            const purchaseResult = await RevenueCatDashboardFix.processWithDashboardProducts(newUser.id.toString());
+            console.log('💳 MEMBERSHIP PAYMENT: Dashboard fix result:', purchaseResult);
             
             if (purchaseResult.success) {
-              addDebugStep('Step 2: $69 Payment', 'success', '✅ $69 payment completed via RevenueCat!');
-              addDebugStep('Step 3: Auto Login & Redirect', 'success', '🎉 Premium membership activated! Ready to redirect to home page with $69 credit balance.');
+              addDebugStep('Step 2: $69 Payment', 'success', `✅ Payment completed with product: ${purchaseResult.productFound}`);
+              addDebugStep('Step 3: Auto Login & Redirect', 'success', '🎉 Purchase successful! RevenueCat webhook should process payment shortly.');
               
               // Reload user data and invalidate cache
               await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
               notify({
-                title: "Premium Membership Activated!",
-                description: "Your account has been created with $69 credit. Welcome to Bean Stalker Premium!",
+                title: "Purchase Completed!",
+                description: `Payment processed with ${purchaseResult.productFound}. Credits will appear shortly.`,
               });
               
               // Keep debug visible indefinitely until user manually closes it
@@ -411,11 +411,26 @@ export default function AuthPageMobile() {
               
             } else {
               addDebugStep('Step 2: $69 Payment', 'error', `Payment failed: ${purchaseResult.error || 'Unknown error'}`);
-              notify({
-                title: "Payment Warning",
-                description: "Account created but payment failed. You can retry payment from the Buy Credits page.",
-                variant: "destructive",
-              });
+              
+              if (purchaseResult.error?.includes('cancelled')) {
+                notify({
+                  title: "Payment Cancelled",
+                  description: "You cancelled the payment. Account created - you can retry payment from Buy Credits page.",
+                  variant: "destructive",
+                });
+              } else if (purchaseResult.error?.includes('configuration')) {
+                notify({
+                  title: "Configuration Issue",
+                  description: "RevenueCat configuration problem detected. Please contact support.",
+                  variant: "destructive",
+                });
+              } else {
+                notify({
+                  title: "Payment Failed",
+                  description: "Account created but payment failed. You can retry from Buy Credits page.",
+                  variant: "destructive",
+                });
+              }
             }
           } else {
             throw new Error('Registration failed');
