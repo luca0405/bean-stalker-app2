@@ -5,10 +5,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
 import { Capacitor } from '@capacitor/core';
 import { RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 export function RevenueCatForceReload() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const { user } = useAuth();
 
   const forceReloadRevenueCat = async () => {
     if (!Capacitor.isNativePlatform()) {
@@ -28,10 +30,11 @@ export function RevenueCatForceReload() {
       // Use hardcoded API key
       const apiKey = 'appl_owLmakOcTeYJOJoxJgScSQZtUQA';
       
-      console.log('🔧 Reconfiguring RevenueCat...');
+      const userId = user && 'id' in user ? user.id.toString() : '1';
+      console.log('🔧 Reconfiguring RevenueCat with user ID:', userId);
       await Purchases.configure({
         apiKey,
-        appUserID: '32',
+        appUserID: userId,
       });
       
       // Step 2: Force sync customer info

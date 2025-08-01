@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { iapService } from '@/services/iap-service';
+import { useAuth } from '@/hooks/use-auth';
 import { AlertCircle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 
 interface DiagnosticResult {
@@ -15,6 +16,7 @@ interface DiagnosticResult {
 export default function IAPDiagnostic() {
   const [results, setResults] = useState<DiagnosticResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const { user } = useAuth();
 
   const addResult = (result: DiagnosticResult) => {
     setResults(prev => [...prev, result]);
@@ -76,7 +78,10 @@ export default function IAPDiagnostic() {
         message: 'Setting user ID...'
       });
 
-      await iapService.setUserID('32');
+      // Use the authenticated user ID from context instead of hardcoded "32"
+      const currentUserId = user && 'id' in user ? user.id.toString() : '1';
+      console.log('IAP DIAGNOSTIC: Using user ID:', currentUserId, 'instead of hardcoded "32"');
+      await iapService.setUserID(currentUserId);
       setResults(prev => prev.map(r => 
         r.test === 'User Login' 
           ? {

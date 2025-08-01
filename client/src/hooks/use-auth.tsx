@@ -136,27 +136,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('🚨 AUTH LOGIN: CRITICAL - Fixing RevenueCat user ID mapping for user:', userData.id);
         
         try {
-          // Use comprehensive RevenueCat user fix
-          const { revenueCatUserFix } = await import('@/services/revenucat-user-fix');
+          // Use simple direct RevenueCat user fix for all logins
+          const { forceCorrectUserID } = await import('@/services/simple-revenucat-fix');
           
-          const fixSuccess = await revenueCatUserFix.forceUserIdMapping(userData.id.toString());
+          console.log('AUTH LOGIN: Forcing correct RevenueCat user ID for:', userData.id);
+          const fixSuccess = await forceCorrectUserID(userData.id.toString());
+          
           if (fixSuccess) {
-            console.log('✅ AUTH LOGIN: RevenueCat user ID properly mapped to:', userData.id);
+            console.log('AUTH LOGIN: SUCCESS - RevenueCat user ID correctly set to:', userData.id);
             
-            // Verify the fix with diagnostic
-            const diagnostic = await revenueCatUserFix.diagnosticCheck(userData.id.toString());
-            console.log('✅ AUTH LOGIN: Diagnostic result:', diagnostic);
+            // Verify the fix worked
+            const { Purchases } = await import('@revenuecat/purchases-capacitor');
+            const { customerInfo } = await Purchases.getCustomerInfo();
+            console.log('AUTH LOGIN: Verification - Customer ID is now:', customerInfo.originalAppUserId);
             
-            if (diagnostic.status === 'SUCCESS') {
-              console.log('✅ AUTH LOGIN: SUCCESS - All future purchases will use correct user ID');
+            if (customerInfo.originalAppUserId === userData.id.toString()) {
+              console.log('AUTH LOGIN: VERIFIED - All purchases will use user ID:', userData.id);
             } else {
-              console.error('❌ AUTH LOGIN: WARNING - User ID mapping still has issues:', diagnostic.message);
+              console.error('AUTH LOGIN: WARNING - User ID still incorrect:', customerInfo.originalAppUserId);
             }
           } else {
-            console.error('❌ AUTH LOGIN: FAILED - Could not fix RevenueCat user ID mapping');
+            console.error('AUTH LOGIN: FAILED - Could not set correct RevenueCat user ID');
           }
         } catch (error) {
-          console.error('❌ AUTH LOGIN: ERROR fixing RevenueCat user mapping:', error);
+          console.error('AUTH LOGIN: ERROR setting RevenueCat user ID:', error);
         }
       }
       

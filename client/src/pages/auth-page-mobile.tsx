@@ -407,8 +407,14 @@ export default function AuthPageMobile() {
               
               addDebugStep('Simple Fix', 'success', 'RevenueCat now using correct user ID: ' + newUser.id);
               
-              // Proceed with Apple Pay
+              // Verify user ID is correctly set before proceeding
               const { Purchases } = await import('@revenuecat/purchases-capacitor');
+              const { customerInfo: verifyInfo } = await Purchases.getCustomerInfo();
+              console.log('VERIFICATION: Customer ID before Apple Pay:', verifyInfo.originalAppUserId);
+              
+              if (verifyInfo.originalAppUserId !== newUser.id.toString()) {
+                throw new Error(`User ID verification failed. Expected: ${newUser.id}, Got: ${verifyInfo.originalAppUserId}`);
+              }
               
               console.log('💳 CRITICAL FIX: Getting offerings for Apple Pay...');
               const offerings = await Purchases.getOfferings();

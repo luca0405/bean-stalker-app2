@@ -6,11 +6,13 @@ import { Capacitor } from '@capacitor/core';
 import { Purchases, LOG_LEVEL } from '@revenuecat/purchases-capacitor';
 import { AlertTriangle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { debugEnvironment } from '@/utils/environment-debug';
+import { useAuth } from '@/hooks/use-auth';
 
 export function RevenueCatTroubleshooter() {
   const [status, setStatus] = useState<any>({});
   const [isRunning, setIsRunning] = useState(false);
   const [step, setStep] = useState(0);
+  const { user } = useAuth();
 
   const troubleshootingSteps = [
     'Checking environment variables...',
@@ -65,10 +67,11 @@ export function RevenueCatTroubleshooter() {
           console.log('🔧 Configuring RevenueCat with API key:', apiKey.substring(0, 12) + '...');
           await Purchases.configure({
             apiKey,
-            appUserID: '32', // Set the specific user ID immediately
+            appUserID: user && 'id' in user ? user.id.toString() : '1', // Use authenticated user ID
           });
           results.initialization = { success: true };
-          console.log('✅ RevenueCat configured with user ID 32');
+          const userId = user && 'id' in user ? user.id.toString() : '1';
+          console.log('✅ RevenueCat configured with user ID:', userId);
           
           // Wait a moment for initialization to complete
           await new Promise(resolve => setTimeout(resolve, 1000));
