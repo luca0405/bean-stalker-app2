@@ -393,37 +393,22 @@ export default function AuthPageMobile() {
             console.log('💳 CRITICAL FIX: Direct RevenueCat for Apple Pay popup');
             
             try {
-              // Import Purchases directly for native popup
-              const { Purchases, LOG_LEVEL } = await import('@revenuecat/purchases-capacitor');
+              // SIMPLE DIRECT FIX: Force correct user ID
+              const { forceCorrectUserID } = await import('@/services/simple-revenucat-fix');
               
-              console.log('💳 ANONYMOUS ID FIX: Configuring RevenueCat with user ID to prevent anonymous mapping:', newUser.id);
-              await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+              console.log('SIMPLE: Forcing correct user ID for:', newUser.id);
+              addDebugStep('Simple Fix', 'pending', 'Forcing RevenueCat to use correct user ID...');
               
-              // CRITICAL: Configure with user ID to prevent anonymous ID assignment
-              await Purchases.configure({
-                apiKey: 'appl_owLmakOcTeYJOJoxJgScSQZtUQA',
-                appUserID: newUser.id.toString()  // This prevents $RCAnonymousID assignment
-              });
-              
-              // Verify user ID was set correctly
-              const { customerInfo } = await Purchases.getCustomerInfo();
-              console.log('💳 ANONYMOUS ID FIX: RevenueCat customer verification:');
-              console.log('💳 ANONYMOUS ID FIX: - Expected user ID:', newUser.id.toString());
-              console.log('💳 ANONYMOUS ID FIX: - Actual customer ID:', customerInfo.originalAppUserId);
-              
-              if (customerInfo.originalAppUserId !== newUser.id.toString()) {
-                console.error('💳 ANONYMOUS ID FIX: WARNING - Customer ID mismatch detected!');
-                console.error('💳 ANONYMOUS ID FIX: Expected:', newUser.id.toString());
-                console.error('💳 ANONYMOUS ID FIX: Got:', customerInfo.originalAppUserId);
-                
-                // Force login to fix the ID mapping
-                console.log('💳 ANONYMOUS ID FIX: Forcing login to fix ID mapping...');
-                await Purchases.logIn({ appUserID: newUser.id.toString() });
-                
-                // Verify fix
-                const { customerInfo: fixedInfo } = await Purchases.getCustomerInfo();
-                console.log('💳 ANONYMOUS ID FIX: After forced login:', fixedInfo.originalAppUserId);
+              const success = await forceCorrectUserID(newUser.id.toString());
+              if (!success) {
+                addDebugStep('Simple Fix', 'error', 'Failed to set correct user ID');
+                throw new Error('Could not force correct user ID in RevenueCat');
               }
+              
+              addDebugStep('Simple Fix', 'success', 'RevenueCat now using correct user ID: ' + newUser.id);
+              
+              // Proceed with Apple Pay
+              const { Purchases } = await import('@revenuecat/purchases-capacitor');
               
               console.log('💳 CRITICAL FIX: Getting offerings for Apple Pay...');
               const offerings = await Purchases.getOfferings();

@@ -131,30 +131,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // CRITICAL: Re-initialize RevenueCat after login with user's actual ID - Native mobile app
+      // CRITICAL: Fix RevenueCat user ID mapping after login
       if (userData && typeof userData === 'object' && 'id' in userData && userData.id) {
-        console.log('💳 AUTH LOGIN: CRITICAL - Re-initializing RevenueCat for user ID:', userData.id);
-        console.log('💳 AUTH LOGIN: This will fix anonymous Customer ID issue by using actual user ID:', userData.id);
+        console.log('🚨 AUTH LOGIN: CRITICAL - Fixing RevenueCat user ID mapping for user:', userData.id);
         
-        // Set RevenueCat user ID immediately to prevent anonymous ID usage
         try {
-          await iapService.setUserID(userData.id.toString());
-          console.log('💳 AUTH LOGIN: RevenueCat user ID set successfully to:', userData.id);
+          // Use comprehensive RevenueCat user fix
+          const { revenueCatUserFix } = await import('@/services/revenucat-user-fix');
           
-          // Then reinitialize with the correct user ID
-          const success = await iapService.initializeWithUserID(userData.id.toString());
-          if (success) {
-            console.log('💳 AUTH LOGIN: SUCCESS - RevenueCat properly initialized with user ID:', userData.id);
-            console.log('💳 AUTH LOGIN: All future purchases should now use Customer ID:', userData.id);
+          const fixSuccess = await revenueCatUserFix.forceUserIdMapping(userData.id.toString());
+          if (fixSuccess) {
+            console.log('✅ AUTH LOGIN: RevenueCat user ID properly mapped to:', userData.id);
+            
+            // Verify the fix with diagnostic
+            const diagnostic = await revenueCatUserFix.diagnosticCheck(userData.id.toString());
+            console.log('✅ AUTH LOGIN: Diagnostic result:', diagnostic);
+            
+            if (diagnostic.status === 'SUCCESS') {
+              console.log('✅ AUTH LOGIN: SUCCESS - All future purchases will use correct user ID');
+            } else {
+              console.error('❌ AUTH LOGIN: WARNING - User ID mapping still has issues:', diagnostic.message);
+            }
           } else {
-            console.error('💳 AUTH LOGIN: FAILED - RevenueCat re-initialization failed for user:', userData.id);
+            console.error('❌ AUTH LOGIN: FAILED - Could not fix RevenueCat user ID mapping');
           }
         } catch (error) {
-          console.error('💳 AUTH LOGIN: ERROR - RevenueCat initialization error for user:', userData.id, error);
+          console.error('❌ AUTH LOGIN: ERROR fixing RevenueCat user mapping:', error);
         }
       }
       
       // CRITICAL: Handle device binding for native platforms after successful login
+      const { Capacitor } = await import('@capacitor/core');
       if (Capacitor.isNativePlatform() && userData && typeof userData === 'object' && 'id' in userData && userData.id) {
         console.log('🔍 NATIVE LOGIN SUCCESS - Starting device binding process...');
         console.log('🔍 User logged in:', { id: userData.id, username: userData.username });
