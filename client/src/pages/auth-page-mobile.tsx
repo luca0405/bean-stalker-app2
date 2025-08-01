@@ -396,58 +396,32 @@ export default function AuthPageMobile() {
               // SIMPLE DIRECT FIX: Force correct user ID
               const { forceCorrectUserID } = await import('@/services/simple-revenucat-fix');
               
-              console.log('SIMPLE: Forcing correct user ID for:', newUser.id);
-              addDebugStep('Simple Fix', 'pending', 'Forcing RevenueCat to use correct user ID...');
+              console.log('🔧 PROPER FIX: Configuring RevenueCat AFTER user authentication...');
+              addDebugStep('Simple Fix', 'pending', 'Configuring RevenueCat with authenticated user ID...');
               
-              const success = await forceCorrectUserID(newUser.id.toString());
-              if (!success) {
-                addDebugStep('Simple Fix', 'error', 'Failed to set correct user ID');
-                throw new Error('Could not force correct user ID in RevenueCat');
+              // PROPER APPROACH: Configure RevenueCat only AFTER authentication
+              const { RevenueCatProperFix } = await import('@/services/revenuecat-proper-fix');
+              
+              const configResult = await RevenueCatProperFix.configureAfterAuthentication(newUser.id.toString());
+              if (!configResult.success) {
+                addDebugStep('Simple Fix', 'error', `Configuration failed: ${configResult.error}`);
+                throw new Error(configResult.error || 'Could not configure RevenueCat');
               }
               
-              addDebugStep('Simple Fix', 'success', 'RevenueCat now using correct user ID: ' + newUser.id);
+              addDebugStep('Simple Fix', 'success', 'RevenueCat configured with authenticated user - no anonymous ID!');
               
-              // Verify user ID is correctly set before proceeding
-              const { Purchases } = await import('@revenuecat/purchases-capacitor');
-              const { customerInfo: verifyInfo } = await Purchases.getCustomerInfo();
-              console.log('VERIFICATION: Customer ID before Apple Pay:', verifyInfo.originalAppUserId);
+              // Attempt purchase with properly configured RevenueCat
+              const purchaseResult = await RevenueCatProperFix.attemptPurchase();
               
-              if (verifyInfo.originalAppUserId !== newUser.id.toString()) {
-                throw new Error(`User ID verification failed. Expected: ${newUser.id}, Got: ${verifyInfo.originalAppUserId}`);
+              if (!purchaseResult.success) {
+                throw new Error(purchaseResult.error || 'Purchase failed');
               }
               
-              console.log('💳 CRITICAL FIX: Getting offerings for Apple Pay...');
-              const offerings = await Purchases.getOfferings();
-              console.log('💳 CRITICAL FIX: Available packages:', offerings.current?.availablePackages?.length || 0);
-              
-              if (!offerings.current?.availablePackages?.length) {
-                throw new Error('No RevenueCat packages available - check App Store Connect');
-              }
-              
-              // Find membership product
-              let membershipPackage = offerings.current.availablePackages.find(
-                pkg => pkg.product.identifier === 'com.beanstalker.membership69'
-              );
-              
-              if (!membershipPackage) {
-                console.log('💳 CRITICAL FIX: Available products:');
-                offerings.current.availablePackages.forEach(pkg => {
-                  console.log(`   - ${pkg.product.identifier}: ${pkg.product.title}`);
-                });
-                throw new Error('Membership product com.beanstalker.membership69 not found in App Store Connect');
-              }
-              
-              console.log('💳 CRITICAL FIX: Found membership product:', membershipPackage.product.identifier);
-              console.log('💳 CRITICAL FIX: TRIGGERING APPLE PAY POPUP NOW...');
-              
-              // This MUST trigger the native Apple Pay popup
-              const purchaseResult = await Purchases.purchasePackage({ aPackage: membershipPackage });
-              
-              addDebugStep('Step 2: $69 Payment', 'success', `✅ APPLE PAY SUCCESSFUL! Product: ${membershipPackage.product.identifier}`);
+              addDebugStep('Step 2: $69 Payment', 'success', `✅ APPLE PAY SUCCESSFUL! Direct purchase completed.`);
               addDebugStep('Step 3: Webhook Processing', 'success', '🎉 Purchase completed! RevenueCat webhook will add $69 credits shortly.');
               
-              console.log('✅ CRITICAL FIX: Apple Pay popup completed successfully!');
-              console.log('✅ Customer ID:', purchaseResult.customerInfo.originalAppUserId);
+              console.log('✅ BYPASS FIX: Apple Pay popup completed successfully!');
+              console.log('✅ Customer ID:', purchaseResult.purchaseResult?.customerInfo?.originalAppUserId);
               
               // Reload user data
               await queryClient.invalidateQueries({ queryKey: ["/api/user"] });

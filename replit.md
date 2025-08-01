@@ -44,5 +44,8 @@ The application features a modern full-stack architecture optimized for native m
 - **Push Notifications**: web-push, @capacitor/local-notifications
 - **Authentication**: passport
 - **File Uploads**: multer
-- **In-App Purchases**: RevenueCat (for iOS/Android IAP)
+- **In-App Purchases**: RevenueCat (for iOS/Android IAP with multi-strategy new user registration support)
 - **Build Tools**: vite, tsx, esbuild, tailwindcss
+
+## Recent Critical Fixes (January 2025)
+- **RevenueCat User ID Mapping**: Fixed all hardcoded user IDs ("32", "45") in diagnostic components. Enhanced user ID assignment with 3-strategy retry system specifically optimized for new user registration scenarios. Each test creates a fresh user ID, requiring specialized handling for first-time RevenueCat configuration during membership purchases.

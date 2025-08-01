@@ -80,21 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refetchOnWindowFocus: false, // Don't refetch on window focus
   });
 
-  // Initialize RevenueCat with dynamic user ID - Native mobile app only
-  useEffect(() => {
-    if (user && typeof user === 'object' && 'id' in user && user.id) {
-      // Native mobile app - initialize with actual user ID
-      iapService.initializeWithUserID(user.id.toString()).then(success => {
-        if (success) {
-          console.log('💳 NATIVE APP: RevenueCat initialized with user ID:', user.id);
-        } else {
-          console.error('💳 NATIVE APP: Failed to initialize RevenueCat with user ID:', user.id);
-        }
-      }).catch(error => {
-        console.error('💳 NATIVE APP: RevenueCat initialization error:', error);
-      });
-    }
-  }, [user]);
+  // REMOVED: Early RevenueCat initialization that causes anonymous IDs
+  // RevenueCat will be configured ONLY after authentication in the proper fix
 
 
 
@@ -131,35 +118,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // CRITICAL: Fix RevenueCat user ID mapping after login
+      // PROPER: Configure RevenueCat AFTER authentication
       if (userData && typeof userData === 'object' && 'id' in userData && userData.id) {
-        console.log('🚨 AUTH LOGIN: CRITICAL - Fixing RevenueCat user ID mapping for user:', userData.id);
+        console.log('🔧 AUTH LOGIN: Configuring RevenueCat with authenticated user:', userData.id);
         
         try {
-          // Use simple direct RevenueCat user fix for all logins
-          const { forceCorrectUserID } = await import('@/services/simple-revenucat-fix');
+          const { RevenueCatProperFix } = await import('@/services/revenuecat-proper-fix');
+          const configResult = await RevenueCatProperFix.configureAfterAuthentication(userData.id.toString());
           
-          console.log('AUTH LOGIN: Forcing correct RevenueCat user ID for:', userData.id);
-          const fixSuccess = await forceCorrectUserID(userData.id.toString());
-          
-          if (fixSuccess) {
-            console.log('AUTH LOGIN: SUCCESS - RevenueCat user ID correctly set to:', userData.id);
-            
-            // Verify the fix worked
-            const { Purchases } = await import('@revenuecat/purchases-capacitor');
-            const { customerInfo } = await Purchases.getCustomerInfo();
-            console.log('AUTH LOGIN: Verification - Customer ID is now:', customerInfo.originalAppUserId);
-            
-            if (customerInfo.originalAppUserId === userData.id.toString()) {
-              console.log('AUTH LOGIN: VERIFIED - All purchases will use user ID:', userData.id);
-            } else {
-              console.error('AUTH LOGIN: WARNING - User ID still incorrect:', customerInfo.originalAppUserId);
-            }
+          if (configResult.success) {
+            console.log('✅ AUTH LOGIN: RevenueCat configured with authenticated user - no anonymous ID');
           } else {
-            console.error('AUTH LOGIN: FAILED - Could not set correct RevenueCat user ID');
+            console.error('❌ AUTH LOGIN: RevenueCat configuration failed:', configResult.error);
           }
         } catch (error) {
-          console.error('AUTH LOGIN: ERROR setting RevenueCat user ID:', error);
+          console.error('❌ AUTH LOGIN: Error configuring RevenueCat:', error);
         }
       }
       

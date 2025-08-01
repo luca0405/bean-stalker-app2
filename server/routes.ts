@@ -2933,6 +2933,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Store RevenueCat anonymous ID mapping
+  app.post("/api/revenuecat/store-user-mapping", async (req, res) => {
+    try {
+      const { anonymousId, realUserId } = req.body;
+      console.log('🗺️ Storing RevenueCat user mapping:', { anonymousId, realUserId });
+      
+      // Store in memory mapping (in production, use Redis or database)
+      global.revenueCatUserMappings = global.revenueCatUserMappings || new Map();
+      global.revenueCatUserMappings.set(anonymousId, realUserId);
+      
+      res.json({ success: true, message: 'User mapping stored' });
+    } catch (error) {
+      console.error('❌ Failed to store user mapping:', error);
+      res.status(500).json({ error: 'Failed to store mapping' });
+    }
+  });
+
   // RevenueCat webhook for IAP processing
   app.post("/api/revenuecat/webhook", async (req, res) => {
     try {
@@ -2964,7 +2981,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (event.type === 'INITIAL_PURCHASE' || event.type === 'RENEWAL') {
         const { product_id, app_user_id } = event;
-        const userId = parseInt(app_user_id);
+        
+        // ANONYMOUS ID FIX: Handle both real user IDs and anonymous IDs
+        let userId = parseInt(app_user_id);
+        
+        // If app_user_id is anonymous, look up the real user ID
+        if (!userId && app_user_id?.startsWith('$RCAnonymousID:')) {
+          console.log('🔍 ANONYMOUS ID DETECTED:', app_user_id);
+          global.revenueCatUserMappings = global.revenueCatUserMappings || new Map();
+          const realUserId = global.revenueCatUserMappings.get(app_user_id);
+          
+          if (realUserId) {
+            userId = parseInt(realUserId);
+            console.log('✅ MAPPED ANONYMOUS ID TO REAL USER:', { anonymous: app_user_id, real: userId });
+          } else {
+            console.error('❌ No mapping found for anonymous ID:', app_user_id);
+            return res.status(400).json({ error: 'No user mapping found for anonymous ID' });
+          }
+        }
         
         if (!userId) {
           console.error('❌ Invalid user ID in RevenueCat webhook');
