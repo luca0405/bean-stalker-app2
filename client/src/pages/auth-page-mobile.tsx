@@ -12,7 +12,7 @@ import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { deviceService } from "@/services/device-service";
-import { MembershipDebugDisplay } from "@/components/membership-debug-display";
+
 
 
 export default function AuthPageMobile() {
@@ -32,19 +32,11 @@ export default function AuthPageMobile() {
     password: ""
   });
   
-  // Debug login data changes
-  useEffect(() => {
-    console.log('🔍 Login data state changed:', {
-      username: loginData.username,
-      passwordLength: loginData.password?.length || 0,
-      hasPassword: !!loginData.password
-    });
-  }, [loginData]);
+
 
   const [showPassword, setShowPassword] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
-  const [hasDeviceBinding, setHasDeviceBinding] = useState(false);
-  const [boundUsername, setBoundUsername] = useState("");
+  const [lastUsername, setLastUsername] = useState("");
   
   const [registerData, setRegisterData] = useState({
     username: "",
@@ -55,210 +47,58 @@ export default function AuthPageMobile() {
     joinPremium: true // Premium membership enabled by default
   });
 
-  // Debug state for membership registration
-  const [debugSteps, setDebugSteps] = useState<Array<{
-    step: string;
-    status: 'pending' | 'success' | 'warning' | 'error';
-    details: string;
-    timestamp: string;
-  }>>([]);
-  const [showDebug, setShowDebug] = useState(false);
-  const [debugMode, setDebugMode] = useState(false); // Prevent redirect when debugging
 
-  const addDebugStep = (step: string, status: 'pending' | 'success' | 'warning' | 'error', details: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setDebugSteps(prev => [...prev, { step, status, details, timestamp }]);
-  };
-
-  // Check for existing device binding on component mount
+  // Load last used username for convenience
   useEffect(() => {
-    const checkDeviceBinding = async () => {
+    const loadLastUsername = async () => {
       try {
-        console.log('🔍 DEVICE BINDING: Starting comprehensive device binding check...');
-        
-        // CRITICAL: Always clear previous state first
-        setHasDeviceBinding(false);
-        setBoundUsername('');
-        
-        // ENHANCED: Force detailed device binding check
-        const isDeviceBound = await deviceService.isDeviceBound();
-        console.log('🔍 DEVICE BINDING: Device bound result:', isDeviceBound);
-        
-        // CRITICAL DEBUG: Check Capacitor preferences directly for diagnostics
         const { Preferences } = await import('@capacitor/preferences');
-        const rawBoundValue = await Preferences.get({ key: 'bean-stalker-account-bound' });
-        const rawUserIdValue = await Preferences.get({ key: 'bound-user-id' });
+        const result = await Preferences.get({ key: 'bean-stalker-last-username' });
         
-        console.log('🔍 DEVICE BINDING DEBUG: Raw preferences:', {
-          rawBoundValue: rawBoundValue.value,
-          rawUserIdValue: rawUserIdValue.value,
-          isDeviceBound,
-          platformCheck: 'Native iPhone testing'
-        });
-        
-        setHasDeviceBinding(isDeviceBound);
-        
-        if (isDeviceBound) {
-          // Get the bound user's username with enhanced debugging
-          const boundUserId = await deviceService.getBoundUserId();
-          console.log('🔍 NATIVE DEVICE BINDING: Bound user ID from service:', boundUserId);
-          
-          if (boundUserId) {
-            try {
-              // ENHANCED: Fetch user data with full URL and error handling
-              console.log('🔍 NATIVE DEVICE BINDING: Fetching user data for ID:', boundUserId);
-              const response = await fetch(`/api/users/${boundUserId}`);
-              console.log('🔍 NATIVE DEVICE BINDING: API response status:', response.status);
-              
-              if (response.ok) {
-                const userData = await response.json();
-                console.log('🔍 NATIVE DEVICE BINDING: User data received:', userData);
-                
-                setBoundUsername(userData.username);
-                // CRITICAL: Update username in login data for device-bound users
-                setLoginData(prev => ({ 
-                  ...prev, 
-                  username: userData.username 
-                }));
-                
-                // CRITICAL: Force re-render to ensure UI shows correct state
-                console.log('✅ DEVICE BINDING FIX: Username set in both boundUsername and loginData');
-                console.log('✅ DEVICE BINDING FIX: boundUsername =', userData.username);
-                console.log('✅ DEVICE BINDING FIX: loginData.username will be =', userData.username);
-                
-                console.log('✅ NATIVE DEVICE BINDING SUCCESS:');
-                console.log('✅ Device bound to user:', userData.username);
-                console.log('✅ Username auto-filled in login data');
-                console.log('✅ hasDeviceBinding state set to true');
-                console.log('✅ User should only see password field');
-              } else {
-                console.error('❌ NATIVE DEVICE BINDING ERROR: Failed to fetch user data');
-                console.error('❌ Response status:', response.status);
-                console.error('❌ Response text:', await response.text());
-                
-                // FALLBACK: Reset device binding if user fetch fails
-                setHasDeviceBinding(false);
-              }
-            } catch (error) {
-              console.error('❌ NATIVE DEVICE BINDING ERROR: Failed to fetch bound user data:', error);
-              // FALLBACK: Reset device binding on fetch error
-              setHasDeviceBinding(false);
-            }
-          } else {
-            console.error('❌ NATIVE DEVICE BINDING ERROR: No bound user ID found despite device being bound');
-            console.error('❌ This indicates corrupted device binding data');
-            // FALLBACK: Reset device binding if user ID is missing
-            setHasDeviceBinding(false);
-          }
-        } else {
-          console.log('ℹ️ NATIVE DEVICE BINDING: Device has no binding - showing full registration options'); 
+        if (result.value) {
+          setLastUsername(result.value);
+          setLoginData(prev => ({ 
+            ...prev, 
+            username: result.value || "" 
+          }));
         }
       } catch (error) {
-        console.error('❌ NATIVE DEVICE BINDING CRITICAL ERROR:', error);
-        setHasDeviceBinding(false);
+        console.error('Failed to load last username:', error);
       }
     };
 
-    // Bean Stalker is exclusively native mobile - always check device binding
-    console.log('📱 Native mobile app - checking device binding');
-    checkDeviceBinding();
-  }, []); // Only run once on mount - device binding persists after logout
-
-  // CRITICAL: Prevent redirect during debug mode so we can see debug information
-  if (user && !debugMode) {
+    loadLastUsername();
+  }, []);
+  if (user) {
     return <Redirect to="/" />;
   }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // CRITICAL FIX: For device-bound users, username is already set in loginData by device binding check
-    // For non-bound users, validate both username and password  
-    const effectiveUsername = loginData.username; // Always use loginData.username since it's set by device binding
-    
-    console.log('🔍 DEVICE BINDING LOGIN VALIDATION:', {
-      hasDeviceBinding,
-      boundUsername,
-      loginDataUsername: loginData.username,
-      effectiveUsername,
-      passwordProvided: !!loginData.password,
-      passwordLength: loginData.password?.length || 0,
-      passwordNonEmpty: loginData.password && loginData.password.trim() !== '',
-      loginDataSet: !!loginData.username,
-      rawLoginData: JSON.stringify(loginData)
-    });
-    
-    // CRITICAL DEBUG: Enhanced validation with detailed native debugging
-    console.log('🚨 NATIVE LOGIN VALIDATION - COMPREHENSIVE CHECK:');
-    console.log('🚨 effectiveUsername:', effectiveUsername);
-    console.log('🚨 effectiveUsername type:', typeof effectiveUsername);
-    console.log('🚨 effectiveUsername length:', effectiveUsername?.length);
-    console.log('🚨 effectiveUsername trimmed:', effectiveUsername?.trim());
-    console.log('🚨 hasDeviceBinding:', hasDeviceBinding);
-    console.log('🚨 boundUsername:', boundUsername);
-    console.log('🚨 loginData:', JSON.stringify(loginData, null, 2));
-    console.log('🚨 Platform check: ios (Bean Stalker native)');
-    console.log('🚨 Is native platform: true');
-    
-    if (!effectiveUsername || effectiveUsername.trim() === '') {
-      console.error('🚨 NATIVE LOGIN FAILED: No effective username found');
-      console.error('🚨 DETAILED STATE DUMP:');
-      console.error('🚨 - hasDeviceBinding:', hasDeviceBinding);
-      console.error('🚨 - boundUsername:', boundUsername);
-      console.error('🚨 - loginData.username:', loginData.username);
-      console.error('🚨 - loginData full:', JSON.stringify(loginData));
-      
-      // ENHANCED: Different error messages based on device binding state
-      if (hasDeviceBinding && boundUsername) {
-        console.error('🚨 CRITICAL BUG: Device is bound but username not set in loginData');
-        // CRITICAL FIX: Force set the username if we have boundUsername but loginData.username is empty
-        if (boundUsername && !loginData.username) {
-          console.log('🔧 EMERGENCY FIX: Forcing username from boundUsername');
-          console.log('🔧 EMERGENCY FIX: Setting', boundUsername, 'as username');
-          setLoginData(prev => ({ ...prev, username: boundUsername }));
-          // Trigger re-render with fixed data - user can try login again
-          return;
-        }
-        
-        notify({
-          title: "Device Binding Error",
-          description: "Your device is bound but username sync failed. Restarting app may help.",
-          variant: "destructive",
-        });
-      } else if (hasDeviceBinding && !boundUsername) {
-        console.error('🚨 CRITICAL BUG: Device claims to be bound but no bound username found');
-        notify({
-          title: "Corrupted Device Binding",
-          description: "Device binding data is corrupted. Please use account switcher to reset.",
-          variant: "destructive",
-        });
-      } else {
-        // Regular case - no device binding, user needs to enter username
-        notify({
-          title: "Username required",
-          description: "Please enter your username to continue",
-          variant: "destructive",
-        });
-      }
-      return;
-    }
-    
-    if (!loginData.password || loginData.password.trim() === '') {
+    if (!loginData.username || !loginData.password) {
       notify({
-        title: "Password required", 
-        description: "Please enter your password",
+        title: "Please fill in all fields",
+        description: "Both username and password are required",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      console.log('✅ Attempting login with username:', effectiveUsername);
-      // Add saveBiometric flag for password logins to automatically enable biometric auth
+      // Save username for future convenience
+      if (loginData.username) {
+        const { Preferences } = await import('@capacitor/preferences');
+        await Preferences.set({ 
+          key: 'bean-stalker-last-username', 
+          value: loginData.username 
+        });
+      }
+
       await loginMutation.mutateAsync({
-        username: effectiveUsername, // Use the effective username (bound or manually entered)
+        username: loginData.username,
         password: loginData.password,
-        saveBiometric: true // Always save credentials for biometric auth after successful password login
+        saveBiometric: true // Enable biometric auth after successful login
       });
     } catch (error: any) {
       notify({
@@ -382,43 +222,55 @@ export default function AuthPageMobile() {
             await new Promise(resolve => setTimeout(resolve, 1000));
             
             // STEP 2: Native Payment Popup - RevenueCat setup
-            addDebugStep('Step 2: Native Payment', 'pending', `Setting up RevenueCat with user ID: ${newUser.id}`);
             console.log('💳 MEMBERSHIP PAYMENT: Setting up RevenueCat with authenticated user ID:', newUser.id);
-            
-            // Import RevenueCatDashboardFix to use actual dashboard configuration
-            const { RevenueCatDashboardFix } = await import('@/services/revenuecat-dashboard-fix');
-            
-            // CRITICAL FIX - DIRECT REVENUECAT APPLE PAY POPUP
-            addDebugStep('Step 2: $69 Payment', 'pending', 'CRITICAL FIX: Direct RevenueCat Apple Pay popup...');
-            console.log('💳 CRITICAL FIX: Direct RevenueCat for Apple Pay popup');
             
             try {
               // SIMPLE DIRECT FIX: Force correct user ID
               const { forceCorrectUserID } = await import('@/services/simple-revenucat-fix');
               
-              console.log('🔧 PROPER FIX: Configuring RevenueCat AFTER user authentication...');
-              addDebugStep('Simple Fix', 'pending', 'Configuring RevenueCat with authenticated user ID...');
+              console.log('🔧 ANONYMOUS FLOW: Using RevenueCat recommended anonymous flow...');
               
-              // PROPER APPROACH: Configure RevenueCat only AFTER authentication
-              const { RevenueCatProperFix } = await import('@/services/revenuecat-proper-fix');
+              // ANONYMOUS FLOW: Let RevenueCat handle anonymous IDs (recommended approach)
+              const { RevenueCatAnonymousFlow } = await import('@/services/revenuecat-anonymous-flow');
               
-              const configResult = await RevenueCatProperFix.configureAfterAuthentication(newUser.id.toString());
+              const configResult = await RevenueCatAnonymousFlow.configureAnonymousFlow();
               if (!configResult.success) {
-                addDebugStep('Simple Fix', 'error', `Configuration failed: ${configResult.error}`);
                 throw new Error(configResult.error || 'Could not configure RevenueCat');
               }
               
-              addDebugStep('Simple Fix', 'success', 'RevenueCat configured with authenticated user - no anonymous ID!');
+              // Store mapping between anonymous ID and real user for webhook
+              if (configResult.anonymousId) {
+                try {
+                  await fetch('/api/revenuecat/store-user-mapping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      anonymousId: configResult.anonymousId,
+                      realUserId: newUser.id.toString()
+                    })
+                  });
+                  console.log('✅ Anonymous ID mapping stored for webhook processing');
+                } catch (error) {
+                  console.error('❌ Failed to store anonymous mapping:', error);
+                }
+              }
               
-              // Attempt purchase with properly configured RevenueCat
-              const purchaseResult = await RevenueCatProperFix.attemptPurchase();
+              // Attempt purchase with anonymous flow
+              const purchaseResult = await RevenueCatAnonymousFlow.attemptPurchase();
               
               if (!purchaseResult.success) {
                 throw new Error(purchaseResult.error || 'Purchase failed');
               }
               
-              addDebugStep('Step 2: $69 Payment', 'success', `✅ APPLE PAY SUCCESSFUL! Direct purchase completed.`);
-              addDebugStep('Step 3: Webhook Processing', 'success', '🎉 Purchase completed! RevenueCat webhook will add $69 credits shortly.');
+              // After successful purchase, alias anonymous ID to real user
+              try {
+                await RevenueCatAnonymousFlow.aliasToRealUser(newUser.id.toString());
+                console.log('✅ Anonymous ID successfully aliased to real user');
+              } catch (error) {
+                console.error('⚠️ Failed to alias anonymous ID (purchase still valid):', error);
+              }
+              
+              console.log('✅ APPLE PAY SUCCESSFUL! Purchase completed.');
               
               console.log('✅ BYPASS FIX: Apple Pay popup completed successfully!');
               console.log('✅ Customer ID:', purchaseResult.purchaseResult?.customerInfo?.originalAppUserId);
@@ -431,8 +283,7 @@ export default function AuthPageMobile() {
               });
               
             } catch (error: any) {
-              console.error('💳 CRITICAL FIX: Apple Pay failed:', error);
-              addDebugStep('Step 2: $69 Payment', 'error', `❌ Apple Pay failed: ${error.message || 'Unknown error'}`);
+              console.error('💳 Apple Pay failed:', error);
               
               if (error.message?.includes('cancel') || error.userCancelled) {
                 notify({
@@ -520,30 +371,22 @@ export default function AuthPageMobile() {
             
             {isLogin ? (
               <form onSubmit={handleLogin} className="space-y-4">
-              {/* Username Input - hidden if device has binding, auto-filled */}
-              {!hasDeviceBinding && (
-                <div className="relative">
-                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    type="text"
-                    placeholder="Username"
-                    value={loginData.username}
-                    onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-                    className="w-full pl-12 pr-4 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
-                  />
-                </div>
-              )}
-              
-              {/* Show bound username for device-bound login */}
-              {hasDeviceBinding && boundUsername && (
-                <div className="text-center p-4 bg-white/10 rounded-full border border-white/40">
-                  <div className="flex items-center justify-center space-x-2">
-                    <User className="h-5 w-5 text-green-400" />
-                    <span className="text-white font-medium">{boundUsername}</span>
+              {/* Username Input - Always visible for flexible login */}
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Username"
+                  value={loginData.username}
+                  onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                  className="w-full pl-12 pr-4 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
+                />
+                {lastUsername && lastUsername === loginData.username && (
+                  <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                    <span className="text-xs text-green-400 bg-green-400/20 px-2 py-1 rounded">Last used</span>
                   </div>
-                  <p className="text-xs text-gray-300 mt-1">Device Account</p>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Password Input - exact styling from reference */}
               <div className="relative">
@@ -552,10 +395,7 @@ export default function AuthPageMobile() {
                   type={showPassword ? "text" : "password"}
                   placeholder="Password"
                   value={loginData.password}
-                  onChange={(e) => {
-                    console.log('🔍 Password field changed:', e.target.value.length, 'characters');
-                    setLoginData({ ...loginData, password: e.target.value });
-                  }}
+                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                   className="w-full pl-12 pr-12 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
                 />
                 <button
@@ -687,24 +527,14 @@ export default function AuthPageMobile() {
                 {isLogin ? (
                   <>
                     {/* Hide "Become a Member" if device already has a bound account */}
-                    {!hasDeviceBinding && (
-                      <>
-                        New user?{" "}
-                        <button 
-                          onClick={() => setIsLogin(!isLogin)}
-                          className="text-white hover:underline font-medium"
-                        >
-                          Become a Member
-                        </button>
-                      </>
-                    )}
-                    {hasDeviceBinding && (
-                      <div className="text-white/70 text-xs">
-                        This device is already registered to an account.
-                        <br />
-                        Use "Switch Account" in Profile to change accounts.
-                      </div>
-                    )}
+                    New user?{" "}
+                    <button 
+                      onClick={() => setIsLogin(!isLogin)}
+                      className="text-white hover:underline font-medium"
+                    >
+                      Become a Member
+                    </button>
+
                   </>
                 ) : (
                   <>
@@ -718,6 +548,8 @@ export default function AuthPageMobile() {
                   </>
                 )}
               </div>
+              
+
             </div>
 
             {/* Divider and Biometric - only for login */}
@@ -758,20 +590,7 @@ export default function AuthPageMobile() {
         </div>
       </div>
       
-      {/* Debug Display for Membership Registration */}
-      <MembershipDebugDisplay 
-        debugSteps={debugSteps}
-        isVisible={showDebug}
-        onClose={() => {
-          setShowDebug(false);
-          setDebugMode(false); // Allow redirect after closing debug
-        }}
-        onGoToApp={user ? () => {
-          setShowDebug(false);
-          setDebugMode(false);
-          window.location.href = '/'; // Force redirect to home
-        } : undefined}
-      />
+
     </div>
   );
 }

@@ -5,9 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Capacitor } from '@capacitor/core';
 import { useIAP } from '@/hooks/use-iap';
 import { useNativeNotification } from '@/services/native-notification-service';
-import { RevenueCatTroubleshooter } from '@/components/revenuecat-troubleshooter';
-import { RevenueCatForceReload } from '@/components/revenuecat-force-reload';
-import { RevenueCatDiagnostic } from '@/components/revenuecat-diagnostic';
+
 import { APP_CONFIG } from '../config/environment';
 
 import { formatCurrency } from '@/lib/utils';
@@ -62,8 +60,7 @@ export function EnhancedBuyCredits() {
 
   return (
     <div className="space-y-6">
-      {/* CRITICAL: RevenueCat Customer ID Diagnostic - Always show for debugging */}
-      <RevenueCatDiagnostic />
+
 
       {/* Account Balance Header */}
       <motion.div
@@ -205,26 +202,7 @@ export function EnhancedBuyCredits() {
         </Card>
       </motion.div>
 
-      {/* IAP Diagnostics - Only show when enabled for testing */}
-      {isNative && APP_CONFIG.features.enableIAPDiagnostics && (
-        <>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4 }}
-          >
-            <RevenueCatTroubleshooter />
-          </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.5 }}
-          >
-            <RevenueCatForceReload />
-          </motion.div>
-        </>
-      )}
 
     </div>
   );

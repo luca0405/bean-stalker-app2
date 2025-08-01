@@ -30,7 +30,7 @@ The application features a modern full-stack architecture optimized for native m
 - **Native Mobile Focus**: Built with Capacitor for iOS and Android, supporting native biometric authentication and push notifications. Prioritizes native UI/UX, including safe area handling and optimized scrolling behavior (pure native iOS touch scrolling with hidden scrollbars).
 - **Payment System**: Integrated with Square Payment API for credit purchases and a credit-based ordering system. Supports both customer credit management and administrative oversight.
 - **Notification System**: Utilizes Web Push API for general notifications and Capacitor Local Notifications for native push, providing real-time order status updates to customers and administrators. Bidirectional sync with Square Kitchen Display System for real-time order management.
-- **Authentication & User Management**: Session-based authentication with secure password hashing. Features role-based access control, password reset, and a "One Account Per Device" system for enhanced security and preparation for Apple Wallet integration. Smart authentication flow adapts to device binding status.
+- **Authentication & User Management**: Session-based authentication with secure password hashing. Features role-based access control, password reset, and traditional multi-device login support. Users can login on multiple devices with the same account. Last used username is remembered for convenience.
 - **UI/UX**: Consistent dark green gradient theme (`green-800`) across the application, including headers, cards, and buttons. Popups are designed as full-screen overlays with proper z-index management and safe area handling for notched devices. Product details utilize native HTML select elements for mobile-friendly option selection.
 - **Image Handling**: Robust image loading with fallbacks for native apps, including server images, base64 SVG icons, and category-specific fallbacks.
 - **In-App Purchases (IAP)**: Integrated with RevenueCat for managing iOS/Android IAPs, supporting various credit packages and a premium membership. Webhook handling ensures automatic credit processing upon purchase.
@@ -47,5 +47,6 @@ The application features a modern full-stack architecture optimized for native m
 - **In-App Purchases**: RevenueCat (for iOS/Android IAP with multi-strategy new user registration support)
 - **Build Tools**: vite, tsx, esbuild, tailwindcss
 
-## Recent Critical Fixes (January 2025)
-- **RevenueCat User ID Mapping**: Fixed all hardcoded user IDs ("32", "45") in diagnostic components. Enhanced user ID assignment with 3-strategy retry system specifically optimized for new user registration scenarios. Each test creates a fresh user ID, requiring specialized handling for first-time RevenueCat configuration during membership purchases.
+## Recent Major Updates (January 2025)
+- **Traditional Account System Implementation**: Replaced "One Account Per Device" with flexible multi-device login system. Users can now login on multiple devices with the same credentials while maintaining security.
+- **RevenueCat User ID Mapping**: Fixed all hardcoded user IDs ("32", "45") in diagnostic components. Enhanced user ID assignment with 3-strategy retry system specifically optimized for new user registration scenarios.

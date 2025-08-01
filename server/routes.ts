@@ -2933,6 +2933,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test data reset endpoint for development
+  app.post("/api/admin/reset-test-data", async (req, res) => {
+    try {
+      console.log('🧹 RESET: Starting test data cleanup...');
+      
+      // Only allow in development/sandbox
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(403).json({ error: 'Reset not allowed in production' });
+      }
+      
+      // Clear test users (keep users with ID <= 5 as real users)
+      await storage.clearAllUsers([1, 2, 3, 4, 5]);
+      console.log('🧹 RESET: Deleted test users');
+      
+      // Clear all orders
+      await storage.clearAllOrders();
+      console.log('🧹 RESET: Cleared all orders');
+      
+      // Clear RevenueCat user mappings
+      global.revenueCatUserMappings = new Map();
+      console.log('🧹 RESET: Cleared RevenueCat user mappings');
+      
+      res.json({
+        success: true,
+        message: 'Test data reset complete',
+        timestamp: new Date().toISOString(),
+        actions: [
+          'Deleted test users (ID > 5)',
+          'Cleared all orders', 
+          'Reset RevenueCat mappings'
+        ]
+      });
+      
+    } catch (error) {
+      console.error('❌ RESET: Failed to reset test data:', error);
+      res.status(500).json({ 
+        error: 'Failed to reset test data',
+        details: error.message 
+      });
+    }
+  });
+
+  // Helper endpoint to check current test data
+  app.get("/api/admin/test-data-status", async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      const orders = await storage.getAllOrders();
+      
+      const testUsers = users.filter(u => u.id && u.id > 5);
+      const userMappings = global.revenueCatUserMappings?.size || 0;
+      
+      res.json({
+        totalUsers: users.length,
+        testUsers: testUsers.length,
+        totalOrders: orders.length,
+        revenueCatMappings: userMappings,
+        testUserIds: testUsers.map(u => u.id)
+      });
+      
+    } catch (error) {
+      console.error('❌ STATUS: Failed to get test data status:', error);
+      res.status(500).json({ error: 'Failed to get status' });
+    }
+  });
+
   // Store RevenueCat anonymous ID mapping
   app.post("/api/revenuecat/store-user-mapping", async (req, res) => {
     try {
@@ -2982,12 +3047,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (event.type === 'INITIAL_PURCHASE' || event.type === 'RENEWAL') {
         const { product_id, app_user_id } = event;
         
-        // ANONYMOUS ID FIX: Handle both real user IDs and anonymous IDs
+        // ENHANCED ANONYMOUS ID SUPPORT: Handle all RevenueCat ID formats
         let userId = parseInt(app_user_id);
+        let isAnonymousId = false;
         
         // If app_user_id is anonymous, look up the real user ID
         if (!userId && app_user_id?.startsWith('$RCAnonymousID:')) {
           console.log('🔍 ANONYMOUS ID DETECTED:', app_user_id);
+          isAnonymousId = true;
+          
           global.revenueCatUserMappings = global.revenueCatUserMappings || new Map();
           const realUserId = global.revenueCatUserMappings.get(app_user_id);
           
@@ -2995,8 +3063,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId = parseInt(realUserId);
             console.log('✅ MAPPED ANONYMOUS ID TO REAL USER:', { anonymous: app_user_id, real: userId });
           } else {
-            console.error('❌ No mapping found for anonymous ID:', app_user_id);
-            return res.status(400).json({ error: 'No user mapping found for anonymous ID' });
+            // ENHANCED: Check if we have a pending user for this purchase
+            // Look for most recent user without credits (likely the new registration)
+            console.log('🔍 No mapping found, checking for recent registrations...');
+            
+            // Find the most recent user with 0 credits (indicating new registration awaiting IAP)
+            const users = await storage.getAllUsers();
+            const recentUser = users
+              .filter(u => u.credits === 0 && u.isActive)
+              .sort((a, b) => (b.id || 0) - (a.id || 0))[0];
+            
+            if (recentUser) {
+              userId = recentUser.id;
+              console.log('✅ MATCHED ANONYMOUS PURCHASE TO RECENT USER:', { anonymous: app_user_id, user: userId });
+              
+              // Store mapping for future use
+              global.revenueCatUserMappings.set(app_user_id, userId.toString());
+            } else {
+              console.error('❌ No mapping or recent user found for anonymous ID:', app_user_id);
+              return res.status(400).json({ error: 'Cannot map anonymous ID to user' });
+            }
           }
         }
         
