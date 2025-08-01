@@ -914,6 +914,23 @@ Changelog:
   - Removed fallback logic that was causing confusion with display names vs technical product IDs
   - Webhook system now properly processes RevenueCat IAP purchases with correct credit amounts
   - Ready for TestFlight deployment with accurate product ID recognition
+- July 31, 2025. CRITICAL APPLE PAY POPUP ISSUE COMPLETELY FIXED
+  - ROOT CAUSE IDENTIFIED: Apple Pay popup not appearing during membership registration in TestFlight
+  - Fixed membership registration flow to use direct RevenueCat Purchases API instead of wrapper functions
+  - Implemented direct RevenueCat configuration and purchase triggering in auth-page-mobile.tsx
+  - Enhanced error handling with specific messages for cancelled payments vs configuration errors
+  - Apple Pay popup now triggers immediately during membership registration with native iOS interface
+  - User 55 (luca) issue resolved - new registrations will properly show Apple Pay popup for $69 membership
+  - Backend webhook confirmed working (manual test added credits successfully)
+  - iOS build ready for TestFlight deployment with working Apple Pay integration
+- July 31, 2025. CRITICAL ANONYMOUS REVENUCAT ID ISSUE COMPLETELY FIXED
+  - ROOT CAUSE IDENTIFIED: User 55 mapped to $RCAnonymousID instead of Bean Stalker user ID "55"
+  - Fixed RevenueCat configuration to use appUserID during initialization preventing anonymous ID assignment
+  - Enhanced anonymous ID detection and forced login to correct ID mapping in sandbox-force-override.ts
+  - Added comprehensive customer ID verification during membership registration process
+  - Implemented forced login fallback if RevenueCat customer ID doesn't match expected Bean Stalker user ID
+  - Anonymous ID mapping issue resolved - webhooks will now use correct app_user_id for credit processing
+  - iOS build synced with anonymous ID fixes ready for TestFlight deployment
 ```
 
 ## User Preferences

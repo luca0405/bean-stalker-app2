@@ -80,32 +80,40 @@ export class SandboxForceOverride {
   // Set user ID for RevenueCat after initialization
   static async setUserID(userID: string): Promise<boolean> {
     try {
-      console.log('💳 REVENUECAT FIX: CRITICAL - Setting user ID to fix anonymous ID issue:', userID);
+      console.log('💳 ANONYMOUS ID FIX: CRITICAL - Fixing anonymous RevenueCat ID for user:', userID);
       
       // STEP 1: Check current user first
       const { customerInfo } = await Purchases.getCustomerInfo();
       const currentUser = customerInfo.originalAppUserId;
-      console.log('💳 REVENUECAT FIX: Current user:', currentUser);
-      console.log('💳 REVENUECAT FIX: Target user:', userID);
+      console.log('💳 ANONYMOUS ID FIX: Current RevenueCat user:', currentUser);
+      console.log('💳 ANONYMOUS ID FIX: Target Bean Stalker user:', userID);
       
-      // STEP 2: If current user is anonymous, force login with specific user ID
-      if (currentUser.startsWith('$RCAnonymous')) {
-        console.log('💳 REVENUECAT FIX: ANONYMOUS USER DETECTED - Force login with user ID:', userID);
+      // STEP 2: ALWAYS force login to fix anonymous ID issue
+      if (currentUser.startsWith('$RCAnonymous') || currentUser !== userID) {
+        console.log('💳 ANONYMOUS ID FIX: FIXING ANONYMOUS/WRONG ID - Force login with user ID:', userID);
         
-        // Login directly without logout (since user is anonymous)
+        // Force logout first to clear anonymous state
+        try {
+          console.log('💳 ANONYMOUS ID FIX: Logging out to clear anonymous state...');
+          await Purchases.logOut();
+        } catch (logoutError) {
+          console.log('💳 ANONYMOUS ID FIX: Logout completed (or was already logged out)');
+        }
+        
+        // Login with correct user ID
         const loginResult = await Purchases.logIn({ appUserID: userID });
-        console.log('💳 REVENUECAT FIX: Login from anonymous completed');
-        console.log('💳 REVENUECAT FIX: Created new customer:', loginResult.created);
-        console.log('💳 REVENUECAT FIX: Final user ID:', loginResult.customerInfo.originalAppUserId);
+        console.log('💳 ANONYMOUS ID FIX: Login completed');
+        console.log('💳 ANONYMOUS ID FIX: Created new customer:', loginResult.created);
+        console.log('💳 ANONYMOUS ID FIX: Final user ID:', loginResult.customerInfo.originalAppUserId);
         
         // Verify the user ID was set correctly
         if (loginResult.customerInfo.originalAppUserId === userID) {
-          console.log('💳 REVENUECAT FIX: ✅ Successfully fixed anonymous ID - now using:', userID);
+          console.log('💳 ANONYMOUS ID FIX: ✅ Successfully fixed ID mapping - now using:', userID);
           return true;
         } else {
-          console.error('💳 REVENUECAT FIX: ❌ Failed to fix anonymous ID');
-          console.error('💳 REVENUECAT FIX: Expected:', userID);
-          console.error('💳 REVENUECAT FIX: Got:', loginResult.customerInfo.originalAppUserId);
+          console.error('💳 ANONYMOUS ID FIX: ❌ Failed to fix ID mapping');
+          console.error('💳 ANONYMOUS ID FIX: Expected:', userID);
+          console.error('💳 ANONYMOUS ID FIX: Got:', loginResult.customerInfo.originalAppUserId);
           return false;
         }
       }

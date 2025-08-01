@@ -388,46 +388,103 @@ export default function AuthPageMobile() {
             // Import RevenueCatDashboardFix to use actual dashboard configuration
             const { RevenueCatDashboardFix } = await import('@/services/revenuecat-dashboard-fix');
             
-            // DASHBOARD FIX - USE ACTUAL REVENUECAT CONFIGURATION
-            addDebugStep('Step 2: $69 Payment', 'pending', 'Using actual RevenueCat dashboard products...');
-            console.log('💳 MEMBERSHIP PAYMENT: Starting with dashboard configuration...');
+            // CRITICAL FIX - DIRECT REVENUECAT APPLE PAY POPUP
+            addDebugStep('Step 2: $69 Payment', 'pending', 'CRITICAL FIX: Direct RevenueCat Apple Pay popup...');
+            console.log('💳 CRITICAL FIX: Direct RevenueCat for Apple Pay popup');
             
-            const purchaseResult = await RevenueCatDashboardFix.processWithDashboardProducts(newUser.id.toString());
-            console.log('💳 MEMBERSHIP PAYMENT: Dashboard fix result:', purchaseResult);
-            
-            if (purchaseResult.success) {
-              addDebugStep('Step 2: $69 Payment', 'success', `✅ Payment completed with product: ${purchaseResult.productFound}`);
-              addDebugStep('Step 3: Auto Login & Redirect', 'success', '🎉 Purchase successful! RevenueCat webhook should process payment shortly.');
+            try {
+              // Import Purchases directly for native popup
+              const { Purchases, LOG_LEVEL } = await import('@revenuecat/purchases-capacitor');
               
-              // Reload user data and invalidate cache
-              await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-              notify({
-                title: "Purchase Completed!",
-                description: `Payment processed with ${purchaseResult.productFound}. Credits will appear shortly.`,
+              console.log('💳 ANONYMOUS ID FIX: Configuring RevenueCat with user ID to prevent anonymous mapping:', newUser.id);
+              await Purchases.setLogLevel({ level: LOG_LEVEL.DEBUG });
+              
+              // CRITICAL: Configure with user ID to prevent anonymous ID assignment
+              await Purchases.configure({
+                apiKey: 'appl_owLmakOcTeYJOJoxJgScSQZtUQA',
+                appUserID: newUser.id.toString()  // This prevents $RCAnonymousID assignment
               });
               
-              // Keep debug visible indefinitely until user manually closes it
-              // No automatic hide - user can review debug info and close when ready
+              // Verify user ID was set correctly
+              const { customerInfo } = await Purchases.getCustomerInfo();
+              console.log('💳 ANONYMOUS ID FIX: RevenueCat customer verification:');
+              console.log('💳 ANONYMOUS ID FIX: - Expected user ID:', newUser.id.toString());
+              console.log('💳 ANONYMOUS ID FIX: - Actual customer ID:', customerInfo.originalAppUserId);
               
-            } else {
-              addDebugStep('Step 2: $69 Payment', 'error', `Payment failed: ${purchaseResult.error || 'Unknown error'}`);
+              if (customerInfo.originalAppUserId !== newUser.id.toString()) {
+                console.error('💳 ANONYMOUS ID FIX: WARNING - Customer ID mismatch detected!');
+                console.error('💳 ANONYMOUS ID FIX: Expected:', newUser.id.toString());
+                console.error('💳 ANONYMOUS ID FIX: Got:', customerInfo.originalAppUserId);
+                
+                // Force login to fix the ID mapping
+                console.log('💳 ANONYMOUS ID FIX: Forcing login to fix ID mapping...');
+                await Purchases.logIn({ appUserID: newUser.id.toString() });
+                
+                // Verify fix
+                const { customerInfo: fixedInfo } = await Purchases.getCustomerInfo();
+                console.log('💳 ANONYMOUS ID FIX: After forced login:', fixedInfo.originalAppUserId);
+              }
               
-              if (purchaseResult.error?.includes('cancelled')) {
+              console.log('💳 CRITICAL FIX: Getting offerings for Apple Pay...');
+              const offerings = await Purchases.getOfferings();
+              console.log('💳 CRITICAL FIX: Available packages:', offerings.current?.availablePackages?.length || 0);
+              
+              if (!offerings.current?.availablePackages?.length) {
+                throw new Error('No RevenueCat packages available - check App Store Connect');
+              }
+              
+              // Find membership product
+              let membershipPackage = offerings.current.availablePackages.find(
+                pkg => pkg.product.identifier === 'com.beanstalker.membership69'
+              );
+              
+              if (!membershipPackage) {
+                console.log('💳 CRITICAL FIX: Available products:');
+                offerings.current.availablePackages.forEach(pkg => {
+                  console.log(`   - ${pkg.product.identifier}: ${pkg.product.title}`);
+                });
+                throw new Error('Membership product com.beanstalker.membership69 not found in App Store Connect');
+              }
+              
+              console.log('💳 CRITICAL FIX: Found membership product:', membershipPackage.product.identifier);
+              console.log('💳 CRITICAL FIX: TRIGGERING APPLE PAY POPUP NOW...');
+              
+              // This MUST trigger the native Apple Pay popup
+              const purchaseResult = await Purchases.purchasePackage({ aPackage: membershipPackage });
+              
+              addDebugStep('Step 2: $69 Payment', 'success', `✅ APPLE PAY SUCCESSFUL! Product: ${membershipPackage.product.identifier}`);
+              addDebugStep('Step 3: Webhook Processing', 'success', '🎉 Purchase completed! RevenueCat webhook will add $69 credits shortly.');
+              
+              console.log('✅ CRITICAL FIX: Apple Pay popup completed successfully!');
+              console.log('✅ Customer ID:', purchaseResult.customerInfo.originalAppUserId);
+              
+              // Reload user data
+              await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+              notify({
+                title: "Apple Pay Successful!",
+                description: "Premium membership payment completed. Credits will appear shortly via webhook.",
+              });
+              
+            } catch (error: any) {
+              console.error('💳 CRITICAL FIX: Apple Pay failed:', error);
+              addDebugStep('Step 2: $69 Payment', 'error', `❌ Apple Pay failed: ${error.message || 'Unknown error'}`);
+              
+              if (error.message?.includes('cancel') || error.userCancelled) {
                 notify({
                   title: "Payment Cancelled",
-                  description: "You cancelled the payment. Account created - you can retry payment from Buy Credits page.",
+                  description: "You cancelled the Apple Pay popup. Account created - retry from Buy Credits page.",
                   variant: "destructive",
                 });
-              } else if (purchaseResult.error?.includes('configuration')) {
+              } else if (error.message?.includes('No RevenueCat packages')) {
                 notify({
-                  title: "Configuration Issue",
-                  description: "RevenueCat configuration problem detected. Please contact support.",
+                  title: "Configuration Error",
+                  description: "RevenueCat products not configured. Contact support.",
                   variant: "destructive",
                 });
               } else {
                 notify({
-                  title: "Payment Failed",
-                  description: "Account created but payment failed. You can retry from Buy Credits page.",
+                  title: "Apple Pay Failed",
+                  description: `Payment error: ${error.message}. Account created - retry from Buy Credits page.`,
                   variant: "destructive",
                 });
               }
