@@ -3069,18 +3069,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Find the most recent user with 0 credits (indicating new registration awaiting IAP)
             const users = await storage.getAllUsers();
+            
             const recentUser = users
               .filter(u => u.credits === 0 && u.isActive)
               .sort((a, b) => (b.id || 0) - (a.id || 0))[0];
             
             if (recentUser) {
               userId = recentUser.id;
-              console.log('✅ MATCHED ANONYMOUS PURCHASE TO RECENT USER:', { anonymous: app_user_id, user: userId });
+              console.log('✅ MATCHED ANONYMOUS PURCHASE TO RECENT USER:', { 
+                anonymous: app_user_id, 
+                user: userId, 
+                username: recentUser.username 
+              });
               
               // Store mapping for future use
               global.revenueCatUserMappings.set(app_user_id, userId.toString());
             } else {
-              console.error('❌ No mapping or recent user found for anonymous ID:', app_user_id);
+              console.error('❌ No recent user found for anonymous ID:', app_user_id);
+              console.log('Debug: Available users with 0 credits:', users.filter(u => u.credits === 0).map(u => ({ id: u.id, username: u.username, credits: u.credits })));
               return res.status(400).json({ error: 'Cannot map anonymous ID to user' });
             }
           }

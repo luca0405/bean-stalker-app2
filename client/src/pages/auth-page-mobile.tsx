@@ -196,10 +196,19 @@ export default function AuthPageMobile() {
             const result = await response.json();
             const newUser = result.user;
             console.log('🔐 Logging in new user for RevenueCat purchase...');
-            await loginMutation.mutateAsync({
+            // Use direct API call instead of loginMutation to prevent automatic redirect
+            const loginResponse = await apiRequest('POST', '/api/login', {
               username: userData.username,
               password: userData.password
             });
+            
+            if (!loginResponse.ok) {
+              throw new Error('Failed to login after registration');
+            }
+            
+            // Manually set user data without triggering redirect
+            const loginData = await loginResponse.json();
+            queryClient.setQueryData(["/api/user"], loginData);
             
             notify({
               title: "Account Created",
@@ -263,12 +272,37 @@ export default function AuthPageMobile() {
               console.log('✅ BYPASS FIX: Apple Pay popup completed successfully!');
               console.log('✅ Customer ID:', purchaseResult.purchaseResult?.customerInfo?.originalAppUserId);
               
+              // Wait for credits to be processed by webhook (up to 10 seconds)
+              let creditsAdded = false;
+              for (let i = 0; i < 20; i++) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Check if credits have been added
+                const updatedUserResponse = await fetch('/api/user');
+                if (updatedUserResponse.ok) {
+                  const updatedUser = await updatedUserResponse.json();
+                  if (updatedUser.credits >= 69) {
+                    creditsAdded = true;
+                    console.log('✅ Credits confirmed added:', updatedUser.credits);
+                    break;
+                  }
+                }
+              }
+              
               // Reload user data
               await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-              notify({
-                title: "Apple Pay Successful!",
-                description: "Premium membership payment completed. Credits will appear shortly via webhook.",
-              });
+              
+              if (creditsAdded) {
+                notify({
+                  title: "Premium Membership Activated!",
+                  description: "$69 credits added to your account. Welcome to Bean Stalker Premium!",
+                });
+              } else {
+                notify({
+                  title: "Payment Processed",
+                  description: "Your payment was successful. Credits will appear shortly.",
+                });
+              }
               
             } catch (error: any) {
               console.error('💳 Apple Pay failed:', error);
