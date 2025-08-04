@@ -182,11 +182,32 @@ export default function AuthPageMobile() {
     }
 
     const userData = {
-      username: registerData.username,
-      fullName: registerData.fullName || registerData.username,
-      email: registerData.email,
+      username: registerData.username?.trim(),
+      fullName: registerData.fullName?.trim() || registerData.username?.trim(),
+      email: registerData.email?.trim(),
       password: registerData.password
     };
+
+    // Validate required fields
+    if (!userData.username || !userData.email || !userData.password) {
+      notify({
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userData.email)) {
+      notify({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (registerData.joinPremium) {
       // Bean Stalker is exclusively a native mobile app
@@ -199,6 +220,11 @@ export default function AuthPageMobile() {
           
           const response = await apiRequest('POST', '/api/register-with-membership', userData);
           
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: 'Registration failed' }));
+            throw new Error(errorData.message || 'Registration failed');
+          }
+          
           if (response.ok) {
             const result = await response.json();
             const newUser = result.user;
@@ -210,7 +236,8 @@ export default function AuthPageMobile() {
             });
             
             if (!loginResponse.ok) {
-              throw new Error('Failed to login after registration');
+              const errorData = await loginResponse.json().catch(() => ({ message: 'Login failed' }));
+              throw new Error(errorData.message || 'Failed to login after registration');
             }
             
             // Manually set user data without triggering redirect
