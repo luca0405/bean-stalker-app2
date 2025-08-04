@@ -36,6 +36,19 @@ export function ProtectedRoute({
     );
   }
 
+  // Check if user is on auth page and prevent redirect during payment processing
+  if (path === "/" && window.location.pathname === "/auth") {
+    const isProcessingPayment = sessionStorage.getItem('payment-processing') === 'true';
+    if (isProcessingPayment) {
+      console.log('Payment processing active, staying on auth page');
+      return (
+        <Route path="/">
+          <Redirect to="/auth" />
+        </Route>
+      );
+    }
+  }
+
   return (
     <Route path={path}>
       <div className="min-h-screen pb-24">

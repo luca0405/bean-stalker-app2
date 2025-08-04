@@ -70,7 +70,11 @@ export default function AuthPageMobile() {
     loadLastUsername();
   }, []);
   if (user) {
-    return <Redirect to="/" />;
+    // Check if payment is being processed to prevent redirect
+    const isProcessingPayment = sessionStorage.getItem('payment-processing') === 'true';
+    if (!isProcessingPayment) {
+      return <Redirect to="/" />;
+    }
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -190,6 +194,9 @@ export default function AuthPageMobile() {
       // Native mobile app - always use RevenueCat for premium membership
         try {
           console.log('🚀 Starting premium membership registration with payment...');
+          // Set payment processing flag to prevent navigation
+          sessionStorage.setItem('payment-processing', 'true');
+          
           const response = await apiRequest('POST', '/api/register-with-membership', userData);
           
           if (response.ok) {
@@ -304,8 +311,19 @@ export default function AuthPageMobile() {
                 });
               }
               
+              // Clear payment processing flag and redirect to homepage
+              sessionStorage.removeItem('payment-processing');
+              
+              // Delay before navigation to ensure everything is complete
+              setTimeout(() => {
+                window.location.href = '/';
+              }, 2000);
+              
             } catch (error: any) {
               console.error('💳 Apple Pay failed:', error);
+              
+              // Clear payment processing flag on error
+              sessionStorage.removeItem('payment-processing');
               
               if (error.message?.includes('cancel') || error.userCancelled) {
                 notify({
@@ -332,6 +350,9 @@ export default function AuthPageMobile() {
           }
         } catch (error: any) {
           console.error('Premium membership process failed:', error);
+          // Clear payment processing flag on error
+          sessionStorage.removeItem('payment-processing');
+          
           notify({
             title: "Registration Failed",
             description: error.message || "Please try again or contact support.",
