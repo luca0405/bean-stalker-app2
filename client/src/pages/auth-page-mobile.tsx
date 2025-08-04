@@ -228,8 +228,8 @@ export default function AuthPageMobile() {
           if (response.ok) {
             const result = await response.json();
             const newUser = result.user;
+            // Manual login after registration to establish proper session
             console.log('🔐 Logging in new user for RevenueCat purchase...');
-            // Use direct API call instead of loginMutation to prevent automatic redirect
             const loginResponse = await apiRequest('POST', '/api/login', {
               username: userData.username,
               password: userData.password
@@ -240,9 +240,10 @@ export default function AuthPageMobile() {
               throw new Error(errorData.message || 'Failed to login after registration');
             }
             
-            // Manually set user data without triggering redirect
+            // Set user data in React Query cache
             const loginData = await loginResponse.json();
             queryClient.setQueryData(["/api/user"], loginData);
+            console.log('✅ User session established:', loginData.username);
             
             notify({
               title: "Account Created",
