@@ -189,29 +189,17 @@ export default function AuthPageMobile() {
       
       // Native mobile app - always use RevenueCat for premium membership
         try {
-          // Clear previous debug steps and show debug display
-          setDebugSteps([]);
-          setShowDebug(true);
-          setDebugMode(true); // Prevent automatic redirect for debugging
-          
-          // STEP 1: Fill up registration form and create account
-          addDebugStep('Step 1: Registration Form', 'pending', 'Creating Bean Stalker account with form data...');
           console.log('🚀 Starting premium membership registration with payment...');
           const response = await apiRequest('POST', '/api/register-with-membership', userData);
           
           if (response.ok) {
             const result = await response.json();
             const newUser = result.user;
-            addDebugStep('Step 1: Registration Form', 'success', `Bean Stalker account created with ID: ${newUser.id}`);
-            
-            // Prepare for Step 2: Native payment popup
-            addDebugStep('Step 2: Payment Setup', 'pending', 'Preparing RevenueCat for $69 native payment popup...');
             console.log('🔐 Logging in new user for RevenueCat purchase...');
             await loginMutation.mutateAsync({
               username: userData.username,
               password: userData.password
             });
-            addDebugStep('Step 2: Payment Setup', 'success', 'User logged in - ready for RevenueCat payment');
             
             notify({
               title: "Account Created",
@@ -309,16 +297,12 @@ export default function AuthPageMobile() {
             throw new Error('Registration failed');
           }
         } catch (error: any) {
-          addDebugStep('Registration Process', 'error', `Failed: ${error.message || 'Unknown error'}`);
           console.error('Premium membership process failed:', error);
           notify({
             title: "Registration Failed",
             description: error.message || "Please try again or contact support.",
             variant: "destructive",
           });
-          
-          // Keep debug visible on error so user can see what went wrong
-          // Don't auto-hide debug display on errors
         }
 
     } else {
