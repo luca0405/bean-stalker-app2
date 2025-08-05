@@ -1054,6 +1054,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update user credits (for IAP purchases)
+  app.patch("/api/user", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    
+    try {
+      const userId = req.user?.id;
+      const { credits, action } = req.body;
+      
+      if (action === 'add' && credits && credits > 0) {
+        const user = await storage.getUserById(userId);
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        
+        const newCredits = user.credits + credits;
+        await storage.updateUser(userId, { credits: newCredits });
+        
+        console.log(`💳 CREDITS ADDED: User ${userId} (${user.username}) received ${credits} credits, new balance: ${newCredits}`);
+        
+        const updatedUser = await storage.getUserById(userId);
+        const { password, ...userWithoutPassword } = updatedUser!;
+        return res.json(userWithoutPassword);
+      }
+      
+      res.status(400).json({ message: "Invalid credit operation" });
+    } catch (error) {
+      console.error("Error updating user credits:", error);
+      res.status(500).json({ message: "Failed to update credits" });
+    }
+  });
+
   // Lookup user by phone number
   app.get("/api/user/lookup", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
@@ -1117,41 +1148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add credits directly after successful purchase (works on TestFlight)
-  app.post("/api/user/add-credits", isAuthenticated, async (req, res) => {
-    try {
-      const { amount, source, revenueCatId } = req.body;
-      
-      if (!amount || amount <= 0) {
-        return res.status(400).json({ message: "Invalid credit amount" });
-      }
-      
-      const user = await storage.getUserById(req.user!.id);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      
-      // Add credits to user
-      const newCredits = user.credits + amount;
-      await storage.updateUser(req.user!.id, { credits: newCredits });
-      
-      console.log(`💳 DIRECT CREDITS: Added ${amount} credits to user ${req.user!.id} (${user.username})`);
-      console.log(`   - Source: ${source || 'unknown'}`);
-      console.log(`   - RevenueCat ID: ${revenueCatId || 'none'}`);
-      console.log(`   - New Balance: ${newCredits}`);
-      
-      res.json({ 
-        message: "Credits added successfully",
-        creditsAdded: amount,
-        newBalance: newCredits,
-        source: source || 'unknown'
-      });
-      
-    } catch (error) {
-      console.error("Error adding credits:", error);
-      res.status(500).json({ message: "Failed to add credits" });
-    }
-  });
+
 
   // Admin Menu Management Routes
   // Get single menu item 

@@ -294,40 +294,29 @@ export default function AuthPageMobile() {
                 throw new Error(purchaseResult.error || 'Purchase failed');
               }
               
-              // After successful purchase, try to alias anonymous ID to real user (optional)
-              console.log('🔗 OPTIONAL: Attempting to alias anonymous ID to real user...');
-              // Skip aliasing completely to avoid validation errors - webhook will handle mapping
-              console.log('⚠️ SKIPPING ALIAS: Using webhook-based user mapping instead of RevenueCat aliasing');
-              
               console.log('✅ APPLE PAY SUCCESSFUL! Purchase completed.');
-              
-              console.log('✅ BYPASS FIX: Apple Pay popup completed successfully!');
               console.log('✅ Customer ID:', purchaseResult.purchaseResult?.customerInfo?.originalAppUserId);
               
-              // DIRECT CREDIT ADDITION: Add $69 credits immediately after successful purchase
-              console.log('💳 DIRECT CREDIT: Adding $69 membership credits after successful purchase...');
-              
+              // SIMPLE SOLUTION: Add credits directly without complex webhook dependencies
               try {
-                const creditResponse = await fetch('/api/user/add-credits', {
-                  method: 'POST',
+                const response = await fetch('/api/user', {
+                  method: 'PATCH',
                   headers: {
                     'Content-Type': 'application/json'
                   },
                   body: JSON.stringify({
-                    amount: 69,
-                    source: 'premium_membership_purchase',
-                    revenueCatId: purchaseResult.purchaseResult?.customerInfo?.originalAppUserId || configResult.anonymousId
+                    credits: 69,
+                    action: 'add'
                   })
                 });
                 
-                if (creditResponse.ok) {
-                  const creditResult = await creditResponse.json();
-                  console.log('✅ Credits added directly after purchase:', creditResult);
+                if (response.ok) {
+                  console.log('✅ $69 credits added successfully');
                 } else {
-                  console.error('❌ Failed to add credits directly');
+                  console.error('❌ Failed to add credits');
                 }
               } catch (error) {
-                console.error('❌ Direct credit addition failed:', error);
+                console.error('❌ Credit addition error:', error);
               }
               
               // Wait for credits to be processed (shorter wait since we triggered manually)
