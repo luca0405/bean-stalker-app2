@@ -3018,7 +3018,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // RevenueCat webhook for IAP processing
   app.post("/api/revenuecat/webhook", async (req, res) => {
     try {
-      console.log('📨 Received RevenueCat webhook:', req.body);
+      console.log('📨 Received RevenueCat webhook:');
+      console.log('📨 Headers:', req.headers);
+      console.log('📨 Body:', JSON.stringify(req.body, null, 2));
       
       // Optional: Verify authorization header if configured
       const authHeader = req.headers.authorization;
