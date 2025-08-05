@@ -304,9 +304,35 @@ export default function AuthPageMobile() {
               console.log('✅ BYPASS FIX: Apple Pay popup completed successfully!');
               console.log('✅ Customer ID:', purchaseResult.purchaseResult?.customerInfo?.originalAppUserId);
               
-              // Wait for credits to be processed by webhook (up to 10 seconds)
+              // DIRECT CREDIT ADDITION: Add $69 credits immediately after successful purchase
+              console.log('💳 DIRECT CREDIT: Adding $69 membership credits after successful purchase...');
+              
+              try {
+                const creditResponse = await fetch('/api/user/add-credits', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    amount: 69,
+                    source: 'premium_membership_purchase',
+                    revenueCatId: purchaseResult.purchaseResult?.customerInfo?.originalAppUserId || configResult.anonymousId
+                  })
+                });
+                
+                if (creditResponse.ok) {
+                  const creditResult = await creditResponse.json();
+                  console.log('✅ Credits added directly after purchase:', creditResult);
+                } else {
+                  console.error('❌ Failed to add credits directly');
+                }
+              } catch (error) {
+                console.error('❌ Direct credit addition failed:', error);
+              }
+              
+              // Wait for credits to be processed (shorter wait since we triggered manually)
               let creditsAdded = false;
-              for (let i = 0; i < 20; i++) {
+              for (let i = 0; i < 10; i++) {
                 await new Promise(resolve => setTimeout(resolve, 500));
                 
                 // Check if credits have been added

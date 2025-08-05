@@ -45,6 +45,14 @@ function formatZodError(error: z.ZodError): string {
   return error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
 }
 
+// Authentication middleware to check if user is logged in
+const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next();
+};
+
 // Admin middleware to check if the user is admin
 const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) {
@@ -1106,6 +1114,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Add credits directly after successful purchase (works on TestFlight)
+  app.post("/api/user/add-credits", isAuthenticated, async (req, res) => {
+    try {
+      const { amount, source, revenueCatId } = req.body;
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Invalid credit amount" });
+      }
+      
+      const user = await storage.getUserById(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Add credits to user
+      const newCredits = user.credits + amount;
+      await storage.updateUser(req.user!.id, { credits: newCredits });
+      
+      console.log(`💳 DIRECT CREDITS: Added ${amount} credits to user ${req.user!.id} (${user.username})`);
+      console.log(`   - Source: ${source || 'unknown'}`);
+      console.log(`   - RevenueCat ID: ${revenueCatId || 'none'}`);
+      console.log(`   - New Balance: ${newCredits}`);
+      
+      res.json({ 
+        message: "Credits added successfully",
+        creditsAdded: amount,
+        newBalance: newCredits,
+        source: source || 'unknown'
+      });
+      
+    } catch (error) {
+      console.error("Error adding credits:", error);
+      res.status(500).json({ message: "Failed to add credits" });
     }
   });
 
