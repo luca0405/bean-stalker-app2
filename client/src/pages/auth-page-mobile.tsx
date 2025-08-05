@@ -257,32 +257,59 @@ export default function AuthPageMobile() {
             console.log('💳 MEMBERSHIP PAYMENT: Setting up RevenueCat with authenticated user ID:', newUser.id);
             
             try {
-              console.log('💳 MEMBERSHIP: Using working IAP service (same as credit purchases)');
+              // SIMPLE DIRECT FIX: Force correct user ID
+              const { forceCorrectUserID } = await import('@/services/simple-revenucat-fix');
               
-              // Use the SAME working IAP service that successfully processes credit purchases
-              const { IAPService } = await import('@/services/iap-service');
-              const iapService = new IAPService();
+              console.log('🔧 ANONYMOUS FLOW: Using RevenueCat recommended anonymous flow...');
               
-              // Initialize with the correct user ID (same approach as working credit purchases)
-              const initSuccess = await iapService.initializeWithUserID(newUser.id.toString());
-              if (!initSuccess) {
-                throw new Error('Failed to initialize payment system');
+              // ANONYMOUS FLOW: Let RevenueCat handle anonymous IDs (recommended approach)
+              const { RevenueCatAnonymousFlow } = await import('@/services/revenuecat-anonymous-flow');
+              
+              const configResult = await RevenueCatAnonymousFlow.configureAnonymousFlow();
+              if (!configResult.success) {
+                throw new Error(configResult.error || 'Could not configure RevenueCat');
               }
               
-              console.log('💳 MEMBERSHIP: IAP service initialized successfully');
+              // Store mapping between anonymous ID and real user for webhook
+              if (configResult.anonymousId) {
+                try {
+                  await fetch('/api/revenuecat/store-user-mapping', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      anonymousId: configResult.anonymousId,
+                      realUserId: newUser.id.toString()
+                    })
+                  });
+                  console.log('✅ Anonymous ID mapping stored for webhook processing');
+                } catch (error) {
+                  console.error('❌ Failed to store anonymous mapping:', error);
+                }
+              }
               
-              // Purchase the membership using the SAME method as credit purchases
-              const membershipProductId = 'com.beanstalker.membership69';
-              const purchaseResult = await iapService.purchaseProduct(membershipProductId);
+              // Attempt purchase with anonymous flow
+              const purchaseResult = await RevenueCatAnonymousFlow.attemptPurchase();
               
               if (!purchaseResult.success) {
-                throw new Error(purchaseResult.error || 'Membership purchase failed');
+                throw new Error(purchaseResult.error || 'Purchase failed');
               }
               
-              console.log('✅ MEMBERSHIP SUCCESSFUL! Payment completed using working IAP service.');
+              // After successful purchase, alias anonymous ID to real user
+              try {
+                const aliasResult = await RevenueCatAnonymousFlow.aliasToRealUser(newUser.id.toString());
+                if (aliasResult.success) {
+                  console.log('✅ Anonymous ID successfully aliased to real user');
+                } else {
+                  console.log('⚠️ Aliasing had issues but purchase is still valid:', aliasResult.error);
+                }
+              } catch (error) {
+                console.error('⚠️ Failed to alias anonymous ID (purchase still valid):', error);
+              }
               
-              console.log('✅ MEMBERSHIP: Apple Pay popup completed successfully!');
-              console.log('✅ Transaction ID:', purchaseResult.transactionId);
+              console.log('✅ APPLE PAY SUCCESSFUL! Purchase completed.');
+              
+              console.log('✅ BYPASS FIX: Apple Pay popup completed successfully!');
+              console.log('✅ Customer ID:', purchaseResult.purchaseResult?.customerInfo?.originalAppUserId);
               
               // Wait for credits to be processed by webhook (up to 10 seconds)
               let creditsAdded = false;
@@ -326,27 +353,6 @@ export default function AuthPageMobile() {
               
             } catch (error: any) {
               console.error('💳 Apple Pay failed:', error);
-              
-              // Enhanced error diagnosis for RevenueCat issues
-              if (error.message?.includes('string did not match') || 
-                  error.message?.includes('Invalid Product Identifiers') ||
-                  error.message?.includes('None of the products registered')) {
-                console.log('🔍 RevenueCat configuration error detected, running diagnostic...');
-                
-                try {
-                  const { RevenueCatDiagnostic } = await import('@/services/revenuecat-diagnostic');
-                  const report = await RevenueCatDiagnostic.generateReport();
-                  console.log('📋 DIAGNOSTIC REPORT:\n', report);
-                  
-                  notify({
-                    title: "Configuration Issue",
-                    description: "RevenueCat setup needs attention. Check console for diagnostic report.",
-                    variant: "destructive",
-                  });
-                } catch (diagError) {
-                  console.error('Failed to run diagnostic:', diagError);
-                }
-              }
               
               // Clear payment processing flag on error
               sessionStorage.removeItem('payment-processing');

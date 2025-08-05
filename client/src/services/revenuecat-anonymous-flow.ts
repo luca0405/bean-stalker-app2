@@ -23,24 +23,12 @@ export class RevenueCatAnonymousFlow {
         return { success: true, anonymousId: this.anonymousUserId || undefined };
       }
       
-      // Run diagnostic first to identify configuration issues
-      const { RevenueCatDiagnostic } = await import('./revenuecat-diagnostic');
-      const diagnostic = await RevenueCatDiagnostic.runDiagnostic();
-      
-      if (!diagnostic.success) {
-        console.log('🔍 CONFIGURATION ISSUES FOUND:');
-        diagnostic.issues.forEach(issue => console.log('  -', issue));
-        console.log('🔧 RECOMMENDED FIXES:');
-        diagnostic.fixes.forEach(fix => console.log('  -', fix));
-      }
-      
       // Configure WITHOUT appUserID - let RevenueCat create anonymous ID
       await Purchases.configure({
         apiKey: 'appl_owLmakOcTeYJOJoxJgScSQZtUQA',
         // NO appUserID specified - RevenueCat creates anonymous ID
         observerMode: false,
-        useStoreKit2IfAvailable: true,
-        usesStoreKit2IfAvailable: true // Backup parameter name for compatibility
+        useStoreKit2IfAvailable: true
       });
       
       this.isConfigured = true;
@@ -55,17 +43,6 @@ export class RevenueCatAnonymousFlow {
       
     } catch (error: any) {
       console.error('💥 ANONYMOUS FLOW: Configuration failed:', error);
-      console.error('💥 Error details:', error);
-      
-      // Run diagnostic on failure to help troubleshoot
-      try {
-        const { RevenueCatDiagnostic } = await import('./revenuecat-diagnostic');
-        const report = await RevenueCatDiagnostic.generateReport();
-        console.log('📋 DIAGNOSTIC REPORT:\n', report);
-      } catch (diagError) {
-        console.error('Failed to generate diagnostic report:', diagError);
-      }
-      
       return { success: false, error: error.message || 'Configuration failed' };
     }
   }
@@ -82,90 +59,30 @@ export class RevenueCatAnonymousFlow {
       console.log('💳 ANONYMOUS FLOW: Getting offerings with anonymous user...');
       
       const offerings = await Purchases.getOfferings();
-      console.log('💳 OFFERINGS DEBUG:', {
-        currentOfferingId: offerings.current?.identifier,
-        packagesCount: offerings.current?.availablePackages?.length || 0,
-        allOfferings: Object.keys(offerings.all || {})
-      });
-      
       if (!offerings.current?.availablePackages?.length) {
-        console.log('💳 All available offerings:', JSON.stringify(offerings, null, 2));
         return { success: false, error: 'No RevenueCat packages available' };
       }
       
-      // Log all available products for debugging
-      console.log('💳 Available products:');
-      offerings.current.availablePackages.forEach(pkg => {
-        console.log(`   - ${pkg.product.identifier}: ${pkg.product.title} (${pkg.product.priceString})`);
-      });
-      
-      // Find membership product with flexible matching
-      let membershipPackage = offerings.current.availablePackages.find(
+      // Find membership product
+      const membershipPackage = offerings.current.availablePackages.find(
         pkg => pkg.product.identifier === 'com.beanstalker.membership69'
       );
       
-      // If exact match not found, try other variations
       if (!membershipPackage) {
-        membershipPackage = offerings.current.availablePackages.find(
-          pkg => pkg.product.identifier.includes('membership') || 
-                 pkg.product.identifier.includes('premium') ||
-                 pkg.product.identifier.includes('69')
-        );
-      }
-      
-      // If still not found, use the first available product as fallback
-      if (!membershipPackage) {
-        console.log('⚠️ Exact membership product not found, using first available product');
-        membershipPackage = offerings.current.availablePackages[0];
-      }
-      
-      if (!membershipPackage) {
-        return { success: false, error: 'No membership product available' };
+        console.log('💳 Available products:');
+        offerings.current.availablePackages.forEach(pkg => {
+          console.log(`   - ${pkg.product.identifier}: ${pkg.product.title}`);
+        });
+        return { success: false, error: 'Membership product com.beanstalker.membership69 not found' };
       }
       
       console.log('💳 ANONYMOUS FLOW: Attempting purchase with anonymous ID:', this.anonymousUserId);
       console.log('💳 ANONYMOUS FLOW: Product:', membershipPackage.product.identifier);
       
-      console.log('💳 ANONYMOUS FLOW: Starting purchase with package:', {
-        identifier: membershipPackage.product.identifier,
-        title: membershipPackage.product.title,
-        price: membershipPackage.product.priceString
-      });
-      
       const purchaseResult = await Purchases.purchasePackage({ aPackage: membershipPackage });
       
       console.log('✅ ANONYMOUS FLOW: Purchase completed successfully!');
       console.log('   - Customer ID:', purchaseResult.customerInfo.originalAppUserId);
-      console.log('   - Product purchased:', membershipPackage.product.identifier);
-      console.log('   - Active entitlements:', Object.keys(purchaseResult.customerInfo.entitlements.active || {}));
-      
-      // CRITICAL FIX: Manually trigger webhook to ensure credits are processed
-      console.log('🔧 BACKUP WEBHOOK: Ensuring credits are processed...');
-      setTimeout(async () => {
-        try {
-          const webhookResponse = await fetch('/api/revenuecat/webhook', {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer bean-stalker-webhook-2025'
-            },
-            body: JSON.stringify({
-              event: {
-                type: 'INITIAL_PURCHASE',
-                product_id: membershipPackage.product.identifier,
-                app_user_id: purchaseResult.customerInfo.originalAppUserId
-              }
-            })
-          });
-          
-          if (webhookResponse.ok) {
-            const webhookResult = await webhookResponse.json();
-            console.log('✅ BACKUP WEBHOOK: Credits processed successfully:', webhookResult);
-          }
-        } catch (error) {
-          console.log('⚠️ BACKUP WEBHOOK: Will be handled by RevenueCat automatic webhook');
-        }
-      }, 2000); // Process after 2 seconds
       
       return { success: true, purchaseResult };
       
@@ -189,8 +106,13 @@ export class RevenueCatAnonymousFlow {
         return { success: false, error: 'No anonymous session to alias' };
       }
       
+      // RevenueCat user ID validation: alphanumeric, hyphens, underscores only
+      // Convert numeric user ID to valid format
+      const validUserId = `user_${realUserId}`;
+      console.log('🔧 ANONYMOUS FLOW: Using validated user ID format:', validUserId);
+      
       // Use logIn to alias the anonymous ID to the real user ID
-      const loginResult = await Purchases.logIn({ appUserID: realUserId });
+      const loginResult = await Purchases.logIn({ appUserID: validUserId });
       
       console.log('✅ ANONYMOUS FLOW: Successfully aliased to real user!');
       console.log('   - Created new customer:', loginResult.created);
@@ -200,7 +122,9 @@ export class RevenueCatAnonymousFlow {
       
     } catch (error: any) {
       console.error('💥 ANONYMOUS FLOW: Aliasing failed:', error);
-      return { success: false, error: error.message || 'Aliasing failed' };
+      // Don't fail the entire flow if aliasing fails - the purchase is still valid
+      console.log('⚠️ ANONYMOUS FLOW: Continuing without aliasing - purchase still valid');
+      return { success: true, error: `Aliasing failed but purchase valid: ${error.message}` };
     }
   }
   

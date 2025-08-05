@@ -3018,9 +3018,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // RevenueCat webhook for IAP processing
   app.post("/api/revenuecat/webhook", async (req, res) => {
     try {
-      console.log('📨 Received RevenueCat webhook:');
-      console.log('📨 Headers:', req.headers);
-      console.log('📨 Body:', JSON.stringify(req.body, null, 2));
+      console.log('📨 Received RevenueCat webhook:', req.body);
       
       // Optional: Verify authorization header if configured
       const authHeader = req.headers.authorization;
@@ -3052,6 +3050,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // ENHANCED ANONYMOUS ID SUPPORT: Handle all RevenueCat ID formats
         let userId = parseInt(app_user_id);
         let isAnonymousId = false;
+        
+        // Handle user_ prefixed IDs from aliasing
+        if (!userId && app_user_id?.startsWith('user_')) {
+          const numericId = app_user_id.replace('user_', '');
+          userId = parseInt(numericId);
+          console.log('🔍 USER_ PREFIXED ID DETECTED:', { original: app_user_id, parsed: userId });
+        }
         
         // If app_user_id is anonymous, look up the real user ID
         if (!userId && app_user_id?.startsWith('$RCAnonymousID:')) {
