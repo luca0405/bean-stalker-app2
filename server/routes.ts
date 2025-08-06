@@ -297,6 +297,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DEDICATED ENDPOINT: Add membership credits with session validation
+  app.post("/api/user/add-membership-credits", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ 
+        message: "Session not established", 
+        sessionReady: false 
+      });
+    }
+    
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ 
+          message: "User ID not found in session", 
+          sessionReady: false 
+        });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Check if membership credits were already added by checking user's current balance
+      // If user has >= $69, they likely already received membership credits
+      if (user.credits >= 69) {
+        return res.status(200).json({
+          success: true,
+          message: "User already has sufficient credits",
+          currentBalance: user.credits,
+          alreadyProcessed: true
+        });
+      }
+      
+      // Add the $69 membership credits
+      const membershipCredits = 69;
+      const newBalance = user.credits + membershipCredits;
+      const updatedUser = await storage.updateUserCredits(userId, newBalance);
+      
+      // Record the transaction
+      await storage.createCreditTransaction({
+        userId,
+        type: "membership_signup",
+        amount: membershipCredits,
+        description: "Premium Membership Signup - $69 Credits",
+        balanceAfter: newBalance,
+        orderId: null,
+        relatedUserId: null,
+        transactionId: `membership_${userId}_${Date.now()}`
+      });
+      
+      console.log(`💳 MEMBERSHIP CREDITS: Added $${membershipCredits} to user ${userId} - Balance: $${newBalance}`);
+      
+      res.status(200).json({
+        success: true,
+        message: "Membership credits added successfully",
+        creditsAdded: membershipCredits,
+        currentBalance: newBalance,
+        sessionReady: true
+      });
+      
+    } catch (error) {
+      console.error("Error adding membership credits:", error);
+      res.status(500).json({ 
+        message: "Failed to add membership credits",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // User credits routes
   app.post("/api/credits/add", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

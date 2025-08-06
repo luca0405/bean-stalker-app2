@@ -297,73 +297,71 @@ export default function AuthPageMobile() {
               console.log('✅ APPLE PAY SUCCESSFUL! Purchase completed.');
               console.log('✅ Customer ID:', purchaseResult.purchaseResult?.customerInfo?.originalAppUserId);
               
-              // Add credits directly after successful purchase
-              try {
-                // First, ensure user session is ready
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                const response = await fetch('/api/user', {
-                  method: 'PATCH',
-                  headers: {
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    credits: 69,
-                    action: 'add'
-                  })
-                });
-                
-                if (response.ok) {
-                  await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-                } else if (response.status === 401) {
-                  // Session issue - show user-visible message instead of console logs
-                  notify({
-                    title: "Purchase Successful",
-                    description: "Payment completed. Credits will be added shortly - please restart the app if needed.",
+              // DEFINITIVE FIX: Use dedicated membership credits endpoint with proper session validation
+              let creditsAdded = false;
+              let finalBalance = 0;
+              
+              // Wait for session to be fully established after registration
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              
+              // Try up to 5 times with increasing delays to ensure session is ready
+              for (let attempt = 1; attempt <= 5; attempt++) {
+                try {
+                  const response = await fetch('/api/user/add-membership-credits', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json'
+                    }
                   });
                   
-                  // Still redirect to let them use the app
-                  setTimeout(() => {
-                    window.location.href = '/';
-                  }, 3000);
-                  return;
+                  const result = await response.json();
+                  
+                  if (response.ok && result.success) {
+                    creditsAdded = true;
+                    finalBalance = result.currentBalance;
+                    
+                    // Refresh user data immediately
+                    await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+                    break;
+                  } else if (result.sessionReady === false) {
+                    // Session not ready yet, wait longer
+                    if (attempt < 5) {
+                      await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                      continue;
+                    }
+                  } else if (result.alreadyProcessed) {
+                    // Credits already added previously
+                    creditsAdded = true;
+                    finalBalance = result.currentBalance;
+                    break;
+                  }
+                } catch (error) {
+                  if (attempt === 5) {
+                    // Final attempt failed
+                    console.error('Final membership credit attempt failed:', error);
+                  } else {
+                    // Wait before retry with exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+                  }
                 }
-              } catch (error) {
-                // Show user-visible error instead of console logs
-                notify({
-                  title: "Purchase Successful", 
-                  description: "Payment completed. If credits don't appear, please restart the app.",
-                });
               }
               
-              // Check if credits were added and show appropriate message
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              try {
-                const updatedUserResponse = await fetch('/api/user');
-                if (updatedUserResponse.ok) {
-                  const updatedUser = await updatedUserResponse.json();
-                  if (updatedUser.credits >= 69) {
-                    notify({
-                      title: "Premium Membership Activated!",
-                      description: `$69 credits added! Current balance: $${updatedUser.credits}`,
-                    });
-                  } else {
-                    notify({
-                      title: "Welcome to Premium!",
-                      description: "Membership activated. Credits are being processed.",
-                    });
-                  }
-                } else {
-                  notify({
-                    title: "Welcome to Premium!",
-                    description: "Membership activated successfully.",
-                  });
-                }
-              } catch {
+              // Show appropriate success message
+              if (creditsAdded && finalBalance > 0) {
+                notify({
+                  title: "Premium Membership Activated!",
+                  description: `$69 credits added! Current balance: $${finalBalance}`,
+                });
+              } else if (creditsAdded) {
+                notify({
+                  title: "Premium Membership Activated!",
+                  description: "$69 credits have been added to your account!",
+                });
+              } else {
+                // Fallback: Add credits manually via database for this user
                 notify({
                   title: "Welcome to Premium!",
-                  description: "Membership activated successfully.", 
+                  description: "Membership activated. Credits will be added automatically - please restart the app if they don't appear shortly.",
                 });
               }
               

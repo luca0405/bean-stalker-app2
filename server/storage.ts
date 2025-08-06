@@ -96,6 +96,7 @@ export interface IStorage {
   createCreditTransaction(transaction: InsertCreditTransaction): Promise<CreditTransaction>;
   getCreditTransactionsByUserId(userId: number): Promise<CreditTransaction[]>;
   getCreditTransactionByTransactionId(transactionId: string): Promise<CreditTransaction | undefined>;
+  getCreditTransactionsByUserIdAndType(userId: number, type: string): Promise<CreditTransaction[]>;
   
   // Pending credit transfer operations
   createPendingCreditTransfer(transfer: InsertPendingCreditTransfer): Promise<PendingCreditTransfer>;
