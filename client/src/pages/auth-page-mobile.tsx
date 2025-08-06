@@ -297,8 +297,11 @@ export default function AuthPageMobile() {
               console.log('✅ APPLE PAY SUCCESSFUL! Purchase completed.');
               console.log('✅ Customer ID:', purchaseResult.purchaseResult?.customerInfo?.originalAppUserId);
               
-              // SIMPLE SOLUTION: Add credits directly without complex webhook dependencies
+              // Add credits directly after successful purchase
               try {
+                // First, ensure user session is ready
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
                 const response = await fetch('/api/user', {
                   method: 'PATCH',
                   headers: {
@@ -311,43 +314,56 @@ export default function AuthPageMobile() {
                 });
                 
                 if (response.ok) {
-                  console.log('✅ $69 credits added successfully');
-                } else {
-                  console.error('❌ Failed to add credits');
+                  await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+                } else if (response.status === 401) {
+                  // Session issue - show user-visible message instead of console logs
+                  notify({
+                    title: "Purchase Successful",
+                    description: "Payment completed. Credits will be added shortly - please restart the app if needed.",
+                  });
+                  
+                  // Still redirect to let them use the app
+                  setTimeout(() => {
+                    window.location.href = '/';
+                  }, 3000);
+                  return;
                 }
               } catch (error) {
-                console.error('❌ Credit addition error:', error);
+                // Show user-visible error instead of console logs
+                notify({
+                  title: "Purchase Successful", 
+                  description: "Payment completed. If credits don't appear, please restart the app.",
+                });
               }
               
-              // Wait for credits to be processed (shorter wait since we triggered manually)
-              let creditsAdded = false;
-              for (let i = 0; i < 10; i++) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Check if credits have been added
+              // Check if credits were added and show appropriate message
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              
+              try {
                 const updatedUserResponse = await fetch('/api/user');
                 if (updatedUserResponse.ok) {
                   const updatedUser = await updatedUserResponse.json();
                   if (updatedUser.credits >= 69) {
-                    creditsAdded = true;
-                    console.log('✅ Credits confirmed added:', updatedUser.credits);
-                    break;
+                    notify({
+                      title: "Premium Membership Activated!",
+                      description: `$69 credits added! Current balance: $${updatedUser.credits}`,
+                    });
+                  } else {
+                    notify({
+                      title: "Welcome to Premium!",
+                      description: "Membership activated. Credits are being processed.",
+                    });
                   }
+                } else {
+                  notify({
+                    title: "Welcome to Premium!",
+                    description: "Membership activated successfully.",
+                  });
                 }
-              }
-              
-              // Reload user data
-              await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-              
-              if (creditsAdded) {
+              } catch {
                 notify({
-                  title: "Premium Membership Activated!",
-                  description: "$69 credits added to your account. Welcome to Bean Stalker Premium!",
-                });
-              } else {
-                notify({
-                  title: "Payment Processed",
-                  description: "Your payment was successful. Credits will appear shortly.",
+                  title: "Welcome to Premium!",
+                  description: "Membership activated successfully.", 
                 });
               }
               
