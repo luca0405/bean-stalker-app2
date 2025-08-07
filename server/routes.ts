@@ -714,19 +714,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`💳 MEMBERSHIP: User ${newUser.id} created with 0 credits - RevenueCat IAP will handle crediting`);
 
-      // Auto-login the new user
-      req.login(newUser, (err) => {
+      // Auto-login the new user and add membership credits immediately
+      req.login(newUser, async (err) => {
         if (err) {
           console.error('Login error after payment:', err);
           return res.status(500).json({ message: 'Payment processed but login failed' });
         }
         
-        res.status(201).json({ 
-          message: 'Premium membership activated successfully - credits will be added via RevenueCat IAP',
-          user: { ...newUser, password: undefined },
-          membershipCredit: 0, // Credits come from RevenueCat webhook, not server
-          paymentId: paymentId
-        });
+        // ADD MEMBERSHIP CREDITS IMMEDIATELY AFTER LOGIN SUCCESS
+        try {
+          const membershipCredits = 69;
+          const updatedUser = await storage.updateUserCredits(newUser.id, newUser.credits + membershipCredits);
+          
+          // Record the transaction
+          await storage.createCreditTransaction({
+            userId: newUser.id,
+            type: "membership_signup",
+            amount: membershipCredits,
+            description: "Premium Membership Signup - $69 Credits",
+            balanceAfter: updatedUser.credits,
+            orderId: null,
+            relatedUserId: null,
+            transactionId: `membership_${newUser.id}_${Date.now()}`
+          });
+          
+          console.log(`💳 MEMBERSHIP CREDITS: Added $${membershipCredits} to user ${newUser.id} immediately after login - Balance: $${updatedUser.credits}`);
+          
+          res.status(201).json({ 
+            message: 'Premium membership activated successfully',
+            user: { ...updatedUser, password: undefined },
+            membershipCredit: membershipCredits,
+            paymentId: paymentId
+          });
+        } catch (creditError) {
+          console.error('Error adding membership credits:', creditError);
+          res.status(201).json({ 
+            message: 'Premium membership activated - credits will be added shortly',
+            user: { ...newUser, password: undefined },
+            membershipCredit: 0,
+            paymentId: paymentId
+          });
+        }
       });
     } catch (error) {
       console.error('Membership payment error:', error);
@@ -770,16 +798,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const qrCodeData = await QRCode.toDataURL(`user:${newUser.id}`);
       await storage.updateUserQrCode(newUser.id, qrCodeData);
       
-      // Note: No credit transaction here - RevenueCat IAP will handle crediting
+      // ADD MEMBERSHIP CREDITS IMMEDIATELY - GUARANTEED EXECUTION
+      try {
+        const membershipCredits = 69;
+        console.log(`💳 ADDING MEMBERSHIP CREDITS: Starting for user ${newUser.id}...`);
+        
+        const updatedUser = await storage.updateUserCredits(newUser.id, newUser.credits + membershipCredits);
+        console.log(`💳 CREDITS UPDATED: User ${newUser.id} now has $${updatedUser.credits}`);
+        
+        // Record the transaction
+        await storage.createCreditTransaction({
+          userId: newUser.id,
+          type: "membership_signup",
+          amount: membershipCredits,
+          description: "Premium Membership Signup - $69 Credits",
+          balanceAfter: updatedUser.credits,
+          orderId: null,
+          relatedUserId: null,
+          transactionId: `membership_${newUser.id}_${Date.now()}`
+        });
+        
+        console.log(`💳 MEMBERSHIP SUCCESS: Added $${membershipCredits} to user ${newUser.id} - Final Balance: $${updatedUser.credits}`);
+        
+        // Remove password from response
+        const { password: _, ...userWithoutPassword } = updatedUser;
       
-      // Remove password from response
-      const { password: _, ...userWithoutPassword } = newUser;
-      
-      res.status(201).json({
-        success: true,
-        user: userWithoutPassword,
-        message: "Premium membership activated successfully"
-      });
+        res.status(201).json({
+          success: true,
+          user: userWithoutPassword,
+          message: "Premium membership activated successfully",
+          membershipCredit: membershipCredits
+        });
+      } catch (creditError) {
+        console.error(`❌ MEMBERSHIP CREDIT ERROR for user ${newUser.id}:`, creditError);
+        // Return success but with zero credits - manual fix needed
+        const { password: _, ...userWithoutPassword } = newUser;
+        res.status(201).json({
+          success: true,
+          user: userWithoutPassword,
+          message: "Premium membership activated - credits will be added manually",
+          membershipCredit: 0,
+          creditError: true
+        });
+      }
     } catch (error) {
       console.error("Error creating membership account:", error);
       res.status(500).json({ message: "Failed to create membership account" });

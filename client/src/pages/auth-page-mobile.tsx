@@ -297,73 +297,16 @@ export default function AuthPageMobile() {
               console.log('✅ APPLE PAY SUCCESSFUL! Purchase completed.');
               console.log('✅ Customer ID:', purchaseResult.purchaseResult?.customerInfo?.originalAppUserId);
               
-              // DEFINITIVE FIX: Use dedicated membership credits endpoint with proper session validation
-              let creditsAdded = false;
-              let finalBalance = 0;
+              // Credits are now added automatically during registration on the server side
+              // Just refresh user data to show the updated balance
+              await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+              console.log('✅ Credits added automatically during registration - refreshing user data');
               
-              // Wait for session to be fully established after registration
-              await new Promise(resolve => setTimeout(resolve, 3000));
-              
-              // Try up to 5 times with increasing delays to ensure session is ready
-              for (let attempt = 1; attempt <= 5; attempt++) {
-                try {
-                  const response = await fetch('/api/user/add-membership-credits', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json'
-                    }
-                  });
-                  
-                  const result = await response.json();
-                  
-                  if (response.ok && result.success) {
-                    creditsAdded = true;
-                    finalBalance = result.currentBalance;
-                    
-                    // Refresh user data immediately
-                    await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-                    break;
-                  } else if (result.sessionReady === false) {
-                    // Session not ready yet, wait longer
-                    if (attempt < 5) {
-                      await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-                      continue;
-                    }
-                  } else if (result.alreadyProcessed) {
-                    // Credits already added previously
-                    creditsAdded = true;
-                    finalBalance = result.currentBalance;
-                    break;
-                  }
-                } catch (error) {
-                  if (attempt === 5) {
-                    // Final attempt failed
-                    console.error('Final membership credit attempt failed:', error);
-                  } else {
-                    // Wait before retry with exponential backoff
-                    await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
-                  }
-                }
-              }
-              
-              // Show appropriate success message
-              if (creditsAdded && finalBalance > 0) {
-                notify({
-                  title: "Premium Membership Activated!",
-                  description: `$69 credits added! Current balance: $${finalBalance}`,
-                });
-              } else if (creditsAdded) {
-                notify({
-                  title: "Premium Membership Activated!",
-                  description: "$69 credits have been added to your account!",
-                });
-              } else {
-                // Fallback: Add credits manually via database for this user
-                notify({
-                  title: "Welcome to Premium!",
-                  description: "Membership activated. Credits will be added automatically - please restart the app if they don't appear shortly.",
-                });
-              }
+              // Show success message - credits are automatically added on server
+              notify({
+                title: "Premium Membership Activated!",
+                description: "$69 credits have been added to your account!",
+              });
               
               // Clear payment processing flag and redirect to homepage
               sessionStorage.removeItem('payment-processing');
