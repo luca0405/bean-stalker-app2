@@ -10,6 +10,8 @@ import { APP_CONFIG } from '../config/environment';
 
 import { formatCurrency } from '@/lib/utils';
 import { CreditCard, ShoppingBag, Star, Gift, Smartphone } from 'lucide-react';
+import { AppleWalletIconButton } from '@/components/apple-wallet-button';
+import { useAuth } from '@/hooks/use-auth';
 
 interface CreditPackage {
   id: string;

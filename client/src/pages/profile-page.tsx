@@ -8,6 +8,7 @@ import { TransactionHistory } from "@/components/transaction-history";
 import { AccountSwitcher } from "@/components/account-switcher";
 import { DeviceBindingTest } from "@/components/device-binding-test";
 import AppInstallButton from "@/components/app-install-button";
+import { AppleWalletButton } from "@/components/apple-wallet-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -357,6 +358,51 @@ export default function ProfilePage() {
               <div className="space-y-3">
                 <EnhancedBuyCredits />
                 <SendCredits />
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Apple Wallet Integration */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span>🍎</span>
+                Apple Wallet
+              </CardTitle>
+              <CardDescription>
+                Add your Bean Stalker credit balance to Apple Wallet for quick access
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-green-100 to-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-green-900">Current Balance</h4>
+                      <p className="text-2xl font-bold text-green-800">
+                        ${user?.credits.toFixed(2)}
+                      </p>
+                      <p className="text-sm text-green-700 mt-1">
+                        View your balance instantly from your lock screen
+                      </p>
+                    </div>
+                    <div className="ml-4">
+                      <AppleWalletButton
+                        userId={user?.id || 0}
+                        username={user?.username || ''}
+                        currentBalance={user?.credits || 0}
+                        size="lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="text-sm text-muted-foreground space-y-2">
+                  <p>✓ Real-time balance updates</p>
+                  <p>✓ Quick access from lock screen</p>
+                  <p>✓ Secure Apple Wallet integration</p>
+                  <p>✓ Works offline once added</p>
+                </div>
               </div>
             </CardContent>
           </Card>

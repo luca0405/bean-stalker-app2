@@ -189,6 +189,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Apple Wallet Pass Generation Endpoint
+  app.post("/api/apple-wallet/generate-pass", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { userId, username, currentBalance, passData } = req.body;
+      const authenticatedUserId = req.user?.id;
+      
+      // Ensure user can only generate passes for themselves (or admin)
+      if (userId !== authenticatedUserId && !req.user?.isAdmin) {
+        return res.status(403).json({ message: "Unauthorized to generate pass for this user" });
+      }
+      
+      const { AppleWalletPassGenerator } = await import('./apple-wallet-pass');
+      const result = await AppleWalletPassGenerator.generatePass(userId, username, currentBalance, passData);
+      
+      if (!result.success) {
+        return res.status(500).json({ message: result.error || "Failed to generate pass" });
+      }
+      
+      console.log(`🍎 APPLE WALLET: Generated pass for user ${userId} with balance $${currentBalance}`);
+      
+      res.json({ 
+        success: true, 
+        passBase64: result.passBase64,
+        message: "Pass generated successfully"
+      });
+      
+    } catch (error) {
+      console.error("Apple Wallet pass generation error:", error);
+      res.status(500).json({ message: "Failed to generate Apple Wallet pass" });
+    }
+  });
+
+  // Apple Wallet Pass Update Endpoint (for automatic balance updates)
+  app.get("/api/apple-wallet/passes/:passTypeId/:serialNumber", async (req, res) => {
+    try {
+      const { passTypeId, serialNumber } = req.params;
+      const authToken = req.headers['authorization'];
+      
+      console.log(`🍎 APPLE WALLET: Pass update requested for ${serialNumber}`);
+      
+      // Verify authentication token (Apple Wallet requirement)
+      if (!authToken) {
+        return res.status(401).send('Unauthorized');
+      }
+      
+      // Extract user ID from serial number (format: bs_credit_123)
+      const userIdMatch = serialNumber.match(/bs_credit_(\d+)/);
+      if (!userIdMatch) {
+        return res.status(404).send('Pass not found');
+      }
+      
+      const userId = parseInt(userIdMatch[1]);
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).send('User not found');
+      }
+      
+      // Generate updated pass with current balance
+      const { AppleWalletPassGenerator } = await import('./apple-wallet-pass');
+      const passData = {
+        passTypeIdentifier: passTypeId,
+        serialNumber,
+        organizationName: 'Bean Stalker Coffee',
+        description: 'Bean Stalker Credit Balance',
+        logoText: 'Bean Stalker',
+        foregroundColor: 'rgb(255, 255, 255)',
+        backgroundColor: 'rgb(34, 139, 34)',
+        labelColor: 'rgb(255, 255, 255)',
+        primaryFields: [
+          {
+            key: 'balance',
+            label: 'Credit Balance',
+            value: `$${user.credits.toFixed(2)}`,
+            textAlignment: 'center'
+          }
+        ],
+        secondaryFields: [
+          {
+            key: 'username',
+            label: 'Account',
+            value: user.username
+          },
+          {
+            key: 'lastUpdated',
+            label: 'Last Updated',
+            value: new Date().toLocaleDateString()
+          }
+        ],
+        auxiliaryFields: [
+          {
+            key: 'memberType',
+            label: 'Membership',
+            value: user.credits >= 69 ? 'Premium' : 'Standard'
+          }
+        ],
+        backFields: [
+          {
+            key: 'description',
+            label: 'About',
+            value: 'Your Bean Stalker credit balance. Use credits to order delicious coffee and food items from our app.'
+          },
+          {
+            key: 'support',
+            label: 'Support',
+            value: 'For assistance, contact support through the Bean Stalker app.'
+          },
+          {
+            key: 'website',
+            label: 'Website',
+            value: 'beanstalker.com.au'
+          }
+        ]
+      };
+      
+      const result = await AppleWalletPassGenerator.generatePass(userId, user.username, user.credits, passData);
+      
+      if (!result.success) {
+        return res.status(500).send('Failed to generate updated pass');
+      }
+      
+      // Convert base64 back to binary for Apple Wallet
+      const passBuffer = Buffer.from(result.passBase64!, 'base64');
+      
+      res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
+      res.setHeader('Content-Length', passBuffer.length);
+      res.send(passBuffer);
+      
+      console.log(`🍎 APPLE WALLET: Updated pass delivered for user ${userId} - Balance: $${user.credits}`);
+      
+    } catch (error) {
+      console.error("Apple Wallet pass update error:", error);
+      res.status(500).send('Internal server error');
+    }
+  });
+
   // Get a specific order by ID
   app.get("/api/orders/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
