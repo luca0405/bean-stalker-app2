@@ -2757,7 +2757,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const { phoneNumber, amount } = req.body;
+      const { phoneNumber, amount, sendSMS = false } = req.body;
       
       // Validate input
       if (!phoneNumber || !amount || amount <= 0) {
@@ -2788,13 +2788,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create SMS message using full name if available, fallback to username
       const senderName = user.fullName || user.username;
-      const smsMessage = `🎁 You've received $${amount.toFixed(2)} Bean Stalker credits from ${senderName}! Show this code at our store: ${verificationCode}. Bean Stalker Coffee Shop`;
+      const smsMessage = `🎁 You've received $${amount.toFixed(2)} Bean Stalker credits from ${senderName}! Show this code at our store: ${verificationCode}. Valid for 24 hours. Bean Stalker Coffee Shop`;
+
+      let smsStatus = null;
+      
+      // Send SMS via Omnisend if requested
+      if (sendSMS) {
+        try {
+          const { OmnisendService } = await import('./omnisend-service');
+          
+          if (OmnisendService.isConfigured()) {
+            const smsResult = await OmnisendService.sendCreditShareSMS(
+              phoneNumber,
+              amount,
+              senderName,
+              verificationCode
+            );
+            
+            smsStatus = smsResult;
+            
+            if (smsResult.success) {
+              console.log(`SMS sent successfully to ${phoneNumber} for credit share of $${amount}`);
+            } else {
+              console.error(`Failed to send SMS via Omnisend: ${smsResult.error}`);
+            }
+          } else {
+            smsStatus = { 
+              success: false, 
+              error: 'Omnisend not configured. Set OMNISEND_API_KEY environment variable.' 
+            };
+          }
+        } catch (smsError) {
+          console.error('SMS sending error:', smsError);
+          smsStatus = { 
+            success: false, 
+            error: 'SMS service temporarily unavailable' 
+          };
+        }
+      }
 
       res.json({
         success: true,
         verificationCode,
         smsMessage,
-        expiresAt: expiresAt.toISOString()
+        expiresAt: expiresAt.toISOString(),
+        smsStatus
       });
 
     } catch (error) {

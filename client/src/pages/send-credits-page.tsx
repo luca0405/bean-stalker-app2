@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Send, MessageSquare, User, DollarSign, Shield, Clock, CheckCircle, Edit3 } from "lucide-react";
+import { ArrowLeft, Send, MessageSquare, User, DollarSign, Shield, Clock, CheckCircle, Edit3, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,11 @@ interface ShareCreditsResponse {
   verificationCode: string;
   smsMessage: string;
   expiresAt: string;
+  smsStatus?: {
+    success: boolean;
+    messageId?: string;
+    error?: string;
+  };
 }
 
 export default function SendCreditsPage() {
@@ -66,18 +71,35 @@ export default function SendCreditsPage() {
   };
 
   const shareCreditsMutation = useMutation({
-    mutationFn: async (data: { phoneNumber: string; amount: number }) => {
+    mutationFn: async (data: { phoneNumber: string; amount: number; sendSMS?: boolean }) => {
       const response = await apiRequest("POST", "/api/share-credits", data);
       return await response.json();
     },
     onSuccess: (data: ShareCreditsResponse) => {
       setSmsDetails(data);
       setCustomMessage(getEditableMessage(data.smsMessage)); // Initialize with just editable part
-      setShowSMSPreview(true);
-      notify({
-        title: "Credit Share Ready",
-        description: "Verification code generated. Send the SMS to complete sharing.",
-      });
+      
+      // If SMS was sent via Omnisend, show different message
+      if (data.smsStatus?.success) {
+        notify({
+          title: "Credits Shared Successfully",
+          description: "SMS sent automatically via Omnisend. The recipient will receive your credits!",
+        });
+        setShowSMSPreview(true);
+      } else if (data.smsStatus && !data.smsStatus.success) {
+        notify({
+          title: "SMS Failed",
+          description: `Omnisend error: ${data.smsStatus.error}. You can still send manually.`,
+          variant: "destructive",
+        });
+        setShowSMSPreview(true);
+      } else {
+        setShowSMSPreview(true);
+        notify({
+          title: "Credit Share Ready",
+          description: "Verification code generated. Send the SMS to complete sharing.",
+        });
+      }
     },
     onError: (error: Error) => {
       notify({
@@ -138,7 +160,8 @@ export default function SendCreditsPage() {
 
     shareCreditsMutation.mutate({
       phoneNumber: phoneNumber.replace(/\s/g, ''),
-      amount: creditAmount
+      amount: creditAmount,
+      sendSMS: true
     });
   };
 
@@ -360,7 +383,7 @@ export default function SendCreditsPage() {
                 <span>Share Credits</span>
               </CardTitle>
               <CardDescription>
-                Share credits with non-members via SMS. They can claim them at our store counter.
+                Share credits with non-members via SMS. SMS is sent automatically through Omnisend and they can claim credits at our store counter.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -396,6 +419,17 @@ export default function SendCreditsPage() {
                       Remaining balance: ${((user?.credits || 0) - parseFloat(amount)).toFixed(2)}
                     </p>
                   )}
+                </div>
+
+                {/* SMS Info */}
+                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                  <div className="flex items-center space-x-2 text-sm text-green-700">
+                    <Zap className="h-4 w-4" />
+                    <span className="font-medium">SMS will be sent automatically via Omnisend</span>
+                  </div>
+                  <p className="text-xs text-green-600 mt-1">
+                    The recipient will instantly receive the credit share message with verification code
+                  </p>
                 </div>
 
                 <Button
@@ -440,7 +474,7 @@ export default function SendCreditsPage() {
                 </div>
                 <div className="flex items-start space-x-2">
                   <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">3</span>
-                  <p>Send SMS using your phone's messaging app</p>
+                  <p>SMS is sent automatically via Omnisend</p>
                 </div>
                 <div className="flex items-start space-x-2">
                   <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">4</span>

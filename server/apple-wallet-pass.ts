@@ -43,6 +43,22 @@ export class AppleWalletPassGenerator {
    */
   static async generatePass(userId: number, username: string, currentBalance: number, passData: PassData): Promise<{ success: boolean; passBase64?: string; error?: string }> {
     try {
+      // Check if Apple Developer certificates are available
+      if (!this.certificatePath || !this.keyPath || !this.wwdrCertPath || !this.teamIdentifier) {
+        return {
+          success: false,
+          error: 'Apple Wallet certificates not configured. In production, set APPLE_WALLET_CERT_PATH, APPLE_WALLET_KEY_PATH, APPLE_WALLET_WWDR_CERT_PATH, and APPLE_TEAM_ID environment variables.'
+        };
+      }
+
+      // Check if certificate files exist
+      if (!existsSync(this.certificatePath) || !existsSync(this.keyPath) || !existsSync(this.wwdrCertPath)) {
+        return {
+          success: false,
+          error: 'Apple Wallet certificate files not found. Please ensure certificate files are properly installed in production.'
+        };
+      }
+      
       // Ensure passes directory exists
       if (!existsSync(this.passesDir)) {
         mkdirSync(this.passesDir, { recursive: true });
@@ -56,7 +72,7 @@ export class AppleWalletPassGenerator {
       const passJson = this.createPassJson(passData, userId, username, currentBalance);
       writeFileSync(join(passDir, 'pass.json'), JSON.stringify(passJson, null, 2));
       
-      // Copy logo and icon files (you'll need to add these to your project)
+      // Copy logo and icon files
       await this.copyPassAssets(passDir);
       
       // Generate manifest.json
@@ -201,10 +217,10 @@ export class AppleWalletPassGenerator {
     return new Promise((resolve, reject) => {
       const fs = require('fs');
       const output = fs.createWriteStream(outputPath);
-      const archive = archiver('zip', { zlib: { level: 9 } });
+      const archive = archiver.create('zip', { zlib: { level: 9 } });
       
       output.on('close', () => resolve());
-      archive.on('error', (err) => reject(err));
+      archive.on('error', (err: Error) => reject(err));
       
       archive.pipe(output);
       archive.directory(passDir, false);

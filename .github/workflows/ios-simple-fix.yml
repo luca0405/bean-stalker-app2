@@ -22,12 +22,14 @@ jobs:
     - name: Build
       env:
         VITE_REVENUECAT_API_KEY: ${{ secrets.VITE_REVENUECAT_API_KEY }}
+        OMNISEND_API_KEY: ${{ secrets.OMNISEND_API_KEY }}
         VITE_FORCE_SANDBOX: true
       run: |
-        # Export environment variable for all subsequent steps
+        # Export environment variables for all subsequent steps
         echo "VITE_REVENUECAT_API_KEY=${{ secrets.VITE_REVENUECAT_API_KEY }}" >> $GITHUB_ENV
+        echo "OMNISEND_API_KEY=${{ secrets.OMNISEND_API_KEY }}" >> $GITHUB_ENV
         
-        # Verify the secret is accessible
+        # Verify the secrets are accessible
         echo "=== RevenueCat API Key Verification ==="
         if [ -z "${{ secrets.VITE_REVENUECAT_API_KEY }}" ]; then
           echo "❌ GitHub secret VITE_REVENUECAT_API_KEY is empty or not set"
@@ -37,6 +39,17 @@ jobs:
           echo "✅ GitHub secret VITE_REVENUECAT_API_KEY is configured"
           echo "Key length: ${#VITE_REVENUECAT_API_KEY} characters"
           echo "Key starts with: ${VITE_REVENUECAT_API_KEY:0:8}..."
+        fi
+        
+        echo "=== Omnisend API Key Verification ==="
+        if [ -z "${{ secrets.OMNISEND_API_KEY }}" ]; then
+          echo "❌ GitHub secret OMNISEND_API_KEY is empty or not set"
+          echo "Please configure the secret in GitHub repository settings"
+          exit 1
+        else
+          echo "✅ GitHub secret OMNISEND_API_KEY is configured"
+          echo "Key length: ${#OMNISEND_API_KEY} characters"
+          echo "Key starts with: ${OMNISEND_API_KEY:0:8}..."
         fi
         
         npm ci

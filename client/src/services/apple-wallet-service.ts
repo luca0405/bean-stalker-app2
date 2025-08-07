@@ -73,11 +73,26 @@ export class AppleWalletService {
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        return { success: false, error: error.message || 'Failed to generate pass' };
+        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        return { success: false, error: errorData.error || `Server error: ${response.status}` };
       }
       
-      const { passBase64 } = await response.json();
+      const result = await response.json();
+      
+      if (!result.success) {
+        // Provide helpful error messages for common development issues
+        let userFriendlyError = result.error;
+        
+        if (result.error?.includes('certificates not configured')) {
+          userFriendlyError = 'Apple Wallet is not available in development mode. This feature requires Apple Developer certificates to be configured in production.';
+        } else if (result.error?.includes('certificate files not found')) {
+          userFriendlyError = 'Apple Wallet certificates are not installed. This feature will be available when the app is deployed with proper Apple Developer certificates.';
+        }
+        
+        return { success: false, error: userFriendlyError };
+      }
+      
+      const { passBase64 } = result;
       
       // Add pass to wallet using Capacitor plugin
       // This will work when the app is built for iOS
