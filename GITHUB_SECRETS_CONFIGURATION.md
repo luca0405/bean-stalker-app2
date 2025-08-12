@@ -1,9 +1,14 @@
-# GitHub Secrets Configuration for RevenueCat IAP
+# GitHub Secrets Configuration for Native Mobile App
 
-## Current Issue
+## Required Secrets for Bean Stalker Native App
+
+The following secrets need to be configured in GitHub for native mobile app deployment:
+
+### 1. RevenueCat IAP Configuration
 The diagnostic screenshot confirms: **"VITE_REVENUECAT_API_KEY not set"**
 
-This means the GitHub secret is not properly configured or the workflow isn't accessing it correctly.
+### 2. Omnisend SMS Integration
+For automatic SMS sending in Share Credits feature: **"OMNISEND_API_KEY"**
 
 ## Required GitHub Secret Setup
 
@@ -17,20 +22,28 @@ This means the GitHub secret is not properly configured or the workflow isn't ac
    - In the left sidebar, click: **Secrets and variables**
    - Click: **Actions**
 
-3. **Add/Update the RevenueCat Secret**
+3. **Add/Update Required Secrets**
+   
+   **A. RevenueCat Secret:**
    - Look for existing secret named: `VITE_REVENUECAT_API_KEY`
    - If it exists, click **Update**
    - If it doesn't exist, click **New repository secret**
-
-4. **Set the Secret Value**
    - **Name**: `VITE_REVENUECAT_API_KEY`
    - **Secret**: `appl_owLmakOcTeYJOJoxJgScSQZtUQA`
    - Click **Add secret** or **Update secret**
 
+   **B. Omnisend SMS Secret:**
+   - Click **New repository secret**
+   - **Name**: `OMNISEND_API_KEY`
+   - **Secret**: [Your Omnisend API Key from Omnisend Dashboard → Settings → API Keys]
+   - Click **Add secret**
+
 ### Verification Checklist:
 - [ ] Secret name is exactly: `VITE_REVENUECAT_API_KEY` (case-sensitive)
 - [ ] Secret value is exactly: `appl_owLmakOcTeYJOJoxJgScSQZtUQA` (no extra spaces)
-- [ ] Secret is saved in the repository: `luca0405/bean-stalker-app2`
+- [ ] Secret name is exactly: `OMNISEND_API_KEY` (case-sensitive)
+- [ ] Omnisend secret value is your actual API key from Omnisend dashboard
+- [ ] Both secrets are saved in the repository: `luca0405/bean-stalker-app2`
 
 ## Next Steps After Configuration
 

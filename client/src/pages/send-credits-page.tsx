@@ -79,13 +79,17 @@ export default function SendCreditsPage() {
       setSmsDetails(data);
       setCustomMessage(getEditableMessage(data.smsMessage)); // Initialize with just editable part
       
-      // If SMS was sent via Omnisend, show different message
+      // If SMS was sent via Omnisend successfully, just show success and reset form
       if (data.smsStatus?.success) {
         notify({
           title: "Credits Shared Successfully",
-          description: "SMS sent automatically via Omnisend. The recipient will receive your credits!",
+          description: `SMS sent automatically to ${phoneNumber}. The recipient has received your $${amount} credits!`,
         });
-        setShowSMSPreview(true);
+        // Reset form after successful Omnisend SMS
+        setPhoneNumber("");
+        setAmount("");
+        setSmsDetails(null);
+        setShowSMSPreview(false);
       } else if (data.smsStatus && !data.smsStatus.success) {
         notify({
           title: "SMS Failed",
@@ -440,12 +444,12 @@ export default function SendCreditsPage() {
                   {shareCreditsMutation.isPending ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Generating Code...
+                      Sending SMS via Omnisend...
                     </>
                   ) : (
                     <>
-                      <Send className="h-5 w-5 mr-2" />
-                      Generate SMS Code
+                      <Zap className="h-5 w-5 mr-2" />
+                      Send Credits Automatically
                     </>
                   )}
                 </Button>
