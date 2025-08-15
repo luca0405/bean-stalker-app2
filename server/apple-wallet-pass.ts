@@ -4,9 +4,10 @@
  */
 
 import { createHash, createSign } from 'crypto';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, createWriteStream } from 'fs';
 import { join } from 'path';
-import * as archiver from 'archiver';
+import archiver from 'archiver';
+import * as forge from 'node-forge';
 
 export interface PassData {
   passTypeIdentifier: string;
@@ -32,11 +33,12 @@ export interface PassField {
 
 export class AppleWalletPassGenerator {
   private static passesDir = join(process.cwd(), 'wallet-passes');
-  private static certificatePath = process.env.APPLE_WALLET_CERT_PATH;
-  private static keyPath = process.env.APPLE_WALLET_KEY_PATH;
-  private static wwdrCertPath = process.env.APPLE_WALLET_WWDR_CERT_PATH;
+  private static certificatePath = join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
+  private static keyPath = join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
+  private static wwdrCertPath = join(process.cwd(), 'certs', 'wwdr.pem');
   private static passTypeIdentifier = 'pass.com.beanstalker.credits';
   private static teamIdentifier = process.env.APPLE_TEAM_ID;
+  private static certificatePassword = process.env.APPLE_WALLET_CERT_PASSWORD;
   
   /**
    * Generate a signed .pkpass file for Apple Wallet
@@ -192,20 +194,51 @@ export class AppleWalletPassGenerator {
    * Sign the manifest with Apple certificates
    */
   private static async signManifest(manifest: Record<string, string>): Promise<Buffer> {
-    if (!this.certificatePath || !this.keyPath) {
-      throw new Error('Apple Wallet certificates not configured. Please set APPLE_WALLET_CERT_PATH and APPLE_WALLET_KEY_PATH environment variables.');
+    if (!this.certificatePath || !this.certificatePassword || !this.teamIdentifier) {
+      throw new Error('Apple Wallet certificates not configured. Please ensure APPLE_TEAM_ID and APPLE_WALLET_CERT_PASSWORD are set.');
     }
     
     const manifestJson = JSON.stringify(manifest);
     
     try {
-      const privateKey = readFileSync(this.keyPath, 'utf8');
+      // Read the .p12 certificate bundle
+      const p12Buffer = readFileSync(this.certificatePath);
+      const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
+      const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, this.certificatePassword!);
+      
+      // Extract the private key - try multiple bag types
+      let keyBag: any = null;
+      
+      // Try pkcs8ShroudedKeyBag first
+      const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
+      if (keyBags[forge.pki.oids.pkcs8ShroudedKeyBag] && keyBags[forge.pki.oids.pkcs8ShroudedKeyBag].length > 0) {
+        keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag][0];
+      }
+      
+      // If not found, try keyBag
+      if (!keyBag) {
+        const altKeyBags = p12.getBags({ bagType: forge.pki.oids.keyBag });
+        if (altKeyBags[forge.pki.oids.keyBag] && altKeyBags[forge.pki.oids.keyBag].length > 0) {
+          keyBag = altKeyBags[forge.pki.oids.keyBag][0];
+        }
+      }
+      
+      if (!keyBag?.key) {
+        throw new Error('Private key not found in .p12 certificate');
+      }
+      
+      // Convert forge private key to PEM format for Node.js crypto
+      const privateKeyPem = forge.pki.privateKeyToPem(keyBag.key);
+      
+      // Sign the manifest
       const sign = createSign('SHA1');
       sign.update(manifestJson);
-      return sign.sign(privateKey);
-    } catch (error) {
+      return sign.sign(privateKeyPem);
+      
+    } catch (error: any) {
+      console.error('Certificate signing error:', error.message);
       // For development, return a placeholder signature
-      console.warn('Using placeholder signature - configure Apple certificates for production');
+      console.warn('Using placeholder signature - certificate configuration may need adjustment');
       return Buffer.from('PLACEHOLDER_SIGNATURE_FOR_DEVELOPMENT');
     }
   }
@@ -215,9 +248,8 @@ export class AppleWalletPassGenerator {
    */
   private static async createPkpassFile(passDir: string, outputPath: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const fs = require('fs');
-      const output = fs.createWriteStream(outputPath);
-      const archive = archiver.create('zip', { zlib: { level: 9 } });
+      const output = createWriteStream(outputPath);
+      const archive = archiver('zip', { zlib: { level: 9 } });
       
       output.on('close', () => resolve());
       archive.on('error', (err: Error) => reject(err));

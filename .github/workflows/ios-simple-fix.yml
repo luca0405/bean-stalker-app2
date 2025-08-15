@@ -24,10 +24,15 @@ jobs:
         VITE_REVENUECAT_API_KEY: ${{ secrets.VITE_REVENUECAT_API_KEY }}
         OMNISEND_API_KEY: ${{ secrets.OMNISEND_API_KEY }}
         VITE_FORCE_SANDBOX: true
+        # Apple Wallet Integration Secrets
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        APPLE_WALLET_CERT_PASSWORD: ${{ secrets.APPLE_WALLET_CERT_PASSWORD }}
       run: |
         # Export environment variables for all subsequent steps
         echo "VITE_REVENUECAT_API_KEY=${{ secrets.VITE_REVENUECAT_API_KEY }}" >> $GITHUB_ENV
         echo "OMNISEND_API_KEY=${{ secrets.OMNISEND_API_KEY }}" >> $GITHUB_ENV
+        echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> $GITHUB_ENV
+        echo "APPLE_WALLET_CERT_PASSWORD=${{ secrets.APPLE_WALLET_CERT_PASSWORD }}" >> $GITHUB_ENV
         
         # Verify the secrets are accessible
         echo "=== RevenueCat API Key Verification ==="
@@ -50,6 +55,21 @@ jobs:
           echo "✅ GitHub secret OMNISEND_API_KEY is configured"
           echo "Key length: ${#OMNISEND_API_KEY} characters"
           echo "Key starts with: ${OMNISEND_API_KEY:0:8}..."
+        fi
+        
+        echo "=== Apple Wallet Integration Verification ==="
+        if [ -z "${{ secrets.APPLE_TEAM_ID }}" ]; then
+          echo "❌ GitHub secret APPLE_TEAM_ID is empty or not set"
+          echo "Apple Wallet integration will be disabled"
+        else
+          echo "✅ GitHub secret APPLE_TEAM_ID is configured: ${{ secrets.APPLE_TEAM_ID }}"
+        fi
+        
+        if [ -z "${{ secrets.APPLE_WALLET_CERT_PASSWORD }}" ]; then
+          echo "❌ GitHub secret APPLE_WALLET_CERT_PASSWORD is empty or not set"
+          echo "Apple Wallet certificate signing will be disabled"
+        else
+          echo "✅ GitHub secret APPLE_WALLET_CERT_PASSWORD is configured"
         fi
         
         npm ci

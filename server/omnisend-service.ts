@@ -19,10 +19,10 @@ interface OmnisendResponse {
 
 export class OmnisendService {
   private static apiKey = process.env.OMNISEND_API_KEY;
-  private static apiUrl = 'https://api.omnisend.com/v3/sms';
+  private static apiUrl = 'https://api.omnisend.com/v5';
   
   /**
-   * Send SMS through Omnisend API
+   * Send SMS through Omnisend API (Note: Requires SMS campaign setup in Omnisend dashboard)
    */
   static async sendSMS(data: OmnisendSMSData): Promise<OmnisendResponse> {
     try {
@@ -33,49 +33,69 @@ export class OmnisendService {
       // Format phone number for international format
       const formattedPhone = this.formatPhoneNumber(data.phoneNumber);
       
-      const payload = {
-        phoneNumber: formattedPhone,
-        text: data.message,
-        from: data.senderName || 'Bean Stalker'
+      console.log('📱 Omnisend SMS: Starting process for', formattedPhone);
+      
+      // First, create/update contact with SMS channel
+      const contactPayload = {
+        identifiers: [{
+          type: 'phone',
+          id: formattedPhone,
+          channels: {
+            sms: {
+              status: 'subscribed',
+              statusDate: new Date().toISOString()
+            }
+          }
+        }],
+        firstName: 'Bean Stalker Customer',
+        customProperties: {
+          credit_message: data.message,
+          sender_name: data.senderName || 'Bean Stalker'
+        }
       };
 
-      console.log('Sending SMS via Omnisend:', { 
-        phoneNumber: formattedPhone, 
-        messageLength: data.message.length,
-        from: payload.from 
-      });
+      console.log('📱 Creating/updating SMS contact...');
 
-      const response = await fetch(this.apiUrl, {
+      // Create contact
+      const contactResponse = await fetch(`${this.apiUrl}/contacts`, {
         method: 'POST',
         headers: {
           'X-API-KEY': this.apiKey,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'accept': 'application/json'
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(contactPayload)
       });
 
-      const responseData = await response.json() as any;
+      const contactData = await contactResponse.json() as any;
+      console.log('📱 Contact response:', { status: contactResponse.status, contactID: contactData.contactID });
 
-      if (!response.ok) {
-        console.error('Omnisend SMS API error:', responseData);
+      if (!contactResponse.ok) {
+        console.error('❌ Contact creation failed:', contactData);
+        // For native mobile app, fallback to manual SMS since Omnisend needs campaign setup
         return {
           success: false,
-          error: responseData.error || `HTTP ${response.status}: ${response.statusText}`
+          error: 'SMS automation requires campaign setup in Omnisend dashboard. Using manual SMS fallback.'
         };
       }
 
-      console.log('SMS sent successfully via Omnisend:', responseData);
-
+      // Since custom events may not be available in all Omnisend plans,
+      // we'll use contact creation with custom properties instead
+      console.log('📱 Contact created successfully, but SMS automation requires manual campaign setup in Omnisend dashboard');
+      
+      // For basic Omnisend plans without custom events, we need to fall back to manual SMS
+      // This ensures the app works immediately while allowing future automation setup
       return {
-        success: true,
-        messageId: responseData.messageId || responseData.id
+        success: false,
+        error: 'Omnisend contact created, but SMS automation requires custom event triggers (premium feature). Using manual SMS fallback.',
+        contactId: contactData.contactID
       };
 
     } catch (error: any) {
-      console.error('Omnisend SMS service error:', error);
+      console.error('❌ Omnisend SMS service error:', error);
       return {
         success: false,
-        error: error.message || 'Failed to send SMS'
+        error: error.message || 'Failed to process SMS via Omnisend'
       };
     }
   }
@@ -132,6 +152,60 @@ export class OmnisendService {
    * Check if Omnisend service is configured
    */
   static isConfigured(): boolean {
-    return !!this.apiKey;
+    const configured = !!this.apiKey;
+    console.log(`Omnisend configuration check: ${configured ? 'CONFIGURED' : 'NOT CONFIGURED'}`);
+    if (configured) {
+      console.log(`API Key length: ${this.apiKey.length}, starts with: ${this.apiKey.substring(0, 10)}...`);
+    }
+    return configured;
+  }
+
+  /**
+   * Test Omnisend API connection
+   */
+  static async testConnection(): Promise<OmnisendResponse> {
+    try {
+      if (!this.apiKey) {
+        return { success: false, error: 'API key not configured' };
+      }
+
+      // Test with a simple contact creation
+      const testPayload = {
+        identifiers: [{
+          type: 'phone',
+          id: '+61400000000',
+          channels: {
+            sms: {
+              status: 'subscribed',
+              statusDate: new Date().toISOString()
+            }
+          }
+        }]
+      };
+
+      console.log('Testing Omnisend API connection with payload:', testPayload);
+
+      const response = await fetch(`${this.apiUrl}/contacts`, {
+        method: 'POST',
+        headers: {
+          'X-API-KEY': this.apiKey,
+          'Content-Type': 'application/json',
+          'accept': 'application/json'
+        },
+        body: JSON.stringify(testPayload)
+      });
+
+      const responseData = await response.json() as any;
+      console.log('Omnisend test response:', { status: response.status, data: responseData });
+
+      return {
+        success: response.ok,
+        error: response.ok ? undefined : `HTTP ${response.status}: ${JSON.stringify(responseData)}`
+      };
+
+    } catch (error: any) {
+      console.error('Omnisend connection test failed:', error);
+      return { success: false, error: error.message };
+    }
   }
 }

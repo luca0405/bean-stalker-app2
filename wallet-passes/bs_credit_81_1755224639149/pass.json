@@ -1,0 +1,51 @@
+{
+  "formatVersion": 1,
+  "passTypeIdentifier": "pass.com.beanstalker.credits",
+  "serialNumber": "bs_credit_81_test",
+  "teamIdentifier": "A43TZWNYA3",
+  "organizationName": "Bean Stalker Coffee",
+  "description": "Coffee Credit Balance",
+  "logoText": "Bean Stalker",
+  "foregroundColor": "#FFFFFF",
+  "backgroundColor": "#1B4332",
+  "labelColor": "#D8F3DC",
+  "generic": {
+    "primaryFields": [
+      {
+        "key": "balance",
+        "label": "Balance",
+        "value": "$69.00"
+      }
+    ],
+    "secondaryFields": [
+      {
+        "key": "username",
+        "label": "Account",
+        "value": "wallettest2"
+      }
+    ],
+    "auxiliaryFields": [],
+    "backFields": [
+      {
+        "key": "info",
+        "label": "Info",
+        "value": "Present at Bean Stalker Coffee to redeem credits"
+      }
+    ]
+  },
+  "webServiceURL": "http://localhost:5000/api/apple-wallet",
+  "authenticationToken": "4f9b9d911aae1aeccedb4a12ad5dca30281e14e23006c2a284eeef45d7ee1fcc",
+  "relevantDate": "2025-08-15T02:23:59.149Z",
+  "barcodes": [
+    {
+      "message": "BS81",
+      "format": "PKBarcodeFormatQR",
+      "messageEncoding": "iso-8859-1"
+    }
+  ],
+  "userInfo": {
+    "userId": 81,
+    "username": "wallettest2",
+    "balance": 69
+  }
+}

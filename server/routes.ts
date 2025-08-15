@@ -2795,9 +2795,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send SMS via Omnisend if requested
       if (sendSMS) {
         try {
+          console.log(`🔧 Starting SMS send process for ${phoneNumber}, amount: $${amount}`);
           const { OmnisendService } = await import('./omnisend-service');
           
+          console.log('🔧 Checking Omnisend configuration...');
           if (OmnisendService.isConfigured()) {
+            console.log('🔧 Omnisend is configured, sending SMS...');
+            
             const smsResult = await OmnisendService.sendCreditShareSMS(
               phoneNumber,
               amount,
@@ -2808,18 +2812,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             smsStatus = smsResult;
             
             if (smsResult.success) {
-              console.log(`SMS sent successfully to ${phoneNumber} for credit share of $${amount}`);
+              console.log(`✅ SMS sent successfully to ${phoneNumber} for credit share of $${amount}`);
+              console.log(`✅ Message ID: ${smsResult.messageId}`);
             } else {
-              console.error(`Failed to send SMS via Omnisend: ${smsResult.error}`);
+              console.error(`❌ Failed to send SMS via Omnisend: ${smsResult.error}`);
             }
           } else {
+            console.error('❌ Omnisend not configured');
             smsStatus = { 
               success: false, 
               error: 'Omnisend not configured. Set OMNISEND_API_KEY environment variable.' 
             };
           }
         } catch (smsError) {
-          console.error('SMS sending error:', smsError);
+          console.error('❌ SMS sending error:', smsError);
           smsStatus = { 
             success: false, 
             error: 'SMS service temporarily unavailable' 
@@ -2838,6 +2844,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Credit sharing error:", error);
       res.status(500).json({ message: "Failed to create credit share" });
+    }
+  });
+
+  // Test Omnisend connection (development endpoint)
+  app.post("/api/test-omnisend", async (req, res) => {
+    try {
+      const { OmnisendService } = await import('./omnisend-service');
+      
+      console.log('🔧 Testing Omnisend API connection...');
+      const testResult = await OmnisendService.testConnection();
+      
+      res.json({
+        configured: OmnisendService.isConfigured(),
+        testResult
+      });
+    } catch (error) {
+      console.error('Test endpoint error:', error);
+      res.status(500).json({ error: 'Test failed' });
+    }
+  });
+
+  // Test Apple Wallet certificate configuration
+  app.post("/api/test-apple-wallet", async (req, res) => {
+    try {
+      console.log('🍎 Testing Apple Wallet certificate configuration...');
+      
+      const certificates = {
+        team_id: !!process.env.APPLE_TEAM_ID,
+        cert_password: !!process.env.APPLE_WALLET_CERT_PASSWORD
+      };
+      
+      const allConfigured = Object.values(certificates).every(Boolean);
+      
+      // Check if certificate files exist
+      let filesExist = {};
+      const fs = await import('fs');
+      const path = await import('path');
+      
+      try {
+        const certPath = path.join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
+        const wwdrPath = path.join(process.cwd(), 'certs', 'wwdr.pem');
+        
+        filesExist = {
+          pass_cert: fs.existsSync(certPath),
+          wwdr_cert: fs.existsSync(wwdrPath)
+        };
+      } catch (error) {
+        filesExist = {
+          pass_cert: false,
+          wwdr_cert: false
+        };
+      }
+      
+      const allFilesExist = Object.values(filesExist).every(Boolean);
+      
+      res.json({
+        configured: allConfigured,
+        certificates,
+        filesExist,
+        ready: allConfigured && allFilesExist,
+        status: allConfigured && allFilesExist 
+          ? 'Ready for Apple Wallet pass generation' 
+          : 'Missing configuration or certificate files',
+        teamId: process.env.APPLE_TEAM_ID || 'Not set'
+      });
+      
+    } catch (error) {
+      console.error('Apple Wallet test error:', error);
+      res.status(500).json({ 
+        configured: false,
+        error: error instanceof Error ? error.message : 'Test failed'
+      });
+    }
+  });
+
+  // Generate Apple Wallet pass for credit balance
+  app.post("/api/apple-wallet/generate-pass", isAuthenticated, async (req, res) => {
+    try {
+      const { userId, username, currentBalance, passData } = req.body;
+      
+      // Validate request
+      if (!userId || !username || typeof currentBalance !== 'number' || !passData) {
+        return res.status(400).json({ error: 'Missing required pass data' });
+      }
+      
+      // Ensure user can only generate passes for themselves (or admin can generate for anyone)
+      if (req.user!.id !== userId && !req.user!.isAdmin) {
+        return res.status(403).json({ error: 'Can only generate passes for your own account' });
+      }
+      
+      // Import Apple Wallet service
+      const { AppleWalletPassGenerator } = await import('./apple-wallet-pass');
+      
+      console.log(`🍎 Generating Apple Wallet pass for user ${userId} (${username}) with balance $${currentBalance}`);
+      
+      // Generate the pass
+      const result = await AppleWalletPassGenerator.generatePass(userId, username, currentBalance, passData);
+      
+      if (result.success && result.passBase64) {
+        console.log('✅ Apple Wallet pass generated successfully');
+        res.json({
+          success: true,
+          passBase64: result.passBase64
+        });
+      } else {
+        console.log('❌ Apple Wallet pass generation failed:', result.error);
+        res.status(400).json({
+          success: false,
+          error: result.error || 'Failed to generate pass'
+        });
+      }
+      
+    } catch (error) {
+      console.error('Apple Wallet pass generation error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Pass generation failed'
+      });
     }
   });
 

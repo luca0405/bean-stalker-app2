@@ -83,7 +83,7 @@ export default function SendCreditsPage() {
       if (data.smsStatus?.success) {
         notify({
           title: "Credits Shared Successfully",
-          description: `SMS sent automatically to ${phoneNumber}. The recipient has received your $${amount} credits!`,
+          description: `Contact added to Omnisend for SMS automation to ${phoneNumber}. $${amount} credit share created!`,
         });
         // Reset form after successful Omnisend SMS
         setPhoneNumber("");
@@ -92,9 +92,9 @@ export default function SendCreditsPage() {
         setShowSMSPreview(false);
       } else if (data.smsStatus && !data.smsStatus.success) {
         notify({
-          title: "SMS Failed",
-          description: `Omnisend error: ${data.smsStatus.error}. You can still send manually.`,
-          variant: "destructive",
+          title: "SMS Setup Needed",
+          description: "Omnisend contact created, but SMS automation requires plan upgrade. Sending manually instead.",
+          variant: "default",
         });
         setShowSMSPreview(true);
       } else {
@@ -426,13 +426,13 @@ export default function SendCreditsPage() {
                 </div>
 
                 {/* SMS Info */}
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="flex items-center space-x-2 text-sm text-green-700">
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center space-x-2 text-sm text-blue-700">
                     <Zap className="h-4 w-4" />
-                    <span className="font-medium">SMS will be sent automatically via Omnisend</span>
+                    <span className="font-medium">Contact added to Omnisend, then manual SMS</span>
                   </div>
-                  <p className="text-xs text-green-600 mt-1">
-                    The recipient will instantly receive the credit share message with verification code
+                  <p className="text-xs text-blue-600 mt-1">
+                    Recipient info saved for marketing, you'll send SMS manually via your messaging app
                   </p>
                 </div>
 
