@@ -146,7 +146,7 @@ export class AppleWalletService {
    * Create the pass data structure
    */
   private static createCreditPass(userId: number, username: string, currentBalance: number): CreditPass {
-    const serialNumber = `bs_credit_${userId}`;
+    const serialNumber = `bs-credit-${userId}-${Date.now()}`;
     const formattedBalance = `$${currentBalance.toFixed(2)}`;
     
     return {
@@ -155,9 +155,9 @@ export class AppleWalletService {
       organizationName: 'Bean Stalker Coffee',
       description: 'Bean Stalker Credit Balance',
       logoText: 'Bean Stalker',
-      foregroundColor: 'rgb(255, 255, 255)',
-      backgroundColor: 'rgb(34, 139, 34)', // Forest green matching app theme
-      labelColor: 'rgb(255, 255, 255)',
+      foregroundColor: '#FFFFFF',
+      backgroundColor: '#228B22', // Forest green matching app theme  
+      labelColor: '#FFFFFF',
       primaryFields: [
         {
           key: 'balance',

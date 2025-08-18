@@ -2926,18 +2926,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Validate request
       if (!userId || !username || typeof currentBalance !== 'number' || !passData) {
-        return res.status(400).json({ error: 'Missing required pass data' });
+        return res.status(400).json({ 
+          success: false,
+          error: 'Missing required pass data' 
+        });
       }
       
       // Ensure user can only generate passes for themselves (or admin can generate for anyone)
       if (req.user!.id !== userId && !req.user!.isAdmin) {
-        return res.status(403).json({ error: 'Can only generate passes for your own account' });
+        return res.status(403).json({ 
+          success: false,
+          error: 'Can only generate passes for your own account' 
+        });
+      }
+
+      console.log(`🍎 Generating Apple Wallet pass for user ${userId} (${username}) with balance $${currentBalance}`);
+      console.log('Pass data received:', JSON.stringify(passData, null, 2));
+      
+      // Validate pass data format
+      if (!passData.passTypeIdentifier || !passData.serialNumber || !passData.organizationName) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid pass data: missing required fields (passTypeIdentifier, serialNumber, organizationName)'
+        });
+      }
+
+      // Validate color format - Apple Wallet requires hex colors, not rgb()
+      const colorFields = ['foregroundColor', 'backgroundColor', 'labelColor'];
+      for (const field of colorFields) {
+        if (passData[field] && passData[field].startsWith('rgb(')) {
+          return res.status(400).json({
+            success: false,
+            error: `Invalid ${field}: Apple Wallet requires hex colors (e.g., #FFFFFF), not rgb() format`
+          });
+        }
+      }
+
+      // Validate serial number format - avoid problematic characters
+      if (!/^[a-zA-Z0-9-_.]+$/.test(passData.serialNumber)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid serial number format: only alphanumeric characters, hyphens, underscores, and periods are allowed'
+        });
       }
       
       // Import Apple Wallet service
       const { AppleWalletPassGenerator } = await import('./apple-wallet-pass');
-      
-      console.log(`🍎 Generating Apple Wallet pass for user ${userId} (${username}) with balance $${currentBalance}`);
       
       // Generate the pass
       const result = await AppleWalletPassGenerator.generatePass(userId, username, currentBalance, passData);

@@ -66,7 +66,7 @@ export class AppleWalletPassGenerator {
         mkdirSync(this.passesDir, { recursive: true });
       }
       
-      const passId = `bs_credit_${userId}_${Date.now()}`;
+      const passId = `bs-credit-${userId}-${Date.now()}`;
       const passDir = join(this.passesDir, passId);
       mkdirSync(passDir, { recursive: true });
       
@@ -127,7 +127,7 @@ export class AppleWalletPassGenerator {
       relevantDate: new Date().toISOString(),
       barcodes: [
         {
-          message: `BS${userId}`,
+          message: `BS-${userId}`,
           format: 'PKBarcodeFormatQR',
           messageEncoding: 'iso-8859-1'
         }
