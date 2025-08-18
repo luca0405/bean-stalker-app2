@@ -33,32 +33,55 @@ export interface PassField {
 
 export class AppleWalletPassGenerator {
   private static passesDir = join(process.cwd(), 'wallet-passes');
-  // Try multiple paths for certificate files (development vs native app)
-  private static getCertificatePath() {
+  
+  // Use embedded base64 certificates for native apps or file paths for development
+  private static getCertificateData(): Buffer {
+    // First try environment variable (for native apps)
+    if (process.env.APPLE_WALLET_CERT_BASE64) {
+      console.log('🍎 DEBUG: Using base64 certificate from environment');
+      return Buffer.from(process.env.APPLE_WALLET_CERT_BASE64, 'base64');
+    }
+    
+    // Fallback to file system (for development)
     const paths = [
       join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12'),
-      join(process.cwd(), 'public', 'certs', 'bean_stalker_pass_cert.p12'),
-      join(process.cwd(), 'dist', 'certs', 'bean_stalker_pass_cert.p12'),
-      './public/certs/bean_stalker_pass_cert.p12',
+      join(process.cwd(), 'client', 'public', 'certs', 'bean_stalker_pass_cert.p12'),
       './certs/bean_stalker_pass_cert.p12'
     ];
-    return paths.find(path => existsSync(path)) || paths[0];
+    
+    for (const path of paths) {
+      if (existsSync(path)) {
+        console.log('🍎 DEBUG: Using certificate file:', path);
+        return readFileSync(path);
+      }
+    }
+    
+    throw new Error('Certificate not found in environment or file system');
   }
   
-  private static getWWDRPath() {
+  private static getWWDRData(): Buffer {
+    // First try environment variable (for native apps)
+    if (process.env.APPLE_WALLET_WWDR_BASE64) {
+      console.log('🍎 DEBUG: Using base64 WWDR from environment');
+      return Buffer.from(process.env.APPLE_WALLET_WWDR_BASE64, 'base64');
+    }
+    
+    // Fallback to file system (for development)
     const paths = [
       join(process.cwd(), 'certs', 'wwdr.pem'),
-      join(process.cwd(), 'public', 'certs', 'wwdr.pem'),
-      join(process.cwd(), 'dist', 'certs', 'wwdr.pem'),
-      './public/certs/wwdr.pem',
+      join(process.cwd(), 'client', 'public', 'certs', 'wwdr.pem'),
       './certs/wwdr.pem'
     ];
-    return paths.find(path => existsSync(path)) || paths[0];
+    
+    for (const path of paths) {
+      if (existsSync(path)) {
+        console.log('🍎 DEBUG: Using WWDR file:', path);
+        return readFileSync(path);
+      }
+    }
+    
+    throw new Error('WWDR certificate not found in environment or file system');
   }
-  
-  private static get certificatePath() { return this.getCertificatePath(); }
-  private static get keyPath() { return this.getCertificatePath(); }
-  private static get wwdrCertPath() { return this.getWWDRPath(); }
   private static passTypeIdentifier = 'pass.A43TZWNYA3.beanstalker.credits';
   private static teamIdentifier = process.env.APPLE_TEAM_ID || 'A43TZWNYA3';
   private static certificatePassword = process.env.APPLE_WALLET_CERT_PASSWORD || 'BeanStalker2025!';
@@ -68,18 +91,19 @@ export class AppleWalletPassGenerator {
    */
   static async generatePass(userId: number, username: string, currentBalance: number, passData: PassData): Promise<{ success: boolean; passBase64?: string; error?: string }> {
     try {
-      // Check if certificate files exist at any of the possible paths
-      const certPath = this.certificatePath;
-      const wwdrPath = this.wwdrCertPath;
+      // Load certificate data (from environment or file system)
+      let certificateData: Buffer;
+      let wwdrData: Buffer;
       
-      console.log('🍎 DEBUG: Certificate paths:', { certPath, wwdrPath });
-      console.log('🍎 DEBUG: Certificate exists:', existsSync(certPath));
-      console.log('🍎 DEBUG: WWDR exists:', existsSync(wwdrPath));
-      
-      if (!existsSync(certPath) || !existsSync(wwdrPath)) {
+      try {
+        certificateData = this.getCertificateData();
+        wwdrData = this.getWWDRData();
+        console.log('🍎 DEBUG: Certificate data loaded successfully');
+      } catch (error) {
+        console.error('🍎 DEBUG: Certificate loading failed:', error);
         return {
           success: false,
-          error: `Apple Wallet certificate files not found. Checked paths: cert=${certPath}, wwdr=${wwdrPath}`
+          error: `Apple Wallet certificates not available: ${error instanceof Error ? error.message : 'Unknown error'}`
         };
       }
       
@@ -103,8 +127,8 @@ export class AppleWalletPassGenerator {
       const manifest = await this.generateManifest(passDir);
       writeFileSync(join(passDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
       
-      // Sign the manifest
-      const signature = await this.signManifest(manifest);
+      // Sign the manifest using certificate data
+      const signature = await this.signManifest(manifest, certificateData);
       writeFileSync(join(passDir, 'signature'), signature);
       
       // Create .pkpass file
@@ -215,17 +239,12 @@ export class AppleWalletPassGenerator {
   /**
    * Sign the manifest with Apple certificates
    */
-  private static async signManifest(manifest: Record<string, string>): Promise<Buffer> {
-    if (!this.certificatePath || !this.certificatePassword || !this.teamIdentifier) {
-      throw new Error('Apple Wallet certificates not configured. Please ensure APPLE_TEAM_ID and APPLE_WALLET_CERT_PASSWORD are set.');
-    }
-    
+  private static async signManifest(manifest: Record<string, string>, certificateData: Buffer): Promise<Buffer> {
     const manifestJson = JSON.stringify(manifest);
     
     try {
-      // Read the .p12 certificate bundle
-      const p12Buffer = readFileSync(this.certificatePath);
-      const p12Asn1 = forge.asn1.fromDer(p12Buffer.toString('binary'));
+      // Use the certificate data directly (from environment or file)
+      const p12Asn1 = forge.asn1.fromDer(certificateData.toString('binary'));
       const p12 = forge.pkcs12.pkcs12FromAsn1(p12Asn1, this.certificatePassword!);
       
       // Extract the private key - try multiple bag types
