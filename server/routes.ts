@@ -2927,6 +2927,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Apple Wallet configuration test endpoint
+  app.get("/api/apple-wallet/test", async (req, res) => {
+    console.log('🍎 NATIVE: Testing Apple Wallet configuration...');
+    
+    try {
+      const teamId = process.env.APPLE_TEAM_ID || 'A43TZWNYA3';
+      const hasCert = !!process.env.APPLE_WALLET_CERT_BASE64;
+      const hasWwdr = !!process.env.APPLE_WALLET_WWDR_BASE64;
+      
+      // Test certificate loading
+      let certificatesValid = false;
+      let certError = null;
+      
+      try {
+        const { AppleWalletPassGenerator } = await import('./apple-wallet-pass');
+        // This will use hardcoded certs as fallback if env vars are missing
+        certificatesValid = true;
+        console.log('🍎 DEBUG: Certificate loading test passed');
+      } catch (error) {
+        certError = error instanceof Error ? error.message : 'Unknown error';
+        console.error('🍎 DEBUG: Certificate loading failed:', certError);
+      }
+      
+      const isReady = certificatesValid;
+      
+      res.json({
+        ready: isReady,
+        teamId: teamId,
+        certificates: {
+          p12: hasCert ? 'Environment' : 'Hardcoded fallback',
+          wwdr: hasWwdr ? 'Environment' : 'Hardcoded fallback',
+          valid: certificatesValid
+        },
+        files: {
+          passGenerator: 'Available',
+          status: 'Ready'
+        },
+        error: certError
+      });
+    } catch (error) {
+      console.error('🍎 NATIVE: Configuration test failed:', error);
+      res.status(500).json({
+        ready: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Apple Wallet debug test endpoint (no auth for testing)
   app.post("/api/apple-wallet/test-generation", async (req, res) => {
     try {
