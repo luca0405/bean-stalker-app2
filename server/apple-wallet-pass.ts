@@ -233,15 +233,17 @@ export class AppleWalletPassGenerator {
       
       // Try pkcs8ShroudedKeyBag first
       const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
-      if (keyBags[forge.pki.oids.pkcs8ShroudedKeyBag] && keyBags[forge.pki.oids.pkcs8ShroudedKeyBag].length > 0) {
-        keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag][0];
+      const shroudedBags = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag];
+      if (shroudedBags && shroudedBags.length > 0) {
+        keyBag = shroudedBags[0];
       }
       
       // If not found, try keyBag
       if (!keyBag) {
         const altKeyBags = p12.getBags({ bagType: forge.pki.oids.keyBag });
-        if (altKeyBags[forge.pki.oids.keyBag] && altKeyBags[forge.pki.oids.keyBag].length > 0) {
-          keyBag = altKeyBags[forge.pki.oids.keyBag][0];
+        const normalBags = altKeyBags[forge.pki.oids.keyBag];
+        if (normalBags && normalBags.length > 0) {
+          keyBag = normalBags[0];
         }
       }
       
