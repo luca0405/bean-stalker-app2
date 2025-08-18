@@ -65,6 +65,7 @@ export class AppleWalletService {
       console.log('🍎 NATIVE: Pass type identifier:', pass.passTypeIdentifier);
       console.log('🍎 NATIVE: Serial number:', pass.serialNumber);
       console.log('🍎 NATIVE: Colors - fg:', pass.foregroundColor, 'bg:', pass.backgroundColor);
+      console.log('🍎 NATIVE: Full pass object:', JSON.stringify(pass, null, 2));
       
       const response = await fetch('/api/apple-wallet/generate-pass', {
         method: 'POST',

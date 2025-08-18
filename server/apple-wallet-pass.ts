@@ -33,31 +33,53 @@ export interface PassField {
 
 export class AppleWalletPassGenerator {
   private static passesDir = join(process.cwd(), 'wallet-passes');
-  private static certificatePath = join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
-  private static keyPath = join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
-  private static wwdrCertPath = join(process.cwd(), 'certs', 'wwdr.pem');
+  // Try multiple paths for certificate files (development vs native app)
+  private static getCertificatePath() {
+    const paths = [
+      join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12'),
+      join(process.cwd(), 'public', 'certs', 'bean_stalker_pass_cert.p12'),
+      join(process.cwd(), 'dist', 'certs', 'bean_stalker_pass_cert.p12'),
+      './public/certs/bean_stalker_pass_cert.p12',
+      './certs/bean_stalker_pass_cert.p12'
+    ];
+    return paths.find(path => existsSync(path)) || paths[0];
+  }
+  
+  private static getWWDRPath() {
+    const paths = [
+      join(process.cwd(), 'certs', 'wwdr.pem'),
+      join(process.cwd(), 'public', 'certs', 'wwdr.pem'),
+      join(process.cwd(), 'dist', 'certs', 'wwdr.pem'),
+      './public/certs/wwdr.pem',
+      './certs/wwdr.pem'
+    ];
+    return paths.find(path => existsSync(path)) || paths[0];
+  }
+  
+  private static get certificatePath() { return this.getCertificatePath(); }
+  private static get keyPath() { return this.getCertificatePath(); }
+  private static get wwdrCertPath() { return this.getWWDRPath(); }
   private static passTypeIdentifier = 'pass.A43TZWNYA3.beanstalker.credits';
-  private static teamIdentifier = process.env.APPLE_TEAM_ID;
-  private static certificatePassword = process.env.APPLE_WALLET_CERT_PASSWORD;
+  private static teamIdentifier = process.env.APPLE_TEAM_ID || 'A43TZWNYA3';
+  private static certificatePassword = process.env.APPLE_WALLET_CERT_PASSWORD || 'BeanStalker2025!';
   
   /**
    * Generate a signed .pkpass file for Apple Wallet
    */
   static async generatePass(userId: number, username: string, currentBalance: number, passData: PassData): Promise<{ success: boolean; passBase64?: string; error?: string }> {
     try {
-      // Check if Apple Developer certificates are available
-      if (!this.certificatePath || !this.keyPath || !this.wwdrCertPath || !this.teamIdentifier) {
+      // Check if certificate files exist at any of the possible paths
+      const certPath = this.certificatePath;
+      const wwdrPath = this.wwdrCertPath;
+      
+      console.log('🍎 DEBUG: Certificate paths:', { certPath, wwdrPath });
+      console.log('🍎 DEBUG: Certificate exists:', existsSync(certPath));
+      console.log('🍎 DEBUG: WWDR exists:', existsSync(wwdrPath));
+      
+      if (!existsSync(certPath) || !existsSync(wwdrPath)) {
         return {
           success: false,
-          error: 'Apple Wallet certificates not configured. In production, set APPLE_WALLET_CERT_PATH, APPLE_WALLET_KEY_PATH, APPLE_WALLET_WWDR_CERT_PATH, and APPLE_TEAM_ID environment variables.'
-        };
-      }
-
-      // Check if certificate files exist
-      if (!existsSync(this.certificatePath) || !existsSync(this.keyPath) || !existsSync(this.wwdrCertPath)) {
-        return {
-          success: false,
-          error: 'Apple Wallet certificate files not found. Please ensure certificate files are properly installed in production.'
+          error: `Apple Wallet certificate files not found. Checked paths: cert=${certPath}, wwdr=${wwdrPath}`
         };
       }
       

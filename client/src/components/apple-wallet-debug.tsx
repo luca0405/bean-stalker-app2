@@ -93,10 +93,21 @@ export function AppleWalletDebugPanel({ userId, username, currentBalance }: Appl
     console.log('🍎 NATIVE: User ID:', userId, 'Username:', username, 'Balance:', currentBalance);
     
     try {
-      // Import the service directly to test pass creation
+      // First test the debug endpoint
+      console.log('🍎 NATIVE: Testing debug endpoint...');
+      const debugResponse = await fetch('/api/apple-wallet/test-generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      console.log('🍎 NATIVE: Debug endpoint status:', debugResponse.status);
+      const debugResult = await debugResponse.json().catch(() => ({ error: 'Invalid JSON response' }));
+      console.log('🍎 NATIVE: Debug endpoint result:', debugResult);
+      
+      // Then test the service directly
       const { AppleWalletService } = await import('@/services/apple-wallet-service');
       const result = await AppleWalletService.updateCreditPass(userId, username, currentBalance);
-      console.log('🍎 NATIVE: Pass generation test result:', result);
+      console.log('🍎 NATIVE: Service test result:', result);
     } catch (error) {
       console.error('🍎 NATIVE: Pass generation test failed:', error);
     }

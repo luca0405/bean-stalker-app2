@@ -2877,23 +2877,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const allConfigured = Object.values(certificates).every(Boolean);
       
-      // Check if certificate files exist
+      // Check if certificate files exist at any possible location
       let filesExist = {};
       const fs = await import('fs');
       const path = await import('path');
       
       try {
-        const certPath = path.join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
-        const wwdrPath = path.join(process.cwd(), 'certs', 'wwdr.pem');
+        // Import the class to use its path resolution
+        const { AppleWalletPassGenerator } = await import('./apple-wallet-pass');
+        const certPath = AppleWalletPassGenerator['certificatePath'];
+        const wwdrPath = AppleWalletPassGenerator['wwdrCertPath'];
+        
+        console.log('🍎 DEBUG: Testing certificate paths:', { certPath, wwdrPath });
         
         filesExist = {
           pass_cert: fs.existsSync(certPath),
-          wwdr_cert: fs.existsSync(wwdrPath)
+          wwdr_cert: fs.existsSync(wwdrPath),
+          cert_path: certPath,
+          wwdr_path: wwdrPath
         };
       } catch (error) {
+        console.error('🍎 DEBUG: Path resolution error:', error);
         filesExist = {
           pass_cert: false,
-          wwdr_cert: false
+          wwdr_cert: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
         };
       }
       
@@ -2915,6 +2923,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         configured: false,
         error: error instanceof Error ? error.message : 'Test failed'
+      });
+    }
+  });
+
+  // Apple Wallet debug test endpoint (no auth for testing)
+  app.post("/api/apple-wallet/test-generation", async (req, res) => {
+    try {
+      console.log('🍎 DEBUG: Testing pass generation without auth');
+      
+      // Use test data
+      const testPassData = {
+        passTypeIdentifier: 'pass.A43TZWNYA3.beanstalker.credits',
+        serialNumber: `test${Date.now()}`,
+        organizationName: 'Bean Stalker Coffee',
+        description: 'Bean Stalker Credit Balance',
+        logoText: 'Bean Stalker',
+        foregroundColor: '#FFFFFF',
+        backgroundColor: '#228B22',
+        labelColor: '#FFFFFF',
+        primaryFields: [{
+          key: 'balance',
+          label: 'Credit Balance',
+          value: '$25.00',
+          textAlignment: 'center'
+        }],
+        secondaryFields: [],
+        auxiliaryFields: [],
+        backFields: []
+      };
+      
+      // Import validator
+      const { AppleWalletValidator } = await import('./apple-wallet-test');
+      
+      // Validate pass data
+      const validation = AppleWalletValidator.validatePassData(testPassData);
+      if (!validation.valid) {
+        console.error('❌ Test validation failed:', validation.errors);
+        return res.json({
+          success: false,
+          error: `Test validation failed: ${validation.errors.join(', ')}`
+        });
+      }
+      
+      console.log('✅ Test validation passed');
+      
+      // Try to generate the pass
+      const { AppleWalletPassGenerator } = await import('./apple-wallet-pass');
+      const result = await AppleWalletPassGenerator.generatePass(999, 'testuser', 25.00, testPassData);
+      
+      console.log('🍎 DEBUG: Generation result:', result.success ? 'SUCCESS' : 'FAILED');
+      if (!result.success) {
+        console.error('🍎 DEBUG: Error:', result.error);
+      }
+      
+      res.json(result);
+      
+    } catch (error) {
+      console.error('🍎 DEBUG: Test generation error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   });
