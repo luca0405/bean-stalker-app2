@@ -76,6 +76,22 @@ jobs:
           echo "✅ GitHub secret APPLE_WALLET_CERT_PASSWORD is configured"
         fi
         
+        if [ -z "${{ secrets.APPLE_WALLET_CERT_BASE64 }}" ]; then
+          echo "❌ GitHub secret APPLE_WALLET_CERT_BASE64 is empty or not set"
+          echo "Apple Wallet certificate data missing"
+        else
+          echo "✅ GitHub secret APPLE_WALLET_CERT_BASE64 is configured"
+          echo "Certificate data length: ${#APPLE_WALLET_CERT_BASE64} characters"
+        fi
+        
+        if [ -z "${{ secrets.APPLE_WALLET_WWDR_BASE64 }}" ]; then
+          echo "❌ GitHub secret APPLE_WALLET_WWDR_BASE64 is empty or not set"
+          echo "Apple Wallet WWDR certificate data missing"
+        else
+          echo "✅ GitHub secret APPLE_WALLET_WWDR_BASE64 is configured"
+          echo "WWDR data length: ${#APPLE_WALLET_WWDR_BASE64} characters"
+        fi
+        
         npm ci
         echo "Building with RevenueCat API Key: $(test -n "$VITE_REVENUECAT_API_KEY" && echo "CONFIGURED" || echo "MISSING")"
         echo "Building in development mode for sandbox IAP testing"
@@ -100,8 +116,22 @@ jobs:
         fi
         echo "Build verification successful"
         
-        # Verify environment variable is available for Capacitor
+        # Verify environment variables are available for Capacitor
         echo "RevenueCat API Key for Capacitor sync: $(test -n "$VITE_REVENUECAT_API_KEY" && echo "CONFIGURED" || echo "MISSING")"
+        echo "Apple Wallet Team ID: $(test -n "$APPLE_TEAM_ID" && echo "CONFIGURED" || echo "MISSING")"
+        echo "Apple Wallet Cert Base64: $(test -n "$APPLE_WALLET_CERT_BASE64" && echo "CONFIGURED" || echo "MISSING")"
+        echo "Apple Wallet WWDR Base64: $(test -n "$APPLE_WALLET_WWDR_BASE64" && echo "CONFIGURED" || echo "MISSING")"
+        
+        # Create a .env file for the iOS build with all secrets
+        cat > .env << EOF
+VITE_REVENUECAT_API_KEY=$VITE_REVENUECAT_API_KEY
+OMNISEND_API_KEY=$OMNISEND_API_KEY
+APPLE_TEAM_ID=$APPLE_TEAM_ID
+APPLE_WALLET_CERT_PASSWORD=$APPLE_WALLET_CERT_PASSWORD
+APPLE_WALLET_CERT_BASE64=$APPLE_WALLET_CERT_BASE64
+APPLE_WALLET_WWDR_BASE64=$APPLE_WALLET_WWDR_BASE64
+EOF
+        
         npx cap sync ios
         cd ios/App && pod install
         
@@ -119,6 +149,13 @@ jobs:
         security set-keychain-settings -t 3600 -l build.keychain
         
     - name: Build archive
+      env:
+        VITE_REVENUECAT_API_KEY: ${{ secrets.VITE_REVENUECAT_API_KEY }}
+        OMNISEND_API_KEY: ${{ secrets.OMNISEND_API_KEY }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        APPLE_WALLET_CERT_PASSWORD: ${{ secrets.APPLE_WALLET_CERT_PASSWORD }}
+        APPLE_WALLET_CERT_BASE64: ${{ secrets.APPLE_WALLET_CERT_BASE64 }}
+        APPLE_WALLET_WWDR_BASE64: ${{ secrets.APPLE_WALLET_WWDR_BASE64 }}
       run: |
         cd ios
         xcodebuild archive \
@@ -139,6 +176,13 @@ jobs:
           PRODUCT_BUNDLE_IDENTIFIER=com.beanstalker.member
         
     - name: Clean rebuild with fixed Podfile configuration
+      env:
+        VITE_REVENUECAT_API_KEY: ${{ secrets.VITE_REVENUECAT_API_KEY }}
+        OMNISEND_API_KEY: ${{ secrets.OMNISEND_API_KEY }}
+        APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        APPLE_WALLET_CERT_PASSWORD: ${{ secrets.APPLE_WALLET_CERT_PASSWORD }}
+        APPLE_WALLET_CERT_BASE64: ${{ secrets.APPLE_WALLET_CERT_BASE64 }}
+        APPLE_WALLET_WWDR_BASE64: ${{ secrets.APPLE_WALLET_WWDR_BASE64 }}
       run: |
         echo "=== Cleaning and rebuilding with fixed bundle IDs ==="
         
