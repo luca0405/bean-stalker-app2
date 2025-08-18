@@ -122,16 +122,6 @@ jobs:
         echo "Apple Wallet Cert Base64: $(test -n "$APPLE_WALLET_CERT_BASE64" && echo "CONFIGURED" || echo "MISSING")"
         echo "Apple Wallet WWDR Base64: $(test -n "$APPLE_WALLET_WWDR_BASE64" && echo "CONFIGURED" || echo "MISSING")"
         
-        # Create a .env file for the iOS build with all secrets
-        cat > .env << EOF
-VITE_REVENUECAT_API_KEY=$VITE_REVENUECAT_API_KEY
-OMNISEND_API_KEY=$OMNISEND_API_KEY
-APPLE_TEAM_ID=$APPLE_TEAM_ID
-APPLE_WALLET_CERT_PASSWORD=$APPLE_WALLET_CERT_PASSWORD
-APPLE_WALLET_CERT_BASE64=$APPLE_WALLET_CERT_BASE64
-APPLE_WALLET_WWDR_BASE64=$APPLE_WALLET_WWDR_BASE64
-EOF
-        
         npx cap sync ios
         cd ios/App && pod install
         
