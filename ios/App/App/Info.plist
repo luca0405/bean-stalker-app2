@@ -66,6 +66,8 @@
             <key>UIImageName</key>
             <string></string>
         </dict>
+        <key>NSFaceIDUsageDescription</key>
+        <string>Use Face ID for secure and convenient authentication</string>
         <key>NSAppTransportSecurity</key>
         <dict>
                 <key>NSAllowsArbitraryLoads</key>

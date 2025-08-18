@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useBiometricAuth } from "@/hooks/use-biometric-auth";
 import { useIAP } from "@/hooks/use-iap";
 import { iapService } from "@/services/iap-service";
+import { biometricService } from "@/services/biometric-service";
 
 import { Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -147,8 +148,13 @@ export default function AuthPageMobile() {
         return;
       }
       
-      if (!biometricState.hasStoredCredentials) {
-        console.log('🔐 UI: No stored credentials');
+      // CRITICAL: Real-time credential check to prevent crashes
+      console.log('🔐 UI: Performing real-time credential verification...');
+      const hasRealTimeCredentials = await biometricService.hasCredentials();
+      console.log('🔐 UI: Real-time credential check result:', hasRealTimeCredentials);
+      
+      if (!biometricState.hasStoredCredentials || !hasRealTimeCredentials) {
+        console.log('🔐 UI: No stored credentials (state or real-time check failed)');
         notify({
           title: "No Biometric Login Set Up",
           description: "Sign in with password first to enable biometric login",
@@ -674,7 +680,7 @@ export default function AuthPageMobile() {
                   <div className="flex-1 h-px bg-white/40" />
                 </div>
 
-                {/* Biometric Authentication - Only show if user has previously set it up */}
+                {/* Biometric Authentication - Temporarily disabled */}
                 {biometricState.isAvailable && !biometricState.isLoading && biometricState.hasStoredCredentials && (
                   <Button
                     onClick={handleBiometricLogin}

@@ -1,5 +1,4 @@
 import { NativeBiometric } from '@capgo/capacitor-native-biometric';
-import { Capacitor } from '@capacitor/core';
 
 export interface BiometricCredentials {
   username: string;
@@ -15,12 +14,6 @@ class BiometricService {
   async isAvailable(): Promise<boolean> {
     try {
       console.log('🔐 BIOMETRIC: Checking plugin availability...');
-      
-      // Only works on native platforms
-      if (!Capacitor.isNativePlatform()) {
-        console.log('🔐 BIOMETRIC: Not a native platform');
-        return false;
-      }
       
       // Check if NativeBiometric plugin exists
       if (!NativeBiometric) {
@@ -51,6 +44,7 @@ class BiometricService {
   async getBiometricType(): Promise<string> {
     try {
       const result = await NativeBiometric.isAvailable();
+      // Handle different possible return formats safely
       const biometryType = result.biometryType;
       
       if (biometryType) {
@@ -89,16 +83,6 @@ class BiometricService {
         return false;
       }
       
-      // Clear any existing credentials first to avoid conflicts
-      try {
-        await NativeBiometric.deleteCredentials({
-          server: this.CREDENTIAL_KEY,
-        });
-        console.log('💾 BIOMETRIC: Cleared existing credentials');
-      } catch (clearError) {
-        console.log('💾 BIOMETRIC: No existing credentials to clear');
-      }
-      
       await NativeBiometric.setCredentials({
         username,
         password,
@@ -120,88 +104,70 @@ class BiometricService {
 
   /**
    * Check if credentials are saved for biometric authentication
-   * Uses safe method recommended for @capgo/capacitor-native-biometric
    */
   async hasCredentials(): Promise<boolean> {
     try {
       console.log('🔍 BIOMETRIC: Checking for stored credentials...');
+      const credentials = await NativeBiometric.getCredentials({
+        server: this.CREDENTIAL_KEY,
+      });
+      console.log('🔍 BIOMETRIC: Credentials response:', credentials);
       
-      // Only works on native platforms
-      if (!Capacitor.isNativePlatform()) {
-        console.log('🔍 BIOMETRIC: Not a native platform');
-        return false;
-      }
+      // Check if we actually have valid credentials
+      const hasValidCredentials = !!(credentials?.username && credentials?.password);
+      console.log('🔍 BIOMETRIC: Has valid credentials:', hasValidCredentials);
+      console.log('🔍 BIOMETRIC: Username present:', !!credentials?.username);
+      console.log('🔍 BIOMETRIC: Password present:', !!credentials?.password);
       
-      // Check if biometrics are available first
-      const isAvailable = await this.isAvailable();
-      if (!isAvailable) {
-        console.log('🔍 BIOMETRIC: Biometrics not available, no credentials');
-        return false;
-      }
-      
-      // Safer credential check for the new plugin
-      try {
-        const credentials = await NativeBiometric.getCredentials({
-          server: this.CREDENTIAL_KEY,
-        });
-        
-        console.log('🔍 BIOMETRIC: Credentials response:', credentials);
-        
-        // Check if we actually have valid credentials
-        const hasValidCredentials = !!(credentials?.username && credentials?.password);
-        console.log('🔍 BIOMETRIC: Has valid credentials:', hasValidCredentials);
-        console.log('🔍 BIOMETRIC: Username present:', !!credentials?.username);
-        console.log('🔍 BIOMETRIC: Password present:', !!credentials?.password);
-        
-        return hasValidCredentials;
-      } catch (getError: any) {
-        console.log('🔍 BIOMETRIC: Could not retrieve credentials (likely none stored):', getError.message || getError);
-        return false;
-      }
+      return hasValidCredentials;
     } catch (error: any) {
-      console.log('🔍 BIOMETRIC: Error checking credentials:', error.message || error);
+      console.log('🔍 BIOMETRIC: No credentials found or error occurred:', error.message || error);
       return false;
     }
   }
 
   /**
    * Authenticate user with biometrics and retrieve credentials
-   * Robust implementation for @capgo/capacitor-native-biometric
    */
   async authenticateWithBiometrics(): Promise<BiometricCredentials | null> {
     try {
       console.log('🔐 BIOMETRIC: Starting authentication process...');
       
-      // Only works on native platforms
-      if (!Capacitor.isNativePlatform()) {
-        throw new Error('Biometric authentication only available on native platforms');
-      }
-      
-      // Enhanced safety checks
+      // Enhanced safety checks with timeout protection
       if (!NativeBiometric) {
         console.error('🔐 BIOMETRIC: NativeBiometric plugin not available');
         throw new Error('Biometric plugin not available');
       }
       
-      // Check if biometrics are available
+      // Check if biometrics are available with timeout
       console.log('🔐 BIOMETRIC: Checking availability...');
-      const isAvailable = await this.isAvailable();
+      const isAvailablePromise = this.isAvailable();
+      const timeoutPromise = new Promise<boolean>((_, reject) => 
+        setTimeout(() => reject(new Error('Availability check timeout')), 5000)
+      );
+      
+      const isAvailable = await Promise.race([isAvailablePromise, timeoutPromise]);
       console.log('🔐 BIOMETRIC: Availability result:', isAvailable);
       
       if (!isAvailable) {
         throw new Error('Biometric authentication not available on this device');
       }
 
-      // Check if credentials are stored using the safe method
+      // Check if credentials are stored with timeout protection
       console.log('🔐 BIOMETRIC: Checking stored credentials...');
-      const hasCredentials = await this.hasCredentials();
+      const hasCredentialsPromise = this.hasCredentials();
+      const credentialsTimeoutPromise = new Promise<boolean>((_, reject) => 
+        setTimeout(() => reject(new Error('Credentials check timeout')), 5000)
+      );
+      
+      const hasCredentials = await Promise.race([hasCredentialsPromise, credentialsTimeoutPromise]);
       console.log('🔐 BIOMETRIC: Has stored credentials:', hasCredentials);
       
       if (!hasCredentials) {
         throw new Error('No biometric credentials stored. Please sign in with your password first.');
       }
 
-      // Get biometric type for better UX
+      // Get biometric type with safe error handling
       let biometricType = 'biometric';
       let reason = 'Use biometric authentication to access Bean Stalker';
       
@@ -215,6 +181,7 @@ class BiometricService {
         }
       } catch (error) {
         console.log('🔐 BIOMETRIC: Could not get biometric type, using default:', error);
+        // Continue with default values - not critical
       }
 
       // Critical safety check before calling verifyIdentity
@@ -239,13 +206,13 @@ class BiometricService {
       // Perform verification with timeout protection
       const verificationPromise = NativeBiometric.verifyIdentity(verificationOptions);
       const verificationTimeoutPromise = new Promise<void>((_, reject) => 
-        setTimeout(() => reject(new Error('Biometric verification timeout')), 30000)
+        setTimeout(() => reject(new Error('Biometric verification timeout')), 30000) // 30 second timeout
       );
       
       await Promise.race([verificationPromise, verificationTimeoutPromise]);
       console.log('🔐 BIOMETRIC: Identity verification completed successfully');
 
-      // Retrieve credentials
+      // Retrieve credentials with timeout protection
       console.log('🔐 BIOMETRIC: Retrieving stored credentials...');
       
       if (!NativeBiometric.getCredentials || typeof NativeBiometric.getCredentials !== 'function') {
@@ -256,49 +223,45 @@ class BiometricService {
       const credentialsPromise = NativeBiometric.getCredentials({
         server: this.CREDENTIAL_KEY,
       });
-      
-      const credentialsTimeoutPromise = new Promise<any>((_, reject) => 
+      const getCredentialsTimeoutPromise = new Promise<any>((_, reject) => 
         setTimeout(() => reject(new Error('Credential retrieval timeout')), 10000)
       );
       
-      const credentials = await Promise.race([credentialsPromise, credentialsTimeoutPromise]);
+      const credentials = await Promise.race([credentialsPromise, getCredentialsTimeoutPromise]);
       console.log('🔐 BIOMETRIC: Credentials retrieved successfully');
-      console.log('🔐 BIOMETRIC: Username present:', !!credentials?.username);
-      console.log('🔐 BIOMETRIC: Password present:', !!credentials?.password);
-
-      if (credentials && credentials.username && credentials.password) {
-        return {
-          username: credentials.username,
-          password: credentials.password
-        };
-      } else {
-        throw new Error('Invalid credentials format returned from biometric storage');
+      
+      // Validate credentials
+      if (!credentials || !credentials.username || !credentials.password) {
+        console.error('🔐 BIOMETRIC: Invalid credentials retrieved');
+        throw new Error('Invalid credentials retrieved from biometric storage');
       }
+      
+      return {
+        username: credentials.username,
+        password: credentials.password,
+      };
     } catch (error: any) {
       console.error('🔐 BIOMETRIC: Authentication failed:', error);
       console.error('🔐 BIOMETRIC: Error details:', {
-        message: error?.message,
-        code: error?.code,
-        stack: error?.stack
+        message: error.message,
+        stack: error.stack,
+        name: error.name
       });
       
-      // Handle specific error types for better UX
-      if (error?.message?.includes('user cancel') || error?.message?.includes('cancel')) {
+      // Enhanced error message handling
+      if (error.message?.includes('User cancelled') || error.message?.includes('UserCancel') || 
+          error.message?.includes('cancelled') || error.message?.includes('cancel')) {
         throw new Error('Authentication was cancelled by user');
-      } else if (error?.message?.includes('lockout') || error?.message?.includes('too many')) {
-        throw new Error('Too many failed attempts. Please wait and try again.');
-      } else if (error?.message?.includes('timeout')) {
+      } else if (error.message?.includes('timeout')) {
         throw new Error('Authentication timed out. Please try again.');
-      } else if (error?.message?.includes('not available') || error?.message?.includes('unavailable')) {
-        throw new Error('Biometric authentication is not available');
-      } else if (error?.message?.includes('KeychainError') || error?.message?.includes('KeyStore')) {
-        // Clear potentially corrupted credentials
-        try {
-          await this.deleteCredentials();
-        } catch (clearError) {
-          console.warn('Could not clear corrupted credentials:', clearError);
-        }
-        throw new Error('Biometric credentials corrupted. Please set up Face ID again.');
+      } else if (error.message?.includes('not available') || error.message?.includes('unavailable')) {
+        throw new Error('Biometric authentication is not available on this device');
+      } else if (error.message?.includes('no credentials') || error.message?.includes('not found')) {
+        throw new Error('No biometric credentials found. Please sign in with your password first.');
+      } else if (error.message?.includes('lockout') || error.message?.includes('too many attempts')) {
+        throw new Error('Too many failed attempts. Please wait and try again.');
+      } else if (error.message?.includes('not available') || error.message?.includes('method not available')) {
+        throw new Error('Biometric service is not properly configured');
       }
       
       throw error;
@@ -310,16 +273,12 @@ class BiometricService {
    */
   async deleteCredentials(): Promise<boolean> {
     try {
-      console.log('🗑️ BIOMETRIC: Deleting stored credentials...');
-      
       await NativeBiometric.deleteCredentials({
         server: this.CREDENTIAL_KEY,
       });
-      
-      console.log('🗑️ BIOMETRIC: Credentials deleted successfully');
       return true;
     } catch (error) {
-      console.error('🗑️ BIOMETRIC: Failed to delete credentials:', error);
+      console.error('Failed to delete biometric credentials:', error);
       return false;
     }
   }
@@ -328,16 +287,36 @@ class BiometricService {
    * Get user-friendly authentication reason based on biometric type
    */
   private getAuthenticationReason(biometricType: string): string {
-    switch (biometricType.toLowerCase()) {
-      case 'faceid':
-        return 'Use Face ID to sign in to Bean Stalker';
-      case 'touchid':
-        return 'Use Touch ID to sign in to Bean Stalker';
-      case 'fingerprint':
-        return 'Use your fingerprint to sign in to Bean Stalker';
-      default:
-        return 'Use biometric authentication to sign in to Bean Stalker';
+    if (!biometricType || typeof biometricType !== 'string') {
+      return 'Use biometric authentication to access Bean Stalker';
     }
+    
+    // Normalize the type and handle various formats
+    const normalizedType = biometricType.toString().toLowerCase().trim();
+    
+    switch (normalizedType) {
+      case 'faceid':
+      case 'face_id':
+      case 'face id':
+        return 'Use Face ID to access Bean Stalker';
+      case 'touchid':
+      case 'touch_id':
+      case 'touch id':
+        return 'Use Touch ID to access Bean Stalker';
+      case 'fingerprint':
+      case 'fingerprint_sensor':
+        return 'Use your fingerprint to access Bean Stalker';
+      case 'biometric':
+      default:
+        return 'Use biometric authentication to access Bean Stalker';
+    }
+  }
+
+  /**
+   * Legacy alias for backward compatibility
+   */
+  async hasStoredCredentials(): Promise<boolean> {
+    return this.hasCredentials();
   }
 }
 
