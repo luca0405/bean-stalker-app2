@@ -665,8 +665,8 @@ export default function AuthPageMobile() {
 
             </div>
 
-            {/* Divider and Biometric - only for login */}
-            {isLogin && (
+            {/* Divider and Biometric - only for login AND if user has previously set up biometrics */}
+            {isLogin && biometricState.hasStoredCredentials && (
               <>
                 <div className="flex items-center my-6">
                   <div className="flex-1 h-px bg-white/40" />
@@ -674,8 +674,8 @@ export default function AuthPageMobile() {
                   <div className="flex-1 h-px bg-white/40" />
                 </div>
 
-                {/* Biometric Authentication with dynamic text based on device */}
-                {biometricState.isAvailable && !biometricState.isLoading && (
+                {/* Biometric Authentication - Only show if user has previously set it up */}
+                {biometricState.isAvailable && !biometricState.isLoading && biometricState.hasStoredCredentials && (
                   <Button
                     onClick={handleBiometricLogin}
                     disabled={isAuthenticating || biometricState.isLoading}

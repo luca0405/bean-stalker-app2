@@ -283,32 +283,38 @@ export default function ProfilePage() {
                         }
                       </p>
                     </div>
-                    <Switch
-                      checked={biometricState.hasStoredCredentials}
-                      onCheckedChange={async (enabled) => {
-                        if (enabled) {
-                          // Would prompt user to sign in again to save credentials
-                          notify({
-                            title: "Setup Required",
-                            description: "Sign out and back in to enable biometric authentication",
-                          });
-                        } else {
-                          await disableBiometricAuth();
-                        }
-                      }}
-                    />
+                    {biometricState.hasStoredCredentials ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={disableBiometricAuth}
+                      >
+                        Disable
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await setupBiometricAuth();
+                            notify({
+                              title: "Face ID Setup Complete",
+                              description: "You can now sign in using biometric authentication",
+                            });
+                          } catch (error: any) {
+                            notify({
+                              title: "Setup Failed",
+                              description: error.message || "Could not set up biometric authentication",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        Set Up
+                      </Button>
+                    )}
                   </div>
-                  
-                  {biometricState.hasStoredCredentials && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={disableBiometricAuth}
-                      className="w-full"
-                    >
-                      Disable {getBiometricDisplayName(biometricState.biometricType)}
-                    </Button>
-                  )}
+
                 </div>
               ) : (
                 <div className="text-center py-4">
