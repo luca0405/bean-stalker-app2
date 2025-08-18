@@ -2943,32 +2943,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🍎 Generating Apple Wallet pass for user ${userId} (${username}) with balance $${currentBalance}`);
       console.log('Pass data received:', JSON.stringify(passData, null, 2));
       
-      // Validate pass data format
-      if (!passData.passTypeIdentifier || !passData.serialNumber || !passData.organizationName) {
+      // Import validator
+      const { AppleWalletValidator } = await import('./apple-wallet-test');
+      
+      // Validate pass data comprehensively
+      const validation = AppleWalletValidator.validatePassData(passData);
+      if (!validation.valid) {
+        console.error('❌ Pass validation failed:', validation.errors);
         return res.status(400).json({
           success: false,
-          error: 'Invalid pass data: missing required fields (passTypeIdentifier, serialNumber, organizationName)'
+          error: `Pass validation failed: ${validation.errors.join(', ')}`
         });
       }
-
-      // Validate color format - Apple Wallet requires hex colors, not rgb()
-      const colorFields = ['foregroundColor', 'backgroundColor', 'labelColor'];
-      for (const field of colorFields) {
-        if (passData[field] && passData[field].startsWith('rgb(')) {
-          return res.status(400).json({
-            success: false,
-            error: `Invalid ${field}: Apple Wallet requires hex colors (e.g., #FFFFFF), not rgb() format`
-          });
-        }
-      }
-
-      // Validate serial number format - avoid problematic characters
-      if (!/^[a-zA-Z0-9-_.]+$/.test(passData.serialNumber)) {
-        return res.status(400).json({
-          success: false,
-          error: 'Invalid serial number format: only alphanumeric characters, hyphens, underscores, and periods are allowed'
-        });
-      }
+      
+      console.log('✅ Pass data validation passed');
       
       // Import Apple Wallet service
       const { AppleWalletPassGenerator } = await import('./apple-wallet-pass');

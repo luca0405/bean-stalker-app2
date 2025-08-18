@@ -29,8 +29,8 @@ export interface PassField {
 }
 
 export class AppleWalletService {
-  private static passTypeIdentifier = 'pass.com.beanstalker.credits';
-  private static teamIdentifier = 'YOUR_TEAM_ID'; // Replace with actual Apple Developer Team ID
+  private static passTypeIdentifier = 'pass.A43TZWNYA3.beanstalker.credits';
+  private static teamIdentifier = 'A43TZWNYA3'; // Apple Developer Team ID
   
   /**
    * Check if Apple Wallet is available on this device
@@ -61,9 +61,18 @@ export class AppleWalletService {
       const pass = this.createCreditPass(userId, username, currentBalance);
       
       // Generate the pass on the server
+      console.log('🍎 NATIVE: Sending pass data to server for user', userId);
+      console.log('🍎 NATIVE: Pass type identifier:', pass.passTypeIdentifier);
+      console.log('🍎 NATIVE: Serial number:', pass.serialNumber);
+      console.log('🍎 NATIVE: Colors - fg:', pass.foregroundColor, 'bg:', pass.backgroundColor);
+      
       const response = await fetch('/api/apple-wallet/generate-pass', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'include',
         body: JSON.stringify({
           userId,
           username,
@@ -72,23 +81,41 @@ export class AppleWalletService {
         })
       });
       
+      console.log('🍎 NATIVE: Server response status:', response.status);
+      
       if (!response.ok) {
+        console.error('🍎 NATIVE: Server error response:', response.status);
         const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+        console.error('🍎 NATIVE: Error data:', errorData);
         return { success: false, error: errorData.error || `Server error: ${response.status}` };
       }
       
       const result = await response.json();
+      console.log('🍎 NATIVE: Server result success:', result.success);
       
       if (!result.success) {
+        // Log detailed error for native debugging
+        console.error('🍎 NATIVE: Apple Wallet generation failed');
+        console.error('🍎 NATIVE: Raw error:', result.error);
+        
         // Provide helpful error messages for common development issues
         let userFriendlyError = result.error;
         
         if (result.error?.includes('certificates not configured')) {
-          userFriendlyError = 'Apple Wallet is not available in development mode. This feature requires Apple Developer certificates to be configured in production.';
+          userFriendlyError = 'Apple Wallet certificates not configured (missing environment variables)';
+          console.error('🍎 NATIVE: Missing APPLE_TEAM_ID or APPLE_WALLET_CERT_PASSWORD');
         } else if (result.error?.includes('certificate files not found')) {
-          userFriendlyError = 'Apple Wallet certificates are not installed. This feature will be available when the app is deployed with proper Apple Developer certificates.';
+          userFriendlyError = 'Apple Wallet certificate files missing from server';
+          console.error('🍎 NATIVE: Missing certificate files in /certs folder');
+        } else if (result.error?.includes('string did not match the expected pattern')) {
+          userFriendlyError = 'Pass format validation failed - invalid pattern detected';
+          console.error('🍎 NATIVE: String pattern error - likely passTypeIdentifier or serialNumber format');
+        } else if (result.error?.includes('Pass validation failed')) {
+          userFriendlyError = 'Pass data validation failed on server';
+          console.error('🍎 NATIVE: Server-side validation rejected pass data');
         }
         
+        console.error('🍎 NATIVE: Final error message:', userFriendlyError);
         return { success: false, error: userFriendlyError };
       }
       
@@ -146,7 +173,9 @@ export class AppleWalletService {
    * Create the pass data structure
    */
   private static createCreditPass(userId: number, username: string, currentBalance: number): CreditPass {
-    const serialNumber = `bs-credit-${userId}-${Date.now()}`;
+    // Apple Wallet serial numbers: alphanumeric only, no special chars except hyphens and periods
+    const timestamp = Date.now();
+    const serialNumber = `bscredit${userId}t${timestamp}`;
     const formattedBalance = `$${currentBalance.toFixed(2)}`;
     
     return {

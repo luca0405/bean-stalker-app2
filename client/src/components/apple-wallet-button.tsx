@@ -7,8 +7,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Wallet, Loader2, Apple } from 'lucide-react';
 import { AppleWalletService } from '@/services/apple-wallet-service';
-import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
 interface AppleWalletButtonProps {
   userId: number;
@@ -28,7 +28,6 @@ export function AppleWalletButton({
   className = ''
 }: AppleWalletButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   
   // Only show on iOS devices
   const isIOS = Capacitor.getPlatform() === 'ios' || /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -41,29 +40,57 @@ export function AppleWalletButton({
     setIsLoading(true);
     
     try {
-      console.log('🍎 Adding Bean Stalker credits to Apple Wallet...');
+      console.log('🍎 NATIVE: Starting Apple Wallet process...');
+      console.log('🍎 NATIVE: User ID:', userId, 'Username:', username, 'Balance:', currentBalance);
       
       const result = await AppleWalletService.updateCreditPass(userId, username, currentBalance);
       
       if (result.success) {
-        toast({
-          title: "Added to Apple Wallet",
-          description: `Your $${currentBalance.toFixed(2)} credit balance has been added to Apple Wallet`,
+        console.log('🍎 NATIVE: Apple Wallet pass added successfully');
+        
+        // Send native notification for success
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title: "Added to Apple Wallet",
+              body: `Your $${currentBalance.toFixed(2)} credit balance has been added to Apple Wallet`,
+              id: Date.now(),
+              schedule: { at: new Date(Date.now() + 100) }
+            }
+          ]
         });
       } else {
-        toast({
-          title: "Unable to Add to Wallet",
-          description: result.error || "Failed to add pass to Apple Wallet",
-          variant: "destructive"
+        console.error('🍎 NATIVE: Apple Wallet service returned error:', result.error);
+        
+        // Send native notification for error
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title: "Unable to Add to Wallet",
+              body: `Error: ${result.error || "Failed to add pass"}`,
+              id: Date.now(),
+              schedule: { at: new Date(Date.now() + 100) }
+            }
+          ]
         });
       }
       
     } catch (error: any) {
-      console.error('Apple Wallet error:', error);
-      toast({
-        title: "Wallet Error",
-        description: "Could not add pass to Apple Wallet. Please try again.",
-        variant: "destructive"
+      console.error('🍎 NATIVE: Apple Wallet button error:', error);
+      console.error('🍎 NATIVE: Error type:', typeof error);
+      console.error('🍎 NATIVE: Error message:', error.message);
+      console.error('🍎 NATIVE: Error stack:', error.stack);
+      
+      // Send native notification for error
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            title: "Apple Wallet Error",
+            body: `Native error: ${error.message || 'Unknown error occurred'}`,
+            id: Date.now(),
+            schedule: { at: new Date(Date.now() + 100) }
+          }
+        ]
       });
     } finally {
       setIsLoading(false);
@@ -93,7 +120,6 @@ export function AppleWalletButton({
  */
 export function AppleWalletIconButton({ userId, username, currentBalance }: Pick<AppleWalletButtonProps, 'userId' | 'username' | 'currentBalance'>) {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   
   const isIOS = Capacitor.getPlatform() === 'ios' || /iPad|iPhone|iPod/.test(navigator.userAgent);
   
@@ -106,22 +132,38 @@ export function AppleWalletIconButton({ userId, username, currentBalance }: Pick
       const result = await AppleWalletService.updateCreditPass(userId, username, currentBalance);
       
       if (result.success) {
-        toast({
-          title: "Added to Apple Wallet",
-          description: "Credit balance pass added successfully",
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title: "Added to Apple Wallet",
+              body: "Credit balance pass added successfully",
+              id: Date.now(),
+              schedule: { at: new Date(Date.now() + 100) }
+            }
+          ]
         });
       } else {
-        toast({
-          title: "Unable to Add to Wallet",
-          description: result.error || "Failed to add pass",
-          variant: "destructive"
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title: "Unable to Add to Wallet",
+              body: result.error || "Failed to add pass",
+              id: Date.now(),
+              schedule: { at: new Date(Date.now() + 100) }
+            }
+          ]
         });
       }
     } catch (error) {
-      toast({
-        title: "Wallet Error", 
-        description: "Could not add pass to Apple Wallet",
-        variant: "destructive"
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            title: "Wallet Error",
+            body: "Could not add pass to Apple Wallet",
+            id: Date.now(),
+            schedule: { at: new Date(Date.now() + 100) }
+          }
+        ]
       });
     } finally {
       setIsLoading(false);

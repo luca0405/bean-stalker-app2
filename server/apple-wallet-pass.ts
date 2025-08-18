@@ -36,7 +36,7 @@ export class AppleWalletPassGenerator {
   private static certificatePath = join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
   private static keyPath = join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
   private static wwdrCertPath = join(process.cwd(), 'certs', 'wwdr.pem');
-  private static passTypeIdentifier = 'pass.com.beanstalker.credits';
+  private static passTypeIdentifier = 'pass.A43TZWNYA3.beanstalker.credits';
   private static teamIdentifier = process.env.APPLE_TEAM_ID;
   private static certificatePassword = process.env.APPLE_WALLET_CERT_PASSWORD;
   
@@ -66,7 +66,7 @@ export class AppleWalletPassGenerator {
         mkdirSync(this.passesDir, { recursive: true });
       }
       
-      const passId = `bs-credit-${userId}-${Date.now()}`;
+      const passId = `bscredit${userId}t${Date.now()}`;
       const passDir = join(this.passesDir, passId);
       mkdirSync(passDir, { recursive: true });
       
@@ -127,7 +127,7 @@ export class AppleWalletPassGenerator {
       relevantDate: new Date().toISOString(),
       barcodes: [
         {
-          message: `BS-${userId}`,
+          message: `BS${userId}`,
           format: 'PKBarcodeFormatQR',
           messageEncoding: 'iso-8859-1'
         }
