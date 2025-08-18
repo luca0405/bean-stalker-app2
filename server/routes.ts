@@ -2933,18 +2933,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const teamId = process.env.APPLE_TEAM_ID || 'A43TZWNYA3';
-      const hasCert = !!process.env.APPLE_WALLET_CERT_BASE64;
-      const hasWwdr = !!process.env.APPLE_WALLET_WWDR_BASE64;
+      const hasEnvCert = !!process.env.APPLE_WALLET_CERT_BASE64;
+      const hasEnvWwdr = !!process.env.APPLE_WALLET_WWDR_BASE64;
+      
+      // Check file system paths
+      const certPath = path.join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
+      const wwdrPath = path.join(process.cwd(), 'certs', 'wwdr.pem');
+      const hasFileCert = fs.existsSync(certPath);
+      const hasFileWwdr = fs.existsSync(wwdrPath);
+      
+      console.log('🍎 DEBUG: Environment variables - Cert:', hasEnvCert, 'WWDR:', hasEnvWwdr);
+      console.log('🍎 DEBUG: File system - Cert:', hasFileCert, 'WWDR:', hasFileWwdr);
+      console.log('🍎 DEBUG: Cert path:', certPath);
+      console.log('🍎 DEBUG: WWDR path:', wwdrPath);
       
       // Test certificate loading
       let certificatesValid = false;
       let certError = null;
+      let loadingMethod = 'Unknown';
       
       try {
         const { AppleWalletPassGenerator } = await import('./apple-wallet-pass');
-        // This will use hardcoded certs as fallback if env vars are missing
-        certificatesValid = true;
-        console.log('🍎 DEBUG: Certificate loading test passed');
+        const testResult = await AppleWalletPassGenerator.testConfiguration();
+        certificatesValid = testResult.success;
+        
+        if (!testResult.success) {
+          certError = testResult.error;
+        }
+        
+        // Determine loading method
+        if (hasFileCert && hasFileWwdr) {
+          loadingMethod = 'Embedded files (TestFlight)';
+        } else if (hasEnvCert && hasEnvWwdr) {
+          loadingMethod = 'Environment variables (Runtime)';
+        } else {
+          loadingMethod = 'Mixed/Partial configuration';
+        }
+        
+        console.log('🍎 DEBUG: Certificate loading test passed, method:', loadingMethod);
       } catch (error) {
         certError = error instanceof Error ? error.message : 'Unknown error';
         console.error('🍎 DEBUG: Certificate loading failed:', certError);
@@ -2956,13 +2982,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ready: isReady,
         teamId: teamId,
         certificates: {
-          p12: hasCert ? 'Environment' : 'Hardcoded fallback',
-          wwdr: hasWwdr ? 'Environment' : 'Hardcoded fallback',
+          p12: hasFileCert ? 'File System' : (hasEnvCert ? 'Environment' : 'Error'),
+          wwdr: hasFileWwdr ? 'File System' : (hasEnvWwdr ? 'Environment' : 'Error'),
           valid: certificatesValid
         },
         files: {
           passGenerator: 'Available',
-          status: 'Ready'
+          status: isReady ? 'Ready' : 'Error'
+        },
+        loadingMethod: loadingMethod,
+        paths: {
+          certPath: certPath,
+          wwdrPath: wwdrPath,
+          certExists: hasFileCert,
+          wwdrExists: hasFileWwdr
+        },
+        environment: {
+          hasCertEnv: hasEnvCert,
+          hasWwdrEnv: hasEnvWwdr
         },
         error: certError
       });
@@ -2970,6 +3007,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('🍎 NATIVE: Configuration test failed:', error);
       res.status(500).json({
         ready: false,
+        teamId: 'Unknown',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }

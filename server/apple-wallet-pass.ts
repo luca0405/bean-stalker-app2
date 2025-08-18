@@ -49,39 +49,39 @@ export class AppleWalletPassGenerator {
     }
   }
   
-  // Use environment variables for TestFlight builds (like RevenueCat)
+  // Use certificates embedded during build time for TestFlight builds
   private static getCertificateData(): Buffer {
-    // For TestFlight builds, use environment variables injected at build time
-    if (process.env.APPLE_WALLET_CERT_BASE64) {
-      console.log('🍎 NATIVE: Using certificate from environment variable (TestFlight build)');
-      return Buffer.from(process.env.APPLE_WALLET_CERT_BASE64, 'base64');
-    }
-    
-    // For development, use file system
+    // Try built-time embedded certificate files first (TestFlight builds)
     const certPath = join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
     if (existsSync(certPath)) {
-      console.log('🍎 DEV: Using certificate from file system (development)');
+      console.log('🍎 NATIVE: Using certificate from embedded file (TestFlight build)');
       return readFileSync(certPath);
     }
     
-    throw new Error('Apple Wallet certificate not found in environment variables or file system');
+    // Fallback to environment variables for runtime injection
+    if (process.env.APPLE_WALLET_CERT_BASE64) {
+      console.log('🍎 RUNTIME: Using certificate from environment variable');
+      return Buffer.from(process.env.APPLE_WALLET_CERT_BASE64, 'base64');
+    }
+    
+    throw new Error('Apple Wallet certificate not found in embedded files or environment variables');
   }
   
   private static getWWDRData(): Buffer {
-    // For TestFlight builds, use environment variables injected at build time
-    if (process.env.APPLE_WALLET_WWDR_BASE64) {
-      console.log('🍎 NATIVE: Using WWDR certificate from environment variable (TestFlight build)');
-      return Buffer.from(process.env.APPLE_WALLET_WWDR_BASE64, 'base64');
-    }
-    
-    // For development, use file system
+    // Try built-time embedded certificate files first (TestFlight builds)
     const wwdrPath = join(process.cwd(), 'certs', 'wwdr.pem');
     if (existsSync(wwdrPath)) {
-      console.log('🍎 DEV: Using WWDR certificate from file system (development)');
+      console.log('🍎 NATIVE: Using WWDR certificate from embedded file (TestFlight build)');
       return readFileSync(wwdrPath);
     }
     
-    throw new Error('Apple Wallet WWDR certificate not found in environment variables or file system');
+    // Fallback to environment variables for runtime injection
+    if (process.env.APPLE_WALLET_WWDR_BASE64) {
+      console.log('🍎 RUNTIME: Using WWDR certificate from environment variable');
+      return Buffer.from(process.env.APPLE_WALLET_WWDR_BASE64, 'base64');
+    }
+    
+    throw new Error('Apple Wallet WWDR certificate not found in embedded files or environment variables');
   }
   private static passTypeIdentifier = 'pass.A43TZWNYA3.beanstalker.credits';
   private static teamIdentifier = process.env.APPLE_TEAM_ID || 'A43TZWNYA3';
