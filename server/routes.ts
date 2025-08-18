@@ -2932,7 +2932,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('🍎 NATIVE: Testing Apple Wallet configuration...');
     
     try {
-      const teamId = process.env.APPLE_TEAM_ID || 'A43TZWNYA3';
+      // Get Team ID from embedded certificates or environment
+      let teamId = 'A43TZWNYA3';
+      try {
+        const { EMBEDDED_CERTIFICATES } = await import('./embedded-certificates');
+        teamId = EMBEDDED_CERTIFICATES.APPLE_TEAM_ID;
+        console.log('🍎 DEBUG: Using embedded Team ID');
+      } catch (embeddedError) {
+        teamId = process.env.APPLE_TEAM_ID || 'A43TZWNYA3';
+        console.log('🍎 DEBUG: Using environment/fallback Team ID');
+      }
       const hasEnvCert = !!process.env.APPLE_WALLET_CERT_BASE64;
       const hasEnvWwdr = !!process.env.APPLE_WALLET_WWDR_BASE64;
       
@@ -2951,6 +2960,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let certificatesValid = false;
       let certError = null;
       let loadingMethod = 'Unknown';
+      let actualCertSource = 'Unknown';
+      let actualWwdrSource = 'Unknown';
       
       try {
         const { AppleWalletPassGenerator } = await import('./apple-wallet-pass');
@@ -2961,13 +2972,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           certError = testResult.error;
         }
         
-        // Determine loading method
-        if (hasFileCert && hasFileWwdr) {
-          loadingMethod = 'Embedded files (TestFlight)';
-        } else if (hasEnvCert && hasEnvWwdr) {
-          loadingMethod = 'Environment variables (Runtime)';
-        } else {
-          loadingMethod = 'Mixed/Partial configuration';
+        // Determine loading method based on actual certificate loading
+        try {
+          const { EMBEDDED_CERTIFICATES } = await import('./embedded-certificates');
+          actualCertSource = 'Embedded Code';
+          actualWwdrSource = 'Embedded Code';
+          loadingMethod = 'Embedded code (TestFlight Ready)';
+        } catch (embeddedError) {
+          if (hasFileCert && hasFileWwdr) {
+            actualCertSource = 'File System';
+            actualWwdrSource = 'File System';
+            loadingMethod = 'File system (Development)';
+          } else if (hasEnvCert && hasEnvWwdr) {
+            actualCertSource = 'Environment';
+            actualWwdrSource = 'Environment';
+            loadingMethod = 'Environment variables (Runtime)';
+          } else {
+            loadingMethod = 'Mixed/Partial configuration';
+          }
         }
         
         console.log('🍎 DEBUG: Certificate loading test passed, method:', loadingMethod);
@@ -2982,8 +3004,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ready: isReady,
         teamId: teamId,
         certificates: {
-          p12: hasFileCert ? 'File System' : (hasEnvCert ? 'Environment' : 'Error'),
-          wwdr: hasFileWwdr ? 'File System' : (hasEnvWwdr ? 'Environment' : 'Error'),
+          p12: actualCertSource,
+          wwdr: actualWwdrSource,
           valid: certificatesValid
         },
         files: {

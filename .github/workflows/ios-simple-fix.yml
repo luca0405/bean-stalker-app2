@@ -117,21 +117,12 @@ jobs:
         echo "Building with Apple Wallet Certificates: $(test -f "certs/bean_stalker_pass_cert.p12" && echo "CONFIGURED" || echo "MISSING")"
         echo "Building in development mode for sandbox IAP testing"
         
-        # Build the app first
-        VITE_FORCE_SANDBOX=true npm run build
+        # Embed certificates directly in server code for TestFlight builds
+        echo "=== Embedding Apple Wallet certificates in server code ==="
+        node embed-certificates.js
         
-        # Copy certificate files into the built application so they're available at runtime
-        echo "=== Copying certificates into built app ==="
-        mkdir -p dist/certs
-        if [ -f "certs/bean_stalker_pass_cert.p12" ]; then
-          cp certs/bean_stalker_pass_cert.p12 dist/certs/
-          echo "✅ Copied Apple Wallet certificate to built app"
-        fi
-        if [ -f "certs/wwdr.pem" ]; then
-          cp certs/wwdr.pem dist/certs/
-          echo "✅ Copied WWDR certificate to built app"
-        fi
-        ls -la dist/certs/
+        # Build the app with embedded certificates
+        VITE_FORCE_SANDBOX=true npm run build
         
         # Handle build output location issue
         echo "=== Verifying and fixing build output ==="

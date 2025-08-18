@@ -51,10 +51,19 @@ export class AppleWalletPassGenerator {
   
   // Use certificates embedded during build time for TestFlight builds
   private static getCertificateData(): Buffer {
-    // Try built-time embedded certificate files first (TestFlight builds)
+    // Try build-time embedded certificates first (TestFlight builds)
+    try {
+      const { getEmbeddedCertificate } = require('./embedded-certificates');
+      console.log('🍎 TESTFLIGHT: Using certificate embedded at build time');
+      return getEmbeddedCertificate();
+    } catch (embeddedError) {
+      console.log('🍎 DEBUG: Embedded certificates not found, trying file system');
+    }
+    
+    // Try file system certificates second (development builds)
     const certPath = join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
     if (existsSync(certPath)) {
-      console.log('🍎 NATIVE: Using certificate from embedded file (TestFlight build)');
+      console.log('🍎 DEVELOPMENT: Using certificate from file system');
       return readFileSync(certPath);
     }
     
@@ -64,14 +73,23 @@ export class AppleWalletPassGenerator {
       return Buffer.from(process.env.APPLE_WALLET_CERT_BASE64, 'base64');
     }
     
-    throw new Error('Apple Wallet certificate not found in embedded files or environment variables');
+    throw new Error('Apple Wallet certificate not found in embedded code, files, or environment variables');
   }
   
   private static getWWDRData(): Buffer {
-    // Try built-time embedded certificate files first (TestFlight builds)
+    // Try build-time embedded certificates first (TestFlight builds)
+    try {
+      const { getEmbeddedWWDR } = require('./embedded-certificates');
+      console.log('🍎 TESTFLIGHT: Using WWDR certificate embedded at build time');
+      return getEmbeddedWWDR();
+    } catch (embeddedError) {
+      console.log('🍎 DEBUG: Embedded WWDR not found, trying file system');
+    }
+    
+    // Try file system certificates second (development builds)
     const wwdrPath = join(process.cwd(), 'certs', 'wwdr.pem');
     if (existsSync(wwdrPath)) {
-      console.log('🍎 NATIVE: Using WWDR certificate from embedded file (TestFlight build)');
+      console.log('🍎 DEVELOPMENT: Using WWDR certificate from file system');
       return readFileSync(wwdrPath);
     }
     
@@ -84,8 +102,21 @@ export class AppleWalletPassGenerator {
     throw new Error('Apple Wallet WWDR certificate not found in embedded files or environment variables');
   }
   private static passTypeIdentifier = 'pass.A43TZWNYA3.beanstalker.credits';
-  private static teamIdentifier = process.env.APPLE_TEAM_ID || 'A43TZWNYA3';
   private static certificatePassword = process.env.APPLE_WALLET_CERT_PASSWORD || 'iamgroot!';
+  
+  private static getTeamIdentifier(): string {
+    // Try build-time embedded team ID first (TestFlight builds)
+    try {
+      const { EMBEDDED_CERTIFICATES } = require('./embedded-certificates');
+      console.log('🍎 TESTFLIGHT: Using Team ID embedded at build time');
+      return EMBEDDED_CERTIFICATES.APPLE_TEAM_ID;
+    } catch (embeddedError) {
+      console.log('🍎 DEBUG: Embedded Team ID not found, using environment');
+    }
+    
+    // Fallback to environment variable
+    return process.env.APPLE_TEAM_ID || 'A43TZWNYA3';
+  }
   
   /**
    * Generate a signed .pkpass file for Apple Wallet
@@ -156,7 +187,7 @@ export class AppleWalletPassGenerator {
       formatVersion: 1,
       passTypeIdentifier: this.passTypeIdentifier,
       serialNumber: passData.serialNumber,
-      teamIdentifier: this.teamIdentifier,
+      teamIdentifier: this.getTeamIdentifier(),
       organizationName: passData.organizationName,
       description: passData.description,
       logoText: passData.logoText,
