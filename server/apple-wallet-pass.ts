@@ -49,23 +49,43 @@ export class AppleWalletPassGenerator {
     }
   }
   
-  // Simple environment variable access - just like RevenueCat
+  // Use environment variables for TestFlight builds (like RevenueCat)
   private static getCertificateData(): Buffer {
-    if (!process.env.APPLE_WALLET_CERT_BASE64) {
-      throw new Error('APPLE_WALLET_CERT_BASE64 environment variable not set');
+    // For TestFlight builds, use environment variables injected at build time
+    if (process.env.APPLE_WALLET_CERT_BASE64) {
+      console.log('🍎 NATIVE: Using certificate from environment variable (TestFlight build)');
+      return Buffer.from(process.env.APPLE_WALLET_CERT_BASE64, 'base64');
     }
-    return Buffer.from(process.env.APPLE_WALLET_CERT_BASE64, 'base64');
+    
+    // For development, use file system
+    const certPath = join(process.cwd(), 'certs', 'bean_stalker_pass_cert.p12');
+    if (existsSync(certPath)) {
+      console.log('🍎 DEV: Using certificate from file system (development)');
+      return readFileSync(certPath);
+    }
+    
+    throw new Error('Apple Wallet certificate not found in environment variables or file system');
   }
   
   private static getWWDRData(): Buffer {
-    if (!process.env.APPLE_WALLET_WWDR_BASE64) {
-      throw new Error('APPLE_WALLET_WWDR_BASE64 environment variable not set');
+    // For TestFlight builds, use environment variables injected at build time
+    if (process.env.APPLE_WALLET_WWDR_BASE64) {
+      console.log('🍎 NATIVE: Using WWDR certificate from environment variable (TestFlight build)');
+      return Buffer.from(process.env.APPLE_WALLET_WWDR_BASE64, 'base64');
     }
-    return Buffer.from(process.env.APPLE_WALLET_WWDR_BASE64, 'base64');
+    
+    // For development, use file system
+    const wwdrPath = join(process.cwd(), 'certs', 'wwdr.pem');
+    if (existsSync(wwdrPath)) {
+      console.log('🍎 DEV: Using WWDR certificate from file system (development)');
+      return readFileSync(wwdrPath);
+    }
+    
+    throw new Error('Apple Wallet WWDR certificate not found in environment variables or file system');
   }
   private static passTypeIdentifier = 'pass.A43TZWNYA3.beanstalker.credits';
   private static teamIdentifier = process.env.APPLE_TEAM_ID || 'A43TZWNYA3';
-  private static certificatePassword = process.env.APPLE_WALLET_CERT_PASSWORD || 'BeanStalker2025!';
+  private static certificatePassword = process.env.APPLE_WALLET_CERT_PASSWORD || 'iamgroot!';
   
   /**
    * Generate a signed .pkpass file for Apple Wallet

@@ -1,0 +1,40 @@
+{
+  "formatVersion": 1,
+  "passTypeIdentifier": "pass.A43TZWNYA3.beanstalker.credits",
+  "serialNumber": "test1755495454006",
+  "teamIdentifier": "A43TZWNYA3",
+  "organizationName": "Bean Stalker Coffee",
+  "description": "Bean Stalker Credit Balance",
+  "logoText": "Bean Stalker",
+  "foregroundColor": "#FFFFFF",
+  "backgroundColor": "#228B22",
+  "labelColor": "#FFFFFF",
+  "generic": {
+    "primaryFields": [
+      {
+        "key": "balance",
+        "label": "Credit Balance",
+        "value": "$25.00",
+        "textAlignment": "center"
+      }
+    ],
+    "secondaryFields": [],
+    "auxiliaryFields": [],
+    "backFields": []
+  },
+  "webServiceURL": "http://localhost:5000/api/apple-wallet",
+  "authenticationToken": "df4260aeccf3e6b2b143914a6d0e71b6c29fe85c124fbcebcd58346333b13889",
+  "relevantDate": "2025-08-18T05:37:34.027Z",
+  "barcodes": [
+    {
+      "message": "BS999",
+      "format": "PKBarcodeFormatQR",
+      "messageEncoding": "iso-8859-1"
+    }
+  ],
+  "userInfo": {
+    "userId": 999,
+    "username": "testuser",
+    "balance": 25
+  }
+}
