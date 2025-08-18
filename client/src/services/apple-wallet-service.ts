@@ -122,14 +122,36 @@ export class AppleWalletService {
       
       const { passBase64 } = result;
       
-      // Add pass to wallet using Capacitor plugin
-      // This will work when the app is built for iOS
-      if (Capacitor.isNativePlatform() && (window as any).CapacitorPassToWallet) {
-        await (window as any).CapacitorPassToWallet.addToWallet({ 
-          base64: passBase64 
-        });
+      // For native iOS builds (TestFlight), use iOS-specific pass handling
+      if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
+        console.log('🍎 NATIVE: Adding pass to iOS Wallet...');
+        
+        try {
+          // Convert base64 to blob for iOS
+          const passBytes = atob(passBase64);
+          const passArray = new Uint8Array(passBytes.length);
+          for (let i = 0; i < passBytes.length; i++) {
+            passArray[i] = passBytes.charCodeAt(i);
+          }
+          
+          // Create the pass URL that iOS can handle
+          const passBlob = new Blob([passArray], { type: 'application/vnd.apple.pkpass' });
+          const passUrl = URL.createObjectURL(passBlob);
+          
+          // For TestFlight builds, open the pass URL which iOS will handle
+          console.log('🍎 NATIVE: Opening pass URL for iOS to handle');
+          window.open(passUrl, '_system');
+          
+          // Clean up
+          setTimeout(() => URL.revokeObjectURL(passUrl), 1000);
+          
+        } catch (error) {
+          console.error('🍎 NATIVE: iOS pass handling error:', error);
+          throw error;
+        }
       } else {
         // For web testing, download the pass
+        console.log('🍎 WEB: Downloading pass for web testing');
         const blob = new Blob([atob(passBase64)], { type: 'application/vnd.apple.pkpass' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
