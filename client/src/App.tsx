@@ -28,7 +28,7 @@ import { Capacitor } from '@capacitor/core';
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SplashScreen } from "@/components/splash-screen";
 import { DeviceBindingManager } from "@/components/device-binding-manager";
-import { AppleWalletDebugPanel } from "@/components/apple-wallet-debug";
+
 
 import { useState, useEffect } from 'react';
 

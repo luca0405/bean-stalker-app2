@@ -9,7 +9,7 @@ import { AccountSwitcher } from "@/components/account-switcher";
 import { DeviceBindingTest } from "@/components/device-binding-test";
 import AppInstallButton from "@/components/app-install-button";
 import { AppleWalletButton } from "@/components/apple-wallet-button";
-import { AppleWalletDebugPanel } from "@/components/apple-wallet-debug";
+import { AppleWalletDebug } from "@/components/apple-wallet-debug";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -438,11 +438,7 @@ export default function ProfilePage() {
       
       {/* Apple Wallet Debug Panel - Only show in development or native iOS */}
       {(import.meta.env.DEV || window.navigator.userAgent.includes('iPhone')) && user && (
-        <AppleWalletDebugPanel
-          userId={user.id}
-          username={user.username}
-          currentBalance={user.credits}
-        />
+        <AppleWalletDebug />
       )}
     </div>
   );
