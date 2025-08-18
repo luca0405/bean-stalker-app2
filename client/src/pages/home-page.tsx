@@ -14,8 +14,7 @@ import { useState, useEffect } from "react";
 import { EnhancedBuyCredits } from "@/components/enhanced-buy-credits";
 import { motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
-import { AppleWalletIconButton } from "@/components/apple-wallet-button";
-import { AppleWalletDebug } from "@/components/apple-wallet-debug";
+
 
 import { useNativeNotification } from "@/services/native-notification-service";
 import { usePushNotificationContext } from "@/contexts/push-notification-context";
@@ -267,13 +266,7 @@ export default function HomePage() {
                     <span className="text-sm">Add Credits</span>
                   </Button>
                   
-                  <div className="flex justify-center">
-                    <AppleWalletIconButton
-                      userId={user?.id || 0}
-                      username={user?.username || ''}
-                      currentBalance={user?.credits || 0}
-                    />
-                  </div>
+
                 </div>
               </div>
             </CardContent>
@@ -372,10 +365,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Apple Wallet Debug Component - Show for all users in development/TestFlight */}
-        <div className="mb-6">
-          <AppleWalletDebug />
-        </div>
+
 
         {/* Recent Activity Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

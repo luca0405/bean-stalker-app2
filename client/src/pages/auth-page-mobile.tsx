@@ -115,24 +115,67 @@ export default function AuthPageMobile() {
 
   const handleBiometricLogin = async () => {
     try {
-      console.log('Starting biometric authentication...');
-      console.log('Biometric state:', biometricState);
+      console.log('🔐 UI: Starting biometric authentication...');
+      console.log('🔐 UI: Biometric state:', biometricState);
+      console.log('🔐 UI: Is authenticating:', isAuthenticating);
       
-      // Extra safety check before calling authenticateWithBiometrics
-      if (!authenticateWithBiometrics) {
-        console.error('authenticateWithBiometrics function not available');
+      // Prevent multiple simultaneous authentication attempts
+      if (isAuthenticating) {
+        console.log('🔐 UI: Authentication already in progress, ignoring request');
+        return;
+      }
+      
+      // Enhanced safety checks at UI level
+      if (!authenticateWithBiometrics || typeof authenticateWithBiometrics !== 'function') {
+        console.error('🔐 UI: authenticateWithBiometrics function not available');
         notify({
           title: "Service Unavailable",
-          description: "Biometric service is not available",
+          description: "Biometric service is not properly initialized",
           variant: "destructive",
         });
         return;
       }
       
-      const success = await authenticateWithBiometrics();
+      // Check basic requirements before attempting authentication
+      if (!biometricState.isAvailable) {
+        console.log('🔐 UI: Biometric authentication not available');
+        notify({
+          title: "Biometric Authentication Unavailable",
+          description: "Please use your username and password",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!biometricState.hasStoredCredentials) {
+        console.log('🔐 UI: No stored credentials');
+        notify({
+          title: "No Biometric Login Set Up",
+          description: "Sign in with password first to enable biometric login",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log('🔐 UI: All checks passed, calling authentication function...');
+      
+      // Wrap the authentication call in a safety net
+      const authPromise = new Promise<boolean>((resolve, reject) => {
+        authenticateWithBiometrics()
+          .then(resolve)
+          .catch(reject);
+      });
+      
+      // Add UI-level timeout (shorter than hook timeout)
+      const uiTimeoutPromise = new Promise<boolean>((_, reject) => 
+        setTimeout(() => reject(new Error('UI timeout - authentication took too long')), 60000)
+      );
+      
+      const success = await Promise.race([authPromise, uiTimeoutPromise]);
+      console.log('🔐 UI: Authentication result:', success);
       
       if (!success) {
-        console.log('Biometric authentication returned false');
+        console.log('🔐 UI: Biometric authentication returned false');
         notify({
           title: "Authentication Failed",
           description: "Biometric authentication was not successful",
@@ -140,20 +183,35 @@ export default function AuthPageMobile() {
         });
       }
     } catch (error: any) {
-      console.error('Biometric authentication error:', error);
-      console.error('Error stack:', error.stack);
+      console.error('🔐 UI: Biometric authentication error:', error);
+      console.error('🔐 UI: Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name
+      });
       
       let errorMessage = "Please try again";
-      if (error.message?.includes('cancelled') || error.message?.includes('cancel')) {
-        errorMessage = "Authentication was cancelled";
-      } else if (error.message?.includes('not available')) {
-        errorMessage = "Biometric authentication is not available";
-      } else if (error.message?.includes('no credentials')) {
-        errorMessage = "Please sign in with your password first to enable biometric login";
+      let errorTitle = "Authentication Failed";
+      
+      if (error?.message) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('cancelled') || msg.includes('cancel')) {
+          errorMessage = "Authentication was cancelled";
+          errorTitle = "Authentication Cancelled";
+        } else if (msg.includes('timeout')) {
+          errorMessage = "Authentication timed out. Please try again.";
+          errorTitle = "Authentication Timeout";
+        } else if (msg.includes('not available') || msg.includes('unavailable')) {
+          errorMessage = "Biometric authentication is not available";
+        } else if (msg.includes('no credentials')) {
+          errorMessage = "Please sign in with your password first to enable biometric login";
+        } else if (msg.includes('service') || msg.includes('not properly initialized')) {
+          errorMessage = "Biometric service error. Please restart the app and try again.";
+        }
       }
       
       notify({
-        title: "Biometric Authentication Failed",
+        title: errorTitle,
         description: errorMessage,
         variant: "destructive",
       });

@@ -13,10 +13,27 @@ class BiometricService {
    */
   async isAvailable(): Promise<boolean> {
     try {
+      console.log('🔐 BIOMETRIC: Checking plugin availability...');
+      
+      // Check if NativeBiometric plugin exists
+      if (!NativeBiometric) {
+        console.log('🔐 BIOMETRIC: NativeBiometric plugin not loaded');
+        return false;
+      }
+      
+      // Check if isAvailable method exists
+      if (!NativeBiometric.isAvailable || typeof NativeBiometric.isAvailable !== 'function') {
+        console.log('🔐 BIOMETRIC: isAvailable method not available');
+        return false;
+      }
+      
+      console.log('🔐 BIOMETRIC: Calling NativeBiometric.isAvailable()...');
       const result = await NativeBiometric.isAvailable();
-      return result.isAvailable;
+      console.log('🔐 BIOMETRIC: Availability result:', result);
+      
+      return result?.isAvailable === true;
     } catch (error) {
-      console.log('Biometric authentication not available:', error);
+      console.error('🔐 BIOMETRIC: Error checking availability:', error);
       return false;
     }
   }
@@ -108,84 +125,137 @@ class BiometricService {
    */
   async authenticateWithBiometrics(): Promise<BiometricCredentials | null> {
     try {
-      console.log('BiometricService: Starting authentication...');
+      console.log('🔐 BIOMETRIC: Starting authentication process...');
       
-      // Check if biometrics are available
-      const isAvailable = await this.isAvailable();
-      console.log('BiometricService: Is available:', isAvailable);
+      // Enhanced safety checks with timeout protection
+      if (!NativeBiometric) {
+        console.error('🔐 BIOMETRIC: NativeBiometric plugin not available');
+        throw new Error('Biometric plugin not available');
+      }
+      
+      // Check if biometrics are available with timeout
+      console.log('🔐 BIOMETRIC: Checking availability...');
+      const isAvailablePromise = this.isAvailable();
+      const timeoutPromise = new Promise<boolean>((_, reject) => 
+        setTimeout(() => reject(new Error('Availability check timeout')), 5000)
+      );
+      
+      const isAvailable = await Promise.race([isAvailablePromise, timeoutPromise]);
+      console.log('🔐 BIOMETRIC: Availability result:', isAvailable);
       
       if (!isAvailable) {
-        throw new Error('Biometric authentication not available');
+        throw new Error('Biometric authentication not available on this device');
       }
 
-      // Check if credentials are stored using the new method
-      const hasCredentials = await this.hasCredentials();
-      console.log('BiometricService: Has stored credentials:', hasCredentials);
+      // Check if credentials are stored with timeout protection
+      console.log('🔐 BIOMETRIC: Checking stored credentials...');
+      const hasCredentialsPromise = this.hasCredentials();
+      const credentialsTimeoutPromise = new Promise<boolean>((_, reject) => 
+        setTimeout(() => reject(new Error('Credentials check timeout')), 5000)
+      );
+      
+      const hasCredentials = await Promise.race([hasCredentialsPromise, credentialsTimeoutPromise]);
+      console.log('🔐 BIOMETRIC: Has stored credentials:', hasCredentials);
       
       if (!hasCredentials) {
         throw new Error('No biometric credentials stored. Please sign in with your password first.');
       }
 
-      // Get biometric type for customized messaging with comprehensive error handling
+      // Get biometric type with safe error handling
       let biometricType = 'biometric';
       let reason = 'Use biometric authentication to access Bean Stalker';
       
       try {
+        console.log('🔐 BIOMETRIC: Getting biometric type...');
         biometricType = await this.getBiometricType();
-        console.log('BiometricService: Biometric type:', biometricType);
+        console.log('🔐 BIOMETRIC: Biometric type:', biometricType);
         
         if (biometricType && typeof biometricType === 'string') {
           reason = this.getAuthenticationReason(biometricType);
         }
       } catch (error) {
-        console.log('BiometricService: Could not get biometric type, using default:', error);
-        // Continue with default values
+        console.log('🔐 BIOMETRIC: Could not get biometric type, using default:', error);
+        // Continue with default values - not critical
       }
 
-      // Perform biometric authentication with extra safety checks
-      console.log('BiometricService: Verifying identity...');
-      console.log('BiometricService: Authentication reason:', reason);
-      
-      if (!NativeBiometric || !NativeBiometric.verifyIdentity) {
-        throw new Error('Biometric verification service not available');
+      // Critical safety check before calling verifyIdentity
+      if (!NativeBiometric.verifyIdentity || typeof NativeBiometric.verifyIdentity !== 'function') {
+        console.error('🔐 BIOMETRIC: verifyIdentity method not available');
+        throw new Error('Biometric verification method not available');
       }
       
       console.log('🔐 BIOMETRIC: About to prompt for biometric authentication...');
-      console.log('🔐 BIOMETRIC: Expected popup type:', biometricType);
       console.log('🔐 BIOMETRIC: Authentication reason:', reason);
       
-      await NativeBiometric.verifyIdentity({
+      // Create verification options with fallback values
+      const verificationOptions = {
         reason: reason || 'Use biometric authentication to access Bean Stalker',
         title: 'Bean Stalker Authentication',
         subtitle: 'Access your coffee account securely',
         description: 'Use your biometric authentication to sign in'
-      });
+      };
       
+      console.log('🔐 BIOMETRIC: Verification options:', verificationOptions);
+      
+      // Perform verification with timeout protection
+      const verificationPromise = NativeBiometric.verifyIdentity(verificationOptions);
+      const verificationTimeoutPromise = new Promise<void>((_, reject) => 
+        setTimeout(() => reject(new Error('Biometric verification timeout')), 30000) // 30 second timeout
+      );
+      
+      await Promise.race([verificationPromise, verificationTimeoutPromise]);
       console.log('🔐 BIOMETRIC: Identity verification completed successfully');
 
-      console.log('BiometricService: Identity verified, retrieving credentials...');
+      // Retrieve credentials with timeout protection
+      console.log('🔐 BIOMETRIC: Retrieving stored credentials...');
       
-      // If verification successful, retrieve stored credentials
-      const credentials = await NativeBiometric.getCredentials({
+      if (!NativeBiometric.getCredentials || typeof NativeBiometric.getCredentials !== 'function') {
+        console.error('🔐 BIOMETRIC: getCredentials method not available');
+        throw new Error('Credential retrieval method not available');
+      }
+      
+      const credentialsPromise = NativeBiometric.getCredentials({
         server: this.CREDENTIAL_KEY,
       });
-
-      console.log('BiometricService: Credentials retrieved successfully');
+      const getCredentialsTimeoutPromise = new Promise<any>((_, reject) => 
+        setTimeout(() => reject(new Error('Credential retrieval timeout')), 10000)
+      );
+      
+      const credentials = await Promise.race([credentialsPromise, getCredentialsTimeoutPromise]);
+      console.log('🔐 BIOMETRIC: Credentials retrieved successfully');
+      
+      // Validate credentials
+      if (!credentials || !credentials.username || !credentials.password) {
+        console.error('🔐 BIOMETRIC: Invalid credentials retrieved');
+        throw new Error('Invalid credentials retrieved from biometric storage');
+      }
       
       return {
         username: credentials.username,
         password: credentials.password,
       };
     } catch (error: any) {
-      console.error('BiometricService: Authentication failed:', error);
+      console.error('🔐 BIOMETRIC: Authentication failed:', error);
+      console.error('🔐 BIOMETRIC: Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       
-      // Enhance error messages
-      if (error.message?.includes('User cancelled') || error.message?.includes('UserCancel')) {
+      // Enhanced error message handling
+      if (error.message?.includes('User cancelled') || error.message?.includes('UserCancel') || 
+          error.message?.includes('cancelled') || error.message?.includes('cancel')) {
         throw new Error('Authentication was cancelled by user');
-      } else if (error.message?.includes('not available')) {
+      } else if (error.message?.includes('timeout')) {
+        throw new Error('Authentication timed out. Please try again.');
+      } else if (error.message?.includes('not available') || error.message?.includes('unavailable')) {
         throw new Error('Biometric authentication is not available on this device');
-      } else if (error.message?.includes('no credentials')) {
+      } else if (error.message?.includes('no credentials') || error.message?.includes('not found')) {
         throw new Error('No biometric credentials found. Please sign in with your password first.');
+      } else if (error.message?.includes('lockout') || error.message?.includes('too many attempts')) {
+        throw new Error('Too many failed attempts. Please wait and try again.');
+      } else if (error.message?.includes('not available') || error.message?.includes('method not available')) {
+        throw new Error('Biometric service is not properly configured');
       }
       
       throw error;

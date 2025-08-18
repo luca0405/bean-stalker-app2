@@ -77,19 +77,35 @@ export function useBiometricAuth() {
 
   const authenticateWithBiometrics = async (): Promise<boolean> => {
     try {
-      console.log('🔐 Starting biometric authentication process...');
-      console.log('🔐 Current biometric state:', {
+      console.log('🔐 HOOK: Starting biometric authentication process...');
+      console.log('🔐 HOOK: Current biometric state:', {
         isAvailable: biometricState.isAvailable,
         biometricType: biometricState.biometricType,
         hasStoredCredentials: biometricState.hasStoredCredentials,
         isLoading: biometricState.isLoading
       });
 
+      // Enhanced safety checks at hook level
+      if (!biometricService || typeof biometricService.authenticateWithBiometrics !== 'function') {
+        console.error('🔐 HOOK: Biometric service not properly initialized');
+        throw new Error('Biometric service is not available');
+      }
+
       // Re-check credentials in real-time in case they were just saved
-      const hasRealTimeCredentials = await biometricService.hasCredentials();
-      console.log('🔐 Real-time credential check:', hasRealTimeCredentials);
+      console.log('🔐 HOOK: Performing real-time credential check...');
+      let hasRealTimeCredentials = false;
+      
+      try {
+        hasRealTimeCredentials = await biometricService.hasCredentials();
+        console.log('🔐 HOOK: Real-time credential check result:', hasRealTimeCredentials);
+      } catch (credentialsError) {
+        console.error('🔐 HOOK: Failed to check credentials:', credentialsError);
+        // Continue with stored state value as fallback
+        hasRealTimeCredentials = biometricState.hasStoredCredentials;
+      }
 
       if (!biometricState.isAvailable) {
+        console.log('🔐 HOOK: Biometric authentication not available');
         notify({
           title: "Biometric Authentication Unavailable",
           description: "Please use your username and password",
@@ -99,6 +115,7 @@ export function useBiometricAuth() {
       }
 
       if (!hasRealTimeCredentials) {
+        console.log('🔐 HOOK: No stored credentials found');
         notify({
           title: "No Biometric Login Set Up",
           description: "Sign in with password first to enable biometric login",
@@ -107,59 +124,87 @@ export function useBiometricAuth() {
         return false;
       }
 
-      // Perform biometric authentication with enhanced error handling
-      console.log('Calling biometric service authenticateWithBiometrics...');
-      const credentials = await biometricService.authenticateWithBiometrics();
-      console.log('Biometric authentication result:', credentials ? 'success' : 'failed');
+      // Wrap biometric authentication in additional safety layer
+      console.log('🔐 HOOK: Calling biometric service authenticateWithBiometrics...');
+      let credentials = null;
+      
+      try {
+        // Create a promise wrapper to catch any uncaught errors
+        const authPromise = new Promise<any>((resolve, reject) => {
+          biometricService.authenticateWithBiometrics()
+            .then(resolve)
+            .catch(reject);
+        });
+        
+        // Add an additional timeout at the hook level
+        const timeoutPromise = new Promise<any>((_, reject) => 
+          setTimeout(() => reject(new Error('Hook-level authentication timeout')), 45000)
+        );
+        
+        credentials = await Promise.race([authPromise, timeoutPromise]);
+        console.log('🔐 HOOK: Biometric authentication result:', credentials ? 'success' : 'failed');
+      } catch (authError: any) {
+        console.error('🔐 HOOK: Biometric authentication failed:', authError);
+        throw authError; // Re-throw to be handled by outer catch
+      }
       
       if (credentials && credentials.username && credentials.password) {
-        console.log('Attempting login with biometric credentials...');
+        console.log('🔐 HOOK: Valid credentials received, attempting login...');
         
-        // Use existing login mutation with biometric credentials (don't save again)
-        await loginMutation.mutateAsync({
-          username: credentials.username,
-          password: credentials.password,
-          saveBiometric: false // Don't save credentials again for biometric login
-        });
+        try {
+          // Use existing login mutation with biometric credentials (don't save again)
+          await loginMutation.mutateAsync({
+            username: credentials.username,
+            password: credentials.password,
+            saveBiometric: false // Don't save credentials again for biometric login
+          });
 
-        const authType = getBiometricDisplayName(biometricState.biometricType || 'biometric');
-        notify({
-          title: "Authentication Successful",
-          description: `Signed in with ${authType}`,
-        });
+          const authType = getBiometricDisplayName(biometricState.biometricType || 'biometric');
+          notify({
+            title: "Authentication Successful",
+            description: `Signed in with ${authType}`,
+          });
 
-        return true;
+          console.log('🔐 HOOK: Login successful');
+          return true;
+        } catch (loginError: any) {
+          console.error('🔐 HOOK: Login failed with biometric credentials:', loginError);
+          throw new Error(`Login failed: ${loginError.message || 'Invalid credentials'}`);
+        }
       } else {
-        console.error('Invalid credentials returned from biometric service');
-        notify({
-          title: "Authentication Failed",
-          description: "Invalid credentials retrieved",
-          variant: "destructive",
-        });
-        return false;
+        console.error('🔐 HOOK: Invalid credentials returned from biometric service');
+        throw new Error('Invalid credentials retrieved from biometric authentication');
       }
     } catch (error: any) {
-      console.error('Biometric authentication failed:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        stack: error.stack
+      console.error('🔐 HOOK: Biometric authentication failed:', error);
+      console.error('🔐 HOOK: Error details:', {
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack,
+        name: error?.name
       });
       
       let errorMessage = 'Authentication failed. Please try again.';
       let errorTitle = 'Authentication Failed';
       
-      if (error.message) {
+      if (error?.message) {
         const msg = error.message.toLowerCase();
         if (msg.includes('cancel') || msg.includes('user cancel')) {
           errorMessage = 'Authentication was cancelled';
           errorTitle = 'Authentication Cancelled';
+        } else if (msg.includes('timeout')) {
+          errorMessage = 'Authentication timed out. Please try again.';
+          errorTitle = 'Authentication Timeout';
         } else if (msg.includes('not available') || msg.includes('unavailable')) {
           errorMessage = 'Biometric authentication is not available';
         } else if (msg.includes('no credentials') || msg.includes('not found')) {
           errorMessage = 'Please sign in with your password first to enable biometric login';
         } else if (msg.includes('lockout') || msg.includes('too many attempts')) {
           errorMessage = 'Too many failed attempts. Please wait and try again.';
+        } else if (msg.includes('service') || msg.includes('plugin')) {
+          errorMessage = 'Biometric service error. Please restart the app and try again.';
+        } else if (msg.includes('login failed')) {
+          errorMessage = 'Login failed with biometric credentials. Please sign in with password.';
         }
       }
 
