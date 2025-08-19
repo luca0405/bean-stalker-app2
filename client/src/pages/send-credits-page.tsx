@@ -18,6 +18,7 @@ interface ShareCreditsResponse {
   verificationCode: string;
   smsMessage: string;
   expiresAt: string;
+  newBalance?: number;
   smsStatus?: {
     success: boolean;
     messageId?: string;
@@ -30,6 +31,7 @@ export default function SendCreditsPage() {
   const { notify } = useNativeNotification();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [amount, setAmount] = useState("");
+  const [personalizedMessage, setPersonalizedMessage] = useState("");
   const [showSMSPreview, setShowSMSPreview] = useState(false);
   const [smsDetails, setSmsDetails] = useState<ShareCreditsResponse | null>(null);
   const [customMessage, setCustomMessage] = useState("");
@@ -53,11 +55,11 @@ export default function SendCreditsPage() {
     const creditAmount = parseFloat(amount).toFixed(2);
     const code = smsDetails.verificationCode;
     
-    let message = `🎁 You've received $${creditAmount} Bean Stalker credits from ${senderName}! `;
+    let message = '';
     if (editableText.trim()) {
       message += `${editableText.trim()} `;
     }
-    message += `Show this code at our store: ${code}. Bean Stalker Coffee Shop`;
+    message += `🎁 You've received $${creditAmount} Bean Stalker credits from ${senderName}! Show this code at our store: ${code}.`;
     
     return message;
   };
@@ -71,7 +73,7 @@ export default function SendCreditsPage() {
   };
 
   const shareCreditsMutation = useMutation({
-    mutationFn: async (data: { phoneNumber: string; amount: number; sendSMS?: boolean }) => {
+    mutationFn: async (data: { phoneNumber: string; amount: number; personalizedMessage?: string; sendSMS?: boolean }) => {
       const response = await apiRequest("POST", "/api/share-credits", data);
       return await response.json();
     },
@@ -79,36 +81,54 @@ export default function SendCreditsPage() {
       setSmsDetails(data);
       setCustomMessage(getEditableMessage(data.smsMessage)); // Initialize with just editable part
       
-      // If SMS was sent via Omnisend successfully, just show success and reset form
+      console.log('Share credits response:', data);
+      
+      // Handle success based on whether SMS was sent successfully
       if (data.smsStatus?.success) {
         notify({
           title: "Credits Shared Successfully",
-          description: `Contact added to Omnisend for SMS automation to ${phoneNumber}. $${amount} credit share created!`,
+          description: `$${amount} deducted from your account. SMS sent to ${phoneNumber}.`,
         });
-        // Reset form after successful Omnisend SMS
+        
+        // Reset form after successful SMS and credit deduction
         setPhoneNumber("");
         setAmount("");
+        setPersonalizedMessage("");
         setSmsDetails(null);
         setShowSMSPreview(false);
-      } else if (data.smsStatus && !data.smsStatus.success) {
-        notify({
-          title: "SMS Setup Needed",
-          description: "Omnisend contact created, but SMS automation requires plan upgrade. Sending manually instead.",
-          variant: "default",
-        });
-        setShowSMSPreview(true);
+        
+        // Update user balance in context if available
+        if (window.location.reload) {
+          window.location.reload();
+        }
       } else {
-        setShowSMSPreview(true);
+        // SMS was not requested or failed, show verification code
         notify({
-          title: "Credit Share Ready",
-          description: "Verification code generated. Send the SMS to complete sharing.",
+          title: "Verification Code Generated",
+          description: `Code: ${data.verificationCode}. Credits will be deducted when staff verify this code.`,
         });
+        setShowSMSPreview(true);
       }
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
+      console.error('Share credits error:', error);
+      
+      // Handle different error formats from the API
+      let errorMessage = "Failed to share credits";
+      
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
       notify({
         title: "Share Failed",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     },
@@ -162,9 +182,17 @@ export default function SendCreditsPage() {
       return;
     }
 
+    console.log('Submitting share credits request:', {
+      phoneNumber: phoneNumber.replace(/\s/g, ''),
+      amount: creditAmount,
+      personalizedMessage: personalizedMessage.trim() || undefined,
+      sendSMS: true
+    });
+    
     shareCreditsMutation.mutate({
       phoneNumber: phoneNumber.replace(/\s/g, ''),
       amount: creditAmount,
+      personalizedMessage: personalizedMessage.trim() || undefined,
       sendSMS: true
     });
   };
@@ -319,7 +347,7 @@ export default function SendCreditsPage() {
                     <div>
                       <p className="text-xs text-amber-800 font-medium">Important:</p>
                       <p className="text-xs text-amber-700">
-                        Credits will be deducted from your account only after staff verify this code at the store counter.
+                        Credits will be deducted from your account only after successful SMS sending OR when staff verify the code at the store counter. Code does not expire.
                       </p>
                     </div>
                   </div>
@@ -387,7 +415,7 @@ export default function SendCreditsPage() {
                 <span>Share Credits</span>
               </CardTitle>
               <CardDescription>
-                Share credits with non-members via SMS. SMS is sent automatically through Omnisend and they can claim credits at our store counter.
+                Share credits with non-members via SMS with a personalized message. Recipients can claim credits at our store counter with the verification code.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -425,16 +453,25 @@ export default function SendCreditsPage() {
                   )}
                 </div>
 
-                {/* SMS Info */}
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center space-x-2 text-sm text-blue-700">
-                    <Zap className="h-4 w-4" />
-                    <span className="font-medium">Contact added to Omnisend, then manual SMS</span>
-                  </div>
-                  <p className="text-xs text-blue-600 mt-1">
-                    Recipient info saved for marketing, you'll send SMS manually via your messaging app
-                  </p>
+                <div className="space-y-2">
+                  <Label htmlFor="personalizedMessage">Personalized Message (Optional)</Label>
+                  <Textarea
+                    id="personalizedMessage"
+                    placeholder="Add a personal message to your gift..."
+                    value={personalizedMessage}
+                    onChange={(e) => setPersonalizedMessage(e.target.value)}
+                    maxLength={150}
+                    rows={3}
+                    className="text-sm"
+                  />
+                  {personalizedMessage && (
+                    <p className="text-xs text-slate-500">
+                      {personalizedMessage.length}/150 characters
+                    </p>
+                  )}
                 </div>
+
+
 
                 <Button
                   type="submit"
@@ -444,12 +481,12 @@ export default function SendCreditsPage() {
                   {shareCreditsMutation.isPending ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Sending SMS via Omnisend...
+                      Sending Credits...
                     </>
                   ) : (
                     <>
-                      <Zap className="h-5 w-5 mr-2" />
-                      Send Credits Automatically
+                      <Send className="h-5 w-5 mr-2" />
+                      Send Credits
                     </>
                   )}
                 </Button>
@@ -477,16 +514,12 @@ export default function SendCreditsPage() {
                   <p>We generate a unique verification code</p>
                 </div>
                 <div className="flex items-start space-x-2">
-                  <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">3</span>
-                  <p>SMS is sent automatically via Omnisend</p>
-                </div>
-                <div className="flex items-start space-x-2">
                   <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">4</span>
                   <p>Non-member shows code at store counter</p>
                 </div>
                 <div className="flex items-start space-x-2">
                   <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">5</span>
-                  <p>Staff verifies code and deducts credits from your account</p>
+                  <p>Staff verifies code</p>
                 </div>
               </div>
             </CardContent>

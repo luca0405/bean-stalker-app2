@@ -2245,12 +2245,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: `Received from ${sender.username}`,
         metadata: { senderId: sender.id, message: message || '' }
       });
+
+      // Send SMS notification to recipient and update Omnisend contact
+      let smsStatus = null;
+      if (recipient.phoneNumber) {
+        try {
+          console.log(`📱 Sending hybrid notification to registered user ${recipient.username}`);
+          
+          // Step 1: Update contact in Omnisend with transaction info
+          try {
+            const { OmnisendService } = await import('./omnisend-service');
+            if (OmnisendService.isConfigured()) {
+              console.log('📧 Updating contact in Omnisend...');
+              await OmnisendService.createContact(recipient.phoneNumber, {
+                creditAmount: amount,
+                senderName: sender.fullName || sender.username,
+                newBalance: updatedRecipient.credits,
+                eventType: 'credit_received_direct'
+              });
+              console.log('✅ Contact updated in Omnisend successfully');
+            }
+          } catch (omnisendError) {
+            console.warn('⚠️ Could not update contact in Omnisend:', omnisendError);
+          }
+          
+          // Step 2: Send SMS notification via Twilio
+          const { twilioSMSService } = await import('./services/twilio-sms-service');
+          
+          if (twilioSMSService.isAvailable()) {
+            const senderName = sender.fullName || sender.username;
+            const notificationMessage = `🎁 You've received $${amount.toFixed(2)} Bean Stalker credits from ${senderName}! Your new balance: $${updatedRecipient.credits.toFixed(2)}. Visit the app to start ordering!`;
+            
+            const smsResult = await twilioSMSService.sendSMS(recipient.phoneNumber, notificationMessage);
+            smsStatus = smsResult;
+            
+            if (smsResult.success) {
+              console.log(`✅ SMS notification sent to ${recipient.username}`);
+            } else {
+              console.error(`❌ Failed to send SMS notification: ${smsResult.error}`);
+            }
+          }
+        } catch (smsError) {
+          console.error('❌ SMS notification error:', smsError);
+        }
+      }
       
       res.json({ 
         success: true, 
         sender: { id: sender.id, credits: updatedSender.credits },
         recipient: { id: recipient.id, username: recipient.username },
-        amount
+        amount,
+        smsStatus
       });
     } catch (error) {
       console.error('Error sending credits:', error);
@@ -2623,7 +2668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const { phoneNumber, amount, sendSMS = false } = req.body;
+      const { phoneNumber, amount, personalizedMessage, sendSMS = false } = req.body;
       
       // Validate input
       if (!phoneNumber || !amount || amount <= 0) {
@@ -2638,41 +2683,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate unique verification code (6 digits)
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       
-      // Set expiration time (24 hours from now)
+      // Set expiration time (no expiration - set to far future)
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24);
-
-      // Create pending credit transfer
-      const pendingTransfer = await storage.createPendingCreditTransfer({
-        verificationCode,
-        senderId: user.id,
-        recipientPhone: phoneNumber,
-        amount,
-        status: "pending",
-        expiresAt
-      });
+      expiresAt.setFullYear(expiresAt.getFullYear() + 10); // Valid for 10 years
 
       // Create SMS message using full name if available, fallback to username
       const senderName = user.fullName || user.username;
-      const smsMessage = `🎁 You've received $${amount.toFixed(2)} Bean Stalker credits from ${senderName}! Show this code at our store: ${verificationCode}. Valid for 24 hours. Bean Stalker Coffee Shop`;
+      let smsMessage = '';
+      if (personalizedMessage && personalizedMessage.trim()) {
+        smsMessage = `${personalizedMessage.trim()} `;
+      }
+      smsMessage += `🎁 You've received $${amount.toFixed(2)} Bean Stalker credits from ${senderName}! Show this code at our store: ${verificationCode}.`;
 
       let smsStatus = null;
+      let smsSuccessful = false;
       
-      // Send SMS via Omnisend if requested
+      // Send SMS via Twilio and store contact in Omnisend if requested
       if (sendSMS) {
         try {
-          console.log(`🔧 Starting SMS send process for ${phoneNumber}, amount: $${amount}`);
-          const { OmnisendService } = await import('./omnisend-service');
+          console.log(`📱 Starting hybrid SMS process for ${phoneNumber}, amount: $${amount}`);
           
-          console.log('🔧 Checking Omnisend configuration...');
-          if (OmnisendService.isConfigured()) {
-            console.log('🔧 Omnisend is configured, sending SMS...');
+          // Step 1: Store contact in Omnisend for future marketing
+          try {
+            const { OmnisendService } = await import('./omnisend-service');
+            if (OmnisendService.isConfigured()) {
+              console.log('📧 Storing contact in Omnisend for marketing...');
+              await OmnisendService.createContact(phoneNumber, {
+                creditAmount: amount,
+                senderName: senderName,
+                eventType: 'credit_share_received'
+              });
+              console.log('✅ Contact stored in Omnisend successfully');
+            }
+          } catch (omnisendError) {
+            console.warn('⚠️ Could not store contact in Omnisend:', omnisendError);
+          }
+          
+          // Step 2: Send SMS via Twilio
+          const { twilioSMSService } = await import('./services/twilio-sms-service');
+          
+          console.log('📱 Checking Twilio configuration...');
+          if (twilioSMSService.isAvailable()) {
+            console.log('📱 Twilio is configured, sending SMS...');
             
-            const smsResult = await OmnisendService.sendCreditShareSMS(
+            const smsResult = await twilioSMSService.sendCreditShareSMS(
               phoneNumber,
-              amount,
               senderName,
-              verificationCode
+              amount,
+              verificationCode,
+              personalizedMessage
             );
             
             smsStatus = smsResult;
@@ -2680,32 +2739,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (smsResult.success) {
               console.log(`✅ SMS sent successfully to ${phoneNumber} for credit share of $${amount}`);
               console.log(`✅ Message ID: ${smsResult.messageId}`);
+              smsSuccessful = true;
             } else {
-              console.error(`❌ Failed to send SMS via Omnisend: ${smsResult.error}`);
+              console.error(`❌ Failed to send SMS via Twilio: ${smsResult.error}`);
+              return res.status(400).json({ 
+                success: false, 
+                message: "SMS failed to send. Credits not deducted.", 
+                error: smsResult.error 
+              });
             }
           } else {
-            console.error('❌ Omnisend not configured');
-            smsStatus = { 
+            console.error('❌ Twilio not configured');
+            return res.status(400).json({ 
               success: false, 
-              error: 'Omnisend not configured. Set OMNISEND_API_KEY environment variable.' 
-            };
+              message: "SMS service not configured. Credits not deducted.", 
+              error: 'Twilio not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER environment variables.' 
+            });
           }
         } catch (smsError) {
           console.error('❌ SMS sending error:', smsError);
-          smsStatus = { 
+          return res.status(400).json({ 
             success: false, 
+            message: "SMS service error. Credits not deducted.", 
             error: 'SMS service temporarily unavailable' 
-          };
+          });
         }
       }
 
-      res.json({
-        success: true,
-        verificationCode,
-        smsMessage,
-        expiresAt: expiresAt.toISOString(),
-        smsStatus
-      });
+      // Only deduct credits and create records if SMS was successful
+      if (smsSuccessful) {
+        // Deduct credits from sender
+        const updatedUser = await storage.updateUserCredits(user.id, user.credits - amount);
+
+        // Create transaction record for the sender
+        await storage.createCreditTransaction({
+          userId: user.id,
+          type: "send",
+          amount: -amount,
+          balanceAfter: updatedUser.credits,
+          description: `Shared via SMS to ${phoneNumber}`,
+          metadata: { 
+            recipientPhone: phoneNumber, 
+            personalizedMessage: personalizedMessage || '',
+            shareType: 'sms_share',
+            smsMessageId: smsStatus?.messageId
+          }
+        });
+
+        // Create pending credit transfer (now represents redeemable credits)
+        const pendingTransfer = await storage.createPendingCreditTransfer({
+          verificationCode,
+          senderId: user.id,
+          recipientPhone: phoneNumber,
+          amount,
+          status: "pending", // Still pending redemption by recipient
+          expiresAt
+        });
+
+        res.json({
+          success: true,
+          verificationCode,
+          smsMessage,
+          expiresAt: expiresAt.toISOString(),
+          smsStatus,
+          newBalance: updatedUser.credits
+        });
+      } else {
+        // SMS was not requested, create pending transfer without deducting credits
+        const pendingTransfer = await storage.createPendingCreditTransfer({
+          verificationCode,
+          senderId: user.id,
+          recipientPhone: phoneNumber,
+          amount,
+          status: "pending",
+          expiresAt
+        });
+
+        res.json({
+          success: true,
+          verificationCode,
+          smsMessage,
+          expiresAt: expiresAt.toISOString(),
+          smsStatus,
+          newBalance: user.credits // No change in balance
+        });
+      }
 
     } catch (error) {
       console.error("Credit sharing error:", error);
@@ -2713,20 +2831,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test Omnisend connection (development endpoint)
-  app.post("/api/test-omnisend", async (req, res) => {
+  // Test hybrid SMS system (Twilio + Omnisend)
+  app.post("/api/test-sms-system", async (req, res) => {
     try {
-      const { OmnisendService } = await import('./omnisend-service');
+      const { testPhoneNumber } = req.body;
       
-      console.log('🔧 Testing Omnisend API connection...');
-      const testResult = await OmnisendService.testConnection();
+      console.log('🔧 Testing hybrid SMS system (Twilio + Omnisend)...');
+      
+      if (!testPhoneNumber) {
+        return res.status(400).json({ error: 'testPhoneNumber required in request body' });
+      }
+      
+      const results = {
+        twilio: { configured: false, testResult: null, accountInfo: null },
+        omnisend: { configured: false, testResult: null }
+      };
+      
+      // Test Twilio SMS
+      try {
+        const { twilioSMSService } = await import('./services/twilio-sms-service');
+        results.twilio.configured = twilioSMSService.isAvailable();
+        
+        if (results.twilio.configured) {
+          results.twilio.testResult = await twilioSMSService.testSMS(testPhoneNumber);
+          results.twilio.accountInfo = await twilioSMSService.getAccountInfo();
+        }
+      } catch (twilioError) {
+        results.twilio.testResult = { success: false, error: twilioError.message };
+      }
+      
+      // Test Omnisend contact creation
+      try {
+        const { OmnisendService } = await import('./omnisend-service');
+        results.omnisend.configured = OmnisendService.isConfigured();
+        
+        if (results.omnisend.configured) {
+          results.omnisend.testResult = await OmnisendService.createContact(testPhoneNumber, {
+            eventType: 'test_contact',
+            testDate: new Date().toISOString()
+          });
+        }
+      } catch (omnisendError) {
+        results.omnisend.testResult = { success: false, error: omnisendError.message };
+      }
       
       res.json({
-        configured: OmnisendService.isConfigured(),
-        testResult
+        hybridSystem: 'Twilio for SMS delivery + Omnisend for contact storage',
+        ...results
       });
     } catch (error) {
-      console.error('Test endpoint error:', error);
+      console.error('Hybrid SMS test endpoint error:', error);
       res.status(500).json({ error: 'Test failed' });
     }
   });
@@ -2769,27 +2923,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Sender not found" });
       }
 
-      // Check if sender still has enough credits
+      // Check if credits were already deducted during SMS sending
+      // If not, deduct them now
       if (sender.credits < pendingTransfer.amount) {
         return res.status(400).json({ message: "Sender has insufficient credits" });
       }
 
-      // Deduct credits from sender
-      const newSenderBalance = sender.credits - pendingTransfer.amount;
-      await storage.updateUserCredits(sender.id, newSenderBalance);
+      // Deduct credits from sender (either first time or retry)
+      const updatedSender = await storage.updateUserCredits(pendingTransfer.senderId, sender.credits - pendingTransfer.amount);
 
-      // Create transaction record
+      // Create transaction record for credit deduction
       await storage.createCreditTransaction({
-        type: "credit_share",
+        userId: pendingTransfer.senderId,
+        type: "send",
         amount: -pendingTransfer.amount,
-        description: `Shared $${pendingTransfer.amount} via SMS to ${pendingTransfer.recipientPhone}`,
-        userId: sender.id,
-        balanceAfter: newSenderBalance,
-        transactionId: verificationCode
+        balanceAfter: updatedSender.credits,
+        description: `Shared credits verified by ${req.user.username}`,
+        metadata: { 
+          recipientPhone: pendingTransfer.recipientPhone, 
+          verificationCode: pendingTransfer.verificationCode,
+          verifiedByUserId: req.user.id
+        }
       });
 
       // Mark transfer as verified
-      await storage.verifyPendingCreditTransfer(pendingTransfer.id, req.user.id);
+      await storage.updatePendingCreditTransferStatus(pendingTransfer.id, "verified", req.user.id);
 
       // Send push notification to sender about successful credit share
       try {

@@ -96,6 +96,7 @@
     "stripe": "^18.2.1",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
+    "twilio": "^5.8.0",
     "vaul": "^1.1.0",
     "web-push": "^3.6.7",
     "wouter": "^3.3.5",
