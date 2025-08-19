@@ -14,6 +14,7 @@ export interface SMSResponse {
 class TwilioSMSService {
   private client: twilio.Twilio | null = null;
   private fromNumber: string | null = null;
+  private senderId: string | null = null;
   private isConfigured = false;
 
   constructor() {
@@ -25,19 +26,36 @@ class TwilioSMSService {
       const accountSid = process.env.TWILIO_ACCOUNT_SID;
       const authToken = process.env.TWILIO_AUTH_TOKEN;
       const phoneNumber = process.env.TWILIO_PHONE_NUMBER;
+      const senderId = process.env.TWILIO_SENDER_ID;
 
-      if (!accountSid || !authToken || !phoneNumber) {
-        console.log('📱 TWILIO: Missing credentials - SMS service not available');
-        console.log('📱 TWILIO: Required: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER');
+      if (!accountSid || !authToken) {
+        console.log('📱 TWILIO: Missing basic credentials - SMS service not available');
+        console.log('📱 TWILIO: Required: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN');
+        return;
+      }
+
+      if (!phoneNumber && !senderId) {
+        console.log('📱 TWILIO: No sender configured - SMS service not available');
+        console.log('📱 TWILIO: Required: TWILIO_PHONE_NUMBER or TWILIO_SENDER_ID');
         return;
       }
 
       this.client = twilio(accountSid, authToken);
-      this.fromNumber = phoneNumber;
+      
+      // Prefer Sender ID over phone number if both are provided
+      if (senderId) {
+        this.senderId = senderId;
+        this.fromNumber = null;
+        console.log('📱 TWILIO: SMS service initialized with Sender ID');
+        console.log(`📱 TWILIO: Sender ID: ${senderId}`);
+      } else {
+        this.fromNumber = phoneNumber;
+        this.senderId = null;
+        console.log('📱 TWILIO: SMS service initialized with phone number');
+        console.log(`📱 TWILIO: From number: ${phoneNumber}`);
+      }
+      
       this.isConfigured = true;
-
-      console.log('📱 TWILIO: SMS service initialized successfully');
-      console.log(`📱 TWILIO: From number: ${phoneNumber}`);
     } catch (error) {
       console.error('📱 TWILIO: Failed to initialize Twilio client:', error);
       this.isConfigured = false;
@@ -48,7 +66,7 @@ class TwilioSMSService {
    * Check if Twilio SMS service is properly configured
    */
   isAvailable(): boolean {
-    return this.isConfigured && this.client !== null && this.fromNumber !== null;
+    return this.isConfigured && this.client !== null && (this.fromNumber !== null || this.senderId !== null);
   }
 
   /**
@@ -84,7 +102,7 @@ class TwilioSMSService {
         throw new Error('Twilio SMS service is not configured');
       }
 
-      if (!this.client || !this.fromNumber) {
+      if (!this.client || (!this.fromNumber && !this.senderId)) {
         throw new Error('Twilio client not initialized');
       }
 
@@ -93,12 +111,21 @@ class TwilioSMSService {
       console.log(`📱 TWILIO: Sending SMS to ${formattedNumber}`);
       console.log(`📱 TWILIO: Message: ${message}`);
 
-      // Send the SMS
-      const twilioMessage = await this.client.messages.create({
+      // Send the SMS using either Sender ID or phone number
+      const messageOptions: any = {
         body: message,
-        from: this.fromNumber,
         to: formattedNumber,
-      });
+      };
+
+      if (this.senderId) {
+        messageOptions.from = this.senderId;
+        console.log(`📱 TWILIO: Using Sender ID: ${this.senderId}`);
+      } else {
+        messageOptions.from = this.fromNumber;
+        console.log(`📱 TWILIO: Using phone number: ${this.fromNumber}`);
+      }
+
+      const twilioMessage = await this.client.messages.create(messageOptions);
 
       console.log(`📱 TWILIO: SMS sent successfully - SID: ${twilioMessage.sid}`);
       console.log(`📱 TWILIO: Status: ${twilioMessage.status}`);

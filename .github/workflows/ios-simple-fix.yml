@@ -24,19 +24,48 @@ jobs:
         VITE_REVENUECAT_API_KEY: ${{ secrets.VITE_REVENUECAT_API_KEY }}
         OMNISEND_API_KEY: ${{ secrets.OMNISEND_API_KEY }}
         VITE_FORCE_SANDBOX: true
+        # Twilio SMS Integration Secrets
+        TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+        TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+        TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+        TWILIO_SENDER_ID: ${{ secrets.TWILIO_SENDER_ID }}
         # Apple Wallet Integration Secrets
         APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         APPLE_WALLET_CERT_PASSWORD: ${{ secrets.APPLE_WALLET_CERT_PASSWORD }}
         APPLE_WALLET_CERT_BASE64: ${{ secrets.APPLE_WALLET_CERT_BASE64 }}
         APPLE_WALLET_WWDR_BASE64: ${{ secrets.APPLE_WALLET_WWDR_BASE64 }}
+        # Square API Integration Secrets (Sandbox)
+        SQUARE_ACCESS_TOKEN: ${{ secrets.SQUARE_ACCESS_TOKEN }}
+        SQUARE_APPLICATION_ID: ${{ secrets.SQUARE_APPLICATION_ID }}
+        SQUARE_LOCATION_ID: ${{ secrets.SQUARE_LOCATION_ID }}
+        SQUARE_WEBHOOK_SIGNATURE_KEY: ${{ secrets.SQUARE_WEBHOOK_SIGNATURE_KEY }}
+        # Square API Integration Secrets (Production)
+        SQUARE_ACCESS_TOKEN_PROD: ${{ secrets.SQUARE_ACCESS_TOKEN_PROD }}
+        SQUARE_APPLICATION_ID_PROD: ${{ secrets.SQUARE_APPLICATION_ID_PROD }}
+        SQUARE_APPLICATION_SECRET_PROD: ${{ secrets.SQUARE_APPLICATION_SECRET_PROD }}
+        SQUARE_LOCATION_ID_PROD: ${{ secrets.SQUARE_LOCATION_ID_PROD }}
+        SQUARE_WEBHOOK_SIGNATURE_KEY_PROD: ${{ secrets.SQUARE_WEBHOOK_SIGNATURE_KEY_PROD }}
       run: |
         # Export environment variables for all subsequent steps
         echo "VITE_REVENUECAT_API_KEY=${{ secrets.VITE_REVENUECAT_API_KEY }}" >> $GITHUB_ENV
         echo "OMNISEND_API_KEY=${{ secrets.OMNISEND_API_KEY }}" >> $GITHUB_ENV
+        echo "TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}" >> $GITHUB_ENV
+        echo "TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}" >> $GITHUB_ENV
+        echo "TWILIO_PHONE_NUMBER=${{ secrets.TWILIO_PHONE_NUMBER }}" >> $GITHUB_ENV
+        echo "TWILIO_SENDER_ID=${{ secrets.TWILIO_SENDER_ID }}" >> $GITHUB_ENV
         echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> $GITHUB_ENV
         echo "APPLE_WALLET_CERT_PASSWORD=${{ secrets.APPLE_WALLET_CERT_PASSWORD }}" >> $GITHUB_ENV
         echo "APPLE_WALLET_CERT_BASE64=${{ secrets.APPLE_WALLET_CERT_BASE64 }}" >> $GITHUB_ENV
         echo "APPLE_WALLET_WWDR_BASE64=${{ secrets.APPLE_WALLET_WWDR_BASE64 }}" >> $GITHUB_ENV
+        echo "SQUARE_ACCESS_TOKEN=${{ secrets.SQUARE_ACCESS_TOKEN }}" >> $GITHUB_ENV
+        echo "SQUARE_APPLICATION_ID=${{ secrets.SQUARE_APPLICATION_ID }}" >> $GITHUB_ENV
+        echo "SQUARE_LOCATION_ID=${{ secrets.SQUARE_LOCATION_ID }}" >> $GITHUB_ENV
+        echo "SQUARE_WEBHOOK_SIGNATURE_KEY=${{ secrets.SQUARE_WEBHOOK_SIGNATURE_KEY }}" >> $GITHUB_ENV
+        echo "SQUARE_ACCESS_TOKEN_PROD=${{ secrets.SQUARE_ACCESS_TOKEN_PROD }}" >> $GITHUB_ENV
+        echo "SQUARE_APPLICATION_ID_PROD=${{ secrets.SQUARE_APPLICATION_ID_PROD }}" >> $GITHUB_ENV
+        echo "SQUARE_APPLICATION_SECRET_PROD=${{ secrets.SQUARE_APPLICATION_SECRET_PROD }}" >> $GITHUB_ENV
+        echo "SQUARE_LOCATION_ID_PROD=${{ secrets.SQUARE_LOCATION_ID_PROD }}" >> $GITHUB_ENV
+        echo "SQUARE_WEBHOOK_SIGNATURE_KEY_PROD=${{ secrets.SQUARE_WEBHOOK_SIGNATURE_KEY_PROD }}" >> $GITHUB_ENV
         
         # Verify the secrets are accessible
         echo "=== RevenueCat API Key Verification ==="
@@ -59,6 +88,30 @@ jobs:
           echo "✅ GitHub secret OMNISEND_API_KEY is configured"
           echo "Key length: ${#OMNISEND_API_KEY} characters"
           echo "Key starts with: ${OMNISEND_API_KEY:0:8}..."
+        fi
+        
+        echo "=== Twilio SMS Integration Verification ==="
+        if [ -z "${{ secrets.TWILIO_ACCOUNT_SID }}" ]; then
+          echo "❌ GitHub secret TWILIO_ACCOUNT_SID is empty or not set"
+          echo "SMS functionality will be disabled"
+        else
+          echo "✅ GitHub secret TWILIO_ACCOUNT_SID is configured"
+          echo "Account SID: ${TWILIO_ACCOUNT_SID:0:8}..."
+        fi
+        
+        if [ -z "${{ secrets.TWILIO_AUTH_TOKEN }}" ]; then
+          echo "❌ GitHub secret TWILIO_AUTH_TOKEN is empty or not set"
+          echo "SMS functionality will be disabled"
+        else
+          echo "✅ GitHub secret TWILIO_AUTH_TOKEN is configured"
+          echo "Token length: ${#TWILIO_AUTH_TOKEN} characters"
+        fi
+        
+        if [ -z "${{ secrets.TWILIO_PHONE_NUMBER }}" ]; then
+          echo "❌ GitHub secret TWILIO_PHONE_NUMBER is empty or not set"
+          echo "SMS functionality will be disabled"
+        else
+          echo "✅ GitHub secret TWILIO_PHONE_NUMBER is configured: ${{ secrets.TWILIO_PHONE_NUMBER }}"
         fi
         
         echo "=== Apple Wallet Integration Verification ==="
@@ -84,12 +137,82 @@ jobs:
           echo "Certificate data length: ${#APPLE_WALLET_CERT_BASE64} characters"
         fi
         
+        echo "=== Square Production API Integration Verification ==="
+        if [ -z "${{ secrets.SQUARE_ACCESS_TOKEN_PROD }}" ]; then
+          echo "⚠️ GitHub secret SQUARE_ACCESS_TOKEN_PROD is empty or not set"
+          echo "Will use sandbox Square API instead"
+        else
+          echo "✅ GitHub secret SQUARE_ACCESS_TOKEN_PROD is configured"
+          echo "Production Kitchen Display integration enabled"
+        fi
+        
+        if [ -z "${{ secrets.SQUARE_APPLICATION_ID_PROD }}" ]; then
+          echo "⚠️ GitHub secret SQUARE_APPLICATION_ID_PROD is empty or not set"
+        else
+          echo "✅ GitHub secret SQUARE_APPLICATION_ID_PROD is configured"
+          echo "App ID: ${SQUARE_APPLICATION_ID_PROD:0:12}..."
+        fi
+        
+        if [ -z "${{ secrets.SQUARE_LOCATION_ID_PROD }}" ]; then
+          echo "⚠️ GitHub secret SQUARE_LOCATION_ID_PROD is empty or not set"
+        else
+          echo "✅ GitHub secret SQUARE_LOCATION_ID_PROD is configured: ${{ secrets.SQUARE_LOCATION_ID_PROD }}"
+        fi
+        
+        if [ -z "${{ secrets.SQUARE_APPLICATION_SECRET_PROD }}" ]; then
+          echo "⚠️ GitHub secret SQUARE_APPLICATION_SECRET_PROD is empty or not set"
+          echo "OAuth flows will be disabled in production"
+        else
+          echo "✅ GitHub secret SQUARE_APPLICATION_SECRET_PROD is configured"
+          echo "OAuth authentication enabled"
+        fi
+        
+        if [ -z "${{ secrets.SQUARE_WEBHOOK_SIGNATURE_KEY_PROD }}" ]; then
+          echo "⚠️ GitHub secret SQUARE_WEBHOOK_SIGNATURE_KEY_PROD is empty or not set"
+          echo "Webhook verification will be disabled in production"
+        else
+          echo "✅ GitHub secret SQUARE_WEBHOOK_SIGNATURE_KEY_PROD is configured"
+          echo "Webhook signature verification enabled"
+        fi
+        
         if [ -z "${{ secrets.APPLE_WALLET_WWDR_BASE64 }}" ]; then
           echo "❌ GitHub secret APPLE_WALLET_WWDR_BASE64 is empty or not set"
           echo "Apple Wallet WWDR certificate data missing"
         else
           echo "✅ GitHub secret APPLE_WALLET_WWDR_BASE64 is configured"
           echo "WWDR data length: ${#APPLE_WALLET_WWDR_BASE64} characters"
+        fi
+        
+        echo "=== Square API Integration Verification ==="
+        if [ -z "${{ secrets.SQUARE_ACCESS_TOKEN }}" ]; then
+          echo "❌ GitHub secret SQUARE_ACCESS_TOKEN is empty or not set"
+          echo "Square payment processing and Kitchen Display will be disabled"
+        else
+          echo "✅ GitHub secret SQUARE_ACCESS_TOKEN is configured"
+          echo "Token length: ${#SQUARE_ACCESS_TOKEN} characters"
+          echo "Token starts with: ${SQUARE_ACCESS_TOKEN:0:8}..."
+        fi
+        
+        if [ -z "${{ secrets.SQUARE_APPLICATION_ID }}" ]; then
+          echo "❌ GitHub secret SQUARE_APPLICATION_ID is empty or not set"
+          echo "Square OAuth integration will be disabled"
+        else
+          echo "✅ GitHub secret SQUARE_APPLICATION_ID is configured: ${{ secrets.SQUARE_APPLICATION_ID }}"
+        fi
+        
+        if [ -z "${{ secrets.SQUARE_LOCATION_ID }}" ]; then
+          echo "❌ GitHub secret SQUARE_LOCATION_ID is empty or not set"
+          echo "Square location-specific features will be disabled"
+        else
+          echo "✅ GitHub secret SQUARE_LOCATION_ID is configured: ${{ secrets.SQUARE_LOCATION_ID }}"
+        fi
+        
+        if [ -z "${{ secrets.SQUARE_WEBHOOK_SIGNATURE_KEY }}" ]; then
+          echo "❌ GitHub secret SQUARE_WEBHOOK_SIGNATURE_KEY is empty or not set"
+          echo "Square webhook verification will be disabled"
+        else
+          echo "✅ GitHub secret SQUARE_WEBHOOK_SIGNATURE_KEY is configured"
+          echo "Key length: ${#SQUARE_WEBHOOK_SIGNATURE_KEY} characters"
         fi
         
         # Create certificate files from base64 for the build
@@ -114,7 +237,9 @@ jobs:
         
         npm ci
         echo "Building with RevenueCat API Key: $(test -n "$VITE_REVENUECAT_API_KEY" && echo "CONFIGURED" || echo "MISSING")"
+        echo "Building with Twilio SMS: $(test -n "$TWILIO_ACCOUNT_SID" && echo "CONFIGURED" || echo "MISSING")"
         echo "Building with Apple Wallet Certificates: $(test -f "certs/bean_stalker_pass_cert.p12" && echo "CONFIGURED" || echo "MISSING")"
+        echo "Building with Square API: $(test -n "$SQUARE_ACCESS_TOKEN" && echo "CONFIGURED" || echo "MISSING")"
         echo "Building in development mode for sandbox IAP testing"
         
         # Embed certificates directly in server code for TestFlight builds

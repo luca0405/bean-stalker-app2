@@ -4,16 +4,27 @@
  */
 
 import { storage } from './storage';
+import { getSquareAccessToken, getSquareLocationId, getSquareEnvironment } from './square-config';
 
 // Use direct HTTP requests instead of SDK to avoid module compatibility issues
-const SQUARE_API_BASE = 'https://connect.squareupsandbox.com/v2';
+const getSquareApiBase = () => {
+  const environment = getSquareEnvironment();
+  return environment === 'production' 
+    ? 'https://connect.squareup.com/v2'
+    : 'https://connect.squareupsandbox.com/v2';
+};
 const SQUARE_VERSION = '2023-12-13';
 
 async function makeSquareRequest(endpoint: string, method: string = 'GET', body?: any) {
-  const response = await fetch(`${SQUARE_API_BASE}${endpoint}`, {
+  const accessToken = getSquareAccessToken();
+  if (!accessToken) {
+    throw new Error('Square access token not configured');
+  }
+  
+  const response = await fetch(`${getSquareApiBase()}${endpoint}`, {
     method,
     headers: {
-      'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+      'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'Square-Version': SQUARE_VERSION
     },
@@ -184,6 +195,110 @@ export async function syncOrdersFromSquare(): Promise<{
 }
 
 /**
+ * Send Bean Stalker orders to Square Kitchen Display
+ */
+export async function syncOrdersToSquareKitchen(): Promise<{
+  success: boolean;
+  syncedCount: number;
+  errors: string[];
+}> {
+  try {
+    console.log('🍳 Starting Kitchen Display sync...');
+    
+    // Get recent processing orders from Bean Stalker
+    const recentOrders = await storage.getAllOrders();
+    const processingOrders = recentOrders
+      .filter(order => ['ready'].includes(order.status))
+      .slice(0, 10); // Limit to recent orders
+    
+    console.log(`📋 Found ${processingOrders.length} orders to sync to Kitchen Display`);
+    console.log(`🔧 Orders found:`, processingOrders.map(o => ({id: o.id, status: o.status})));
+    
+    let syncedCount = 0;
+    const errors: string[] = [];
+    
+    for (const order of processingOrders) {
+      try {
+        const user = await storage.getUserById(order.userId);
+        if (!user) {
+          errors.push(`User not found for order #${order.id}`);
+          continue;
+        }
+        
+        // Create Square order for Kitchen Display
+        const squareOrder = {
+          order: {
+            location_id: getSquareLocationId(),
+            reference_id: `bean_stalker_${order.id}`,
+            order_type: "ONLINE",
+            line_items: (order.items as any[]).map((item: any, index: number) => ({
+              name: item.name,
+              quantity: item.quantity?.toString() || "1",
+              note: `Bean Stalker order #${order.id} - ${item.options?.map((opt: any) => `${opt.name}: ${opt.value}`).join(', ') || 'No options'}`,
+              base_price_money: {
+                amount: 0, // Zero amount - paid via Bean Stalker credits
+                currency: 'AUD'
+              }
+            })),
+            fulfillments: [{
+              type: 'PICKUP',
+              state: 'PROPOSED',
+              pickup_details: {
+                recipient: {
+                  display_name: user.fullName || user.username
+                },
+                note: `Bean Stalker order #${order.id} - ${user.username}`,
+                pickup_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 minutes from now
+              }
+            }],
+            source: {
+              name: "Bean Stalker App"
+            },
+            state: "OPEN"
+          }
+        };
+        
+        console.log(`📤 Sending order #${order.id} to Square Kitchen Display...`);
+        console.log(`🔧 Square Order Data:`, JSON.stringify(squareOrder, null, 2));
+        
+        const response = await makeSquareRequest('/orders', 'POST', squareOrder);
+        console.log(`📋 Square API Response:`, JSON.stringify(response, null, 2));
+        
+        if (response.order) {
+          console.log(`✅ Order #${order.id} synced to Square Kitchen Display: ${response.order.id}`);
+          console.log(`📱 Order should now appear in Square Dashboard - check for reference: bean_stalker_${order.id}`);
+          
+          syncedCount++;
+        } else {
+          errors.push(`Failed to sync order #${order.id} - no order returned`);
+        }
+        
+      } catch (orderError) {
+        const errorMessage = `Order #${order.id}: ${orderError instanceof Error ? orderError.message : 'Unknown error'}`;
+        console.error(`❌ ${errorMessage}`);
+        errors.push(errorMessage);
+      }
+    }
+    
+    console.log(`🍳 Kitchen Display sync completed: ${syncedCount} orders synced`);
+    
+    return {
+      success: true,
+      syncedCount,
+      errors
+    };
+    
+  } catch (error) {
+    console.error('❌ Kitchen Display sync failed:', error);
+    return {
+      success: false,
+      syncedCount: 0,
+      errors: [error instanceof Error ? error.message : 'Unknown error']
+    };
+  }
+}
+
+/**
  * Get Kitchen Display orders in Square format (simplified)
  */
 export async function getSquareKitchenOrders(): Promise<any[]> {
@@ -193,7 +308,7 @@ export async function getSquareKitchenOrders(): Promise<any[]> {
     const searchQuery = {
       filter: {
         locationFilter: {
-          locationIds: [process.env.SQUARE_LOCATION_ID!]
+          locationIds: [getSquareLocationId()]
         },
         fulfillmentFilter: {
           fulfillmentTypes: ['PICKUP'],

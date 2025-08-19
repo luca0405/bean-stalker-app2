@@ -3280,6 +3280,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Square Catalog Sync - sync Bean Stalker menu to Square
+  app.post('/api/square/catalog/sync', async (req, res) => {
+    try {
+      const { syncFullCatalogToSquare } = await import('./square-catalog-sync');
+      const result = await syncFullCatalogToSquare();
+      res.json(result);
+    } catch (error) {
+      console.error('❌ Catalog sync endpoint error:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   // Square Kitchen Display sync endpoint
   app.post("/api/square/kitchen/sync", async (req, res) => {
     try {
