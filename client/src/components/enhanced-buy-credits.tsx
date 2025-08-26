@@ -60,7 +60,7 @@ export function EnhancedBuyCredits() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-md sm:max-w-lg md:max-w-2xl mx-auto">
 
 
       {/* Account Balance Header */}

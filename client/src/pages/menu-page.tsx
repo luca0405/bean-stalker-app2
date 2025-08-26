@@ -92,7 +92,11 @@ export default function MenuPage() {
     >
       <AppHeader />
       
-      <main className="p-4 pb-32 max-w-6xl mx-auto">
+      <main className="p-4 pb-32 w-full mx-auto
+        sm:max-w-none sm:px-6 
+        md:max-w-7xl md:px-8
+        lg:max-w-none lg:px-10"
+      >
           {/* Enhanced Header Section */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 mb-6 shadow-sm border border-white/20">
             <div className="flex justify-between items-center">
@@ -151,9 +155,9 @@ export default function MenuPage() {
               </div>
             )}
             
-            {/* Grab-style 2-column grid for selected category */}
+            {/* Responsive grid for selected category */}
             {!categoryLoading && !categoryFetching && !categoryError && (
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-3 sm:gap-4">
                 {filteredItems.map((item) => (
                   <GrabMenuCard 
                     key={item.id} 

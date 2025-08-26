@@ -159,6 +159,29 @@
 
   .iphone-fullscreen {
     background-color: var(--background);
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* iPad-optimized layout */
+  @media (min-width: 768px) {
+    .iphone-fullscreen {
+      width: 100%;
+      max-width: none;
+    }
+    
+    .popup-content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding-left: max(env(safe-area-inset-left), 24px);
+      padding-right: max(env(safe-area-inset-right), 24px);
+    }
+    
+    /* Center content on larger screens while maintaining mobile feel */
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
   }
 
   /* Splash screen specific styles */

@@ -237,7 +237,11 @@ export default function HomePage() {
     >
       <AppHeader />
       
-      <main className="px-6 py-8 pb-32 max-w-7xl mx-auto w-full">
+      <main className="px-6 py-8 pb-32 w-full mx-auto
+        sm:max-w-none sm:px-8 
+        md:max-w-5xl md:px-10
+        lg:max-w-6xl lg:px-12"
+      >
         {/* Welcome Section */}
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-gray-900 mb-1">Hi, {user?.fullName || user?.username}</h1>
@@ -245,38 +249,39 @@ export default function HomePage() {
         </div>
       
         {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Available Balance Card */}
-          <Card className="lg:col-span-2 bg-green-800 border-0 shadow-lg rounded-xl">
-            <CardContent className="p-6">
-              <div className="flex justify-between items-center">
-                <div className="text-white">
-                  <div className="flex items-center gap-2 mb-3">
-                    <DollarSign className="h-4 w-4 text-white" />
-                    <span className="text-sm font-medium text-white opacity-90">Available Balance</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          
+          {/* Available Balance Card - Full Width */}
+          <div className="md:col-span-2 lg:col-span-3">
+            <Card className="bg-green-800 border-0 shadow-lg rounded-xl">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-center">
+                  <div className="text-white">
+                    <div className="flex items-center gap-2 mb-3">
+                      <DollarSign className="h-4 w-4 text-white" />
+                      <span className="text-sm font-medium text-white opacity-90">Available Balance</span>
+                    </div>
+                    <div className="text-4xl font-bold text-white">
+                      ${user?.credits.toFixed(2)}
+                    </div>
                   </div>
-                  <div className="text-4xl font-bold text-white">
-                    ${user?.credits.toFixed(2)}
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Button 
-                    className="bg-green-600 hover:bg-green-500 text-white border-0 px-6 py-2.5 rounded-lg transition-colors shadow-md w-full"
-                    onClick={() => setBuyCreditsOpen(true)}
-                  >
-                    <CreditCard className="h-5 w-5 mr-2" />
-                    <span className="text-sm">Add Credits</span>
-                  </Button>
                   
-
+                  <div className="space-y-2">
+                    <Button 
+                      className="bg-green-600 hover:bg-green-500 text-white border-0 px-6 py-2.5 rounded-lg transition-colors shadow-md w-full"
+                      onClick={() => setBuyCreditsOpen(true)}
+                    >
+                      <CreditCard className="h-5 w-5 mr-2" />
+                      <span className="text-sm">Add Credits</span>
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Order Coffee & Food Card */}
-          <Card className="lg:col-span-3 bg-green-800 border-0 shadow-lg rounded-xl hover:shadow-xl transition-all duration-300 cursor-pointer group mb-2 relative overflow-hidden" onClick={() => navigate("/menu")}>
+          <Card className="md:col-span-2 lg:col-span-3 bg-green-800 border-0 shadow-lg rounded-xl hover:shadow-xl transition-all duration-300 cursor-pointer group mb-2 relative overflow-hidden" onClick={() => navigate("/menu")}>
             <CardContent className="px-6 py-0 relative">
               <div className="flex items-center justify-between h-full py-6">
                 {/* Content */}
@@ -313,7 +318,7 @@ export default function HomePage() {
           </Card>
 
           {/* Featured Action - Order Favorites */}
-          <Card className="lg:col-span-3 bg-white border-2 border-orange-200 shadow-sm hover:shadow-md hover:border-orange-300 transition-all duration-300 cursor-pointer group mb-2">
+          <Card className="md:col-span-2 lg:col-span-3 bg-white border-2 border-orange-200 shadow-sm hover:shadow-md hover:border-orange-300 transition-all duration-300 cursor-pointer group mb-2">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="text-gray-900">
@@ -332,7 +337,7 @@ export default function HomePage() {
           </Card>
 
           {/* Other Action Boxes Grid */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 md:col-span-2 lg:col-span-3 gap-4">
             {/* Buy Coffee Credits */}
             <Card 
               className="bg-white border-2 border-orange-200 shadow-sm hover:shadow-md hover:border-orange-300 transition-all duration-300 cursor-pointer group"
@@ -371,7 +376,7 @@ export default function HomePage() {
 
 
         {/* Recent Activity Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {/* Recent Orders */}
           <Card className="bg-white border border-gray-200 shadow-sm">
             <CardContent className="p-6">
@@ -449,7 +454,7 @@ export default function HomePage() {
         <Portal>
           <div className="popup-container">
             <div className="popup-content">
-              <div className="max-w-md mx-auto space-y-6">
+              <div className="max-w-md sm:max-w-lg md:max-w-2xl mx-auto space-y-6">
                 {/* Header */}
                 <motion.div 
                   initial={{ opacity: 0, y: -20 }}
@@ -481,7 +486,7 @@ export default function HomePage() {
         <Portal>
           <div className="popup-container">
             <div className="popup-content">
-              <div className="max-w-md mx-auto space-y-6">
+              <div className="max-w-md sm:max-w-lg md:max-w-2xl mx-auto space-y-6">
                 {/* Header */}
                 <motion.div 
                   initial={{ opacity: 0, y: -20 }}

@@ -197,7 +197,7 @@ export function BuyCredits() {
 
   return (
     <div className="w-full max-h-[90vh] overflow-y-auto">
-      <Card className="w-full max-w-md mx-auto">
+      <Card className="w-full max-w-md sm:max-w-lg md:max-w-2xl mx-auto">
         <CardHeader className="pb-2 pt-3">
           <CardTitle className="text-lg">Buy Credits</CardTitle>
           <CardDescription className="text-xs">

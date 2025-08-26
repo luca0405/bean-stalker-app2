@@ -125,7 +125,7 @@ export default function CartPage() {
     return (
       <div className="popup-container">
         <div className="popup-content">
-          <div className="max-w-md mx-auto space-y-6">
+          <div className="max-w-md sm:max-w-lg md:max-w-2xl mx-auto space-y-6">
             {/* Header */}
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
@@ -168,7 +168,7 @@ export default function CartPage() {
   return (
     <div className="popup-container">
       <div className="popup-content">
-        <div className="max-w-md mx-auto space-y-6">
+        <div className="max-w-md sm:max-w-lg md:max-w-2xl mx-auto space-y-6">
           {/* Header */}
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
