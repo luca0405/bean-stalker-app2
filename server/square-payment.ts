@@ -28,17 +28,17 @@ export async function processPayment(paymentRequest: SquarePaymentRequest) {
         amount: Math.round(paymentRequest.amount * 100), // Convert to cents
         currency: paymentRequest.currency
       },
-      location_id: process.env.SQUARE_LOCATION_ID,
+      location_id: process.env.SQUARE_LOCATION_ID_PROD,
       ...(paymentRequest.customerName && {
         buyer_email_address: paymentRequest.customerEmail,
         note: `Bean Stalker Premium Membership - ${paymentRequest.customerName}`
       })
     };
 
-    const response = await fetch('https://connect.squareupsandbox.com/v2/payments', {
+    const response = await fetch('https://connect.squareup.com/v2/payments', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+        'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN_PROD}`,
         'Content-Type': 'application/json',
         'Square-Version': '2023-12-13'
       },
@@ -77,7 +77,7 @@ export async function createPaymentLink(amount: number) {
     const checkoutData = {
       idempotency_key: randomUUID(),
       order: {
-        location_id: process.env.SQUARE_LOCATION_ID,
+        location_id: process.env.SQUARE_LOCATION_ID_PROD,
         line_items: [{
           name: 'Bean Stalker Premium Membership',
           quantity: '1',
@@ -93,10 +93,10 @@ export async function createPaymentLink(amount: number) {
       redirect_url: process.env.SQUARE_REDIRECT_URL || 'https://member.beanstalker.com.au'
     };
 
-    const response = await fetch('https://connect.squareupsandbox.com/v2/online-checkout/payment-links', {
+    const response = await fetch('https://connect.squareup.com/v2/online-checkout/payment-links', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+        'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN_PROD}`,
         'Content-Type': 'application/json',
         'Square-Version': '2023-12-13'
       },

@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useCart } from "@/contexts/cart-context";
 import { useAuth } from "@/hooks/use-auth";
 import { Link, useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useNativeNotification } from "@/services/native-notification-service";
 
@@ -24,6 +24,7 @@ export default function CartPage() {
   const [location, setLocation] = useLocation();
   const { notify } = useNativeNotification();
   const [isProcessing, setIsProcessing] = useState(false);
+  const queryClient = useQueryClient();
 
   const serviceFee = 0;
 
@@ -34,6 +35,10 @@ export default function CartPage() {
     },
     onSuccess: (data) => {
       clearCart();
+      
+      // Invalidate user cache to refresh credit balance immediately
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      
       notify({
         title: "Order Placed Successfully!",
         description: `Your order #${data.id} has been submitted to the kitchen.`,

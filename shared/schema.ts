@@ -40,6 +40,8 @@ export const menuItems = pgTable("menu_items", {
   mediumPrice: doublePrecision("medium_price"),
   largePrice: doublePrecision("large_price"),
   hasOptions: boolean("has_options").default(false), // Flag to indicate if item has flavor options
+  squareId: text("square_id"), // Square catalog item ID
+  squareCategoryId: text("square_category_id"), // Square category ID
 });
 
 export const orders = pgTable("orders", {
@@ -150,7 +152,7 @@ export type CartItemOption = {
 };
 
 export type CartItem = {
-  menuItemId: number;
+  menuItemId: string; // Now uses Square ID (string) instead of database ID (number)
   name: string;
   price: number;
   quantity: number;
@@ -294,7 +296,8 @@ export type InsertStaff = z.infer<typeof insertStaffSchema>;
 export const favorites = pgTable("favorites", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  menuItemId: integer("menu_item_id").notNull().references(() => menuItems.id),
+  menuItemId: integer("menu_item_id").references(() => menuItems.id), // Nullable for Square items
+  squareId: text("square_id"), // Square item ID for Square catalog items
   selectedSize: text("selected_size"), // Store the selected size (small, medium, large)
   selectedOptions: jsonb("selected_options"), // Store selected options as JSON
   customName: text("custom_name"), // Optional custom name for the favorite configuration

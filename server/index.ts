@@ -74,6 +74,15 @@ app.use((req, res, next) => {
     log(`Database initialization warning: ${error}`);
     log("Continuing application startup - some features may be limited");
   }
+  
+  // Start Square order polling system as backup to webhooks
+  try {
+    const { squarePoller } = await import("./square-polling");
+    squarePoller.startPolling();
+    log("Square order polling system started");
+  } catch (error) {
+    log(`Warning: Could not start Square polling: ${error}`);
+  }
 
   const server = await registerRoutes(app);
 
@@ -99,11 +108,7 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = 5000;
   
-  // Debug: Log Square environment variables on startup to verify production config
-  console.log(`🔧 Square Config on Startup:`);
-  console.log(`   Location ID: ${process.env.SQUARE_LOCATION_ID || 'NOT_SET'}`);
-  console.log(`   App ID: ${process.env.SQUARE_APPLICATION_ID || 'NOT_SET'}`);
-  console.log(`   Access Token: ${process.env.SQUARE_ACCESS_TOKEN ? 'SET' : 'NOT_SET'}`);
+  // Square production configuration is loaded from square-config.ts
   
   server.listen({
     port,

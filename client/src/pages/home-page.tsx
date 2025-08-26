@@ -36,9 +36,10 @@ export default function HomePage() {
   
   const { data: orders = [] } = useQuery<Order[], Error>({
     queryKey: ["/api/orders"],
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true, // Enable refetch when user returns to tab
     refetchOnMount: true,
-    refetchInterval: false, // Completely disable automatic polling - let notifications handle updates
+    refetchInterval: 15000, // Check for updates every 15 seconds (matches backend polling)
+    refetchIntervalInBackground: false, // Only poll when app is active
   });
 
   // Fetch favorites for the popup
@@ -104,6 +105,8 @@ export default function HomePage() {
           (event.data.body && event.data.body.toLowerCase().includes('order'))
         ) {
           console.log("Order notification received, refreshing orders list");
+          // Force refresh orders when notification arrives
+          queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
         }
       }
     };

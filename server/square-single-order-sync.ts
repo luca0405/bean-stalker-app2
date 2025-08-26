@@ -43,14 +43,14 @@ export async function sendSingleOrderToSquare(orderId: number): Promise<{
       orderItems = [];
     }
 
-    // Create line items for Square order
+    // Create line items for Square order with zero price (credit-based orders)
     const lineItems = orderItems.map((item: any, index: number) => ({
       uid: `bs-item-${orderId}-${index}`,
-      name: `${item.name}${item.size ? ` (${item.size})` : ''}${item.flavor ? ` - ${item.flavor}` : ''}`,
+      name: `${item.name}${item.size ? ` (${item.size})` : ''}${item.flavor ? ` - ${item.flavor}` : ''} [PAID BY CREDITS: $${(item.price || 0).toFixed(2)}]`,
       quantity: item.quantity?.toString() || '1',
       item_type: 'ITEM',
       base_price_money: {
-        amount: Math.round((item.price || 0) * 100),
+        amount: 0, // Zero amount since paid by credits
         currency: 'AUD'
       }
     }));
@@ -73,8 +73,9 @@ export async function sendSingleOrderToSquare(orderId: number): Promise<{
           recipient: {
             display_name: customerName
           },
-          schedule_type: 'ASAP',
-          note: `Bean Stalker order #${orderId}`
+          schedule_type: 'SCHEDULED',
+          pickup_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 minutes from now
+          note: `Bean Stalker mobile order #${orderId} - Credit payment received`
         }
       }]
     };
@@ -103,36 +104,45 @@ export async function sendSingleOrderToSquare(orderId: number): Promise<{
     const orderResult = await orderResponse.json();
     const squareOrderId = orderResult.order?.id;
 
-    // Create payment for the order (representing credit payment)
-    console.log(`🔍 Debug: Creating payment for ${environment} location_id: ${locationId}`);
-    const paymentData = {
-      source_id: environment === 'production' ? 'CASH' : 'cnon:card-nonce-ok', // Use CASH for production credits
-      idempotency_key: `bs-pay-${orderId}-${Date.now()}`.substring(0, 45),
-      amount_money: {
-        amount: Math.round((order.total || 0) * 100),
-        currency: 'AUD'
-      },
-      order_id: squareOrderId,
-      location_id: locationId,
-      note: `Bean Stalker app credits payment for order #${orderId} by ${customerName}`
-    };
+    // Create zero-amount payment to make order fully paid and visible in POS dashboard
+    try {
+      const paymentData = {
+        source_id: 'CASH',
+        idempotency_key: `bs-zero-pay-${orderId}-${Date.now()}`.substring(0, 45),
+        amount_money: {
+          amount: 0,
+          currency: 'AUD'
+        },
+        order_id: squareOrderId,
+        location_id: locationId,
+        note: `Bean Stalker credit payment - zero amount (already paid by credits)`,
+        cash_details: {
+          buyer_supplied_money: {
+            amount: 0,
+            currency: 'AUD'
+          }
+        }
+      };
 
-    const paymentResponse = await fetch(`${baseUrl}/v2/payments`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'Square-Version': '2023-12-13'
-      },
-      body: JSON.stringify(paymentData)
-    });
+      const paymentResponse = await fetch(`${baseUrl}/v2/payments`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Square-Version': '2023-12-13'
+        },
+        body: JSON.stringify(paymentData)
+      });
 
-    if (paymentResponse.ok) {
-      const paymentResult = await paymentResponse.json();
-      console.log(`✅ Created Square order ${squareOrderId} with payment ${paymentResult.payment?.id} for Bean Stalker order #${orderId}`);
-    } else {
-      const paymentError = await paymentResponse.text();
-      console.log(`⚠️ Created Square order ${squareOrderId} for Bean Stalker order #${orderId} but payment failed: ${paymentError}`);
+      if (paymentResponse.ok) {
+        const paymentResult = await paymentResponse.json();
+        console.log(`✅ Created Square order ${squareOrderId} with zero-amount payment ${paymentResult.payment?.id} - now visible in POS dashboard`);
+      } else {
+        const paymentError = await paymentResponse.text();
+        console.log(`⚠️ Created Square order ${squareOrderId} but zero-amount payment failed: ${paymentError}`);
+      }
+    } catch (paymentError) {
+      console.log(`⚠️ Created Square order ${squareOrderId} but payment processing failed - Bean Stalker order #${orderId}`);
     }
 
     return {

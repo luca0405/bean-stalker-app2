@@ -184,50 +184,69 @@ export default function AdminCreditVerification() {
                           key={transfer.id}
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
-                          className="border border-slate-200 rounded-lg p-4 bg-slate-50"
+                          className="border border-slate-200 rounded-lg p-5 bg-white shadow-sm"
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300">
-                                  PENDING
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4 text-slate-500" />
-                                  <span className="font-medium">
-                                    {transfer.senderFullName || transfer.senderName || `User #${transfer.senderId}`}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Phone className="h-4 w-4 text-slate-500" />
-                                  <span className="text-slate-600">📱 {transfer.recipientPhone}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <DollarSign className="h-4 w-4 text-green-600" />
-                                  <span className="font-semibold text-green-700">${transfer.amount}</span>
-                                </div>
-                              </div>
-                              <div className="text-sm text-slate-500">
-                                Created {formatDistanceToNow(new Date(transfer.createdAt), { addSuffix: true })}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-3">
+                          <div className="space-y-4">
+                            {/* Header with status and verification code */}
+                            <div className="flex items-center justify-between">
+                              <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 px-3 py-1">
+                                PENDING
+                              </Badge>
                               <div className="text-center">
-                                <div className="text-lg font-mono font-bold text-slate-800 bg-white px-3 py-1 rounded border">
+                                <div className="text-2xl font-mono font-bold text-slate-800 bg-slate-100 px-4 py-2 rounded-lg border-2 border-slate-300">
                                   {transfer.verificationCode}
                                 </div>
-                                <div className="text-xs text-slate-500 mt-1">Code</div>
+                                <div className="text-xs text-slate-500 mt-1 font-medium">Code</div>
+                              </div>
+                            </div>
+                            
+                            {/* Customer Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="flex items-center gap-3">
+                                <div className="bg-blue-100 p-2 rounded-full">
+                                  <User className="h-4 w-4 text-blue-600" />
+                                </div>
+                                <div>
+                                  <div className="text-sm text-slate-500">Customer</div>
+                                  <div className="font-medium text-slate-800">
+                                    {transfer.senderFullName || transfer.senderName || `User #${transfer.senderId}`}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3">
+                                <div className="bg-purple-100 p-2 rounded-full">
+                                  <Phone className="h-4 w-4 text-purple-600" />
+                                </div>
+                                <div>
+                                  <div className="text-sm text-slate-500">Phone</div>
+                                  <div className="font-medium text-slate-800">{transfer.recipientPhone}</div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3">
+                                <div className="bg-green-100 p-2 rounded-full">
+                                  <DollarSign className="h-4 w-4 text-green-600" />
+                                </div>
+                                <div>
+                                  <div className="text-sm text-slate-500">Amount</div>
+                                  <div className="font-bold text-green-700 text-lg">${transfer.amount}</div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Footer with time and action */}
+                            <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                              <div className="text-sm text-slate-500">
+                                Created {formatDistanceToNow(new Date(transfer.createdAt), { addSuffix: true })}
                               </div>
                               <Button
                                 onClick={() => handleQuickVerify(transfer.verificationCode)}
                                 disabled={verifyCodeMutation.isPending}
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700"
+                                className="bg-green-600 hover:bg-green-700 px-6"
                               >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                {verifyCodeMutation.isPending ? "Verifying..." : "Verify"}
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                {verifyCodeMutation.isPending ? "Verifying..." : "Verify Credit"}
                               </Button>
                             </div>
                           </div>

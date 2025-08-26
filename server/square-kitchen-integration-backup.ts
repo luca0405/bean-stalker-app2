@@ -6,7 +6,7 @@
 import { storage } from './storage';
 
 // Use direct HTTP requests instead of SDK to avoid module compatibility issues
-const SQUARE_API_BASE = 'https://connect.squareupsandbox.com/v2';
+const SQUARE_API_BASE = 'https://connect.squareup.com/v2';
 const SQUARE_VERSION = '2023-12-13';
 
 async function makeSquareRequest(endpoint: string, method: string = 'GET', body?: any) {

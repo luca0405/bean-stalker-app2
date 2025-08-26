@@ -1,6 +1,6 @@
 /**
  * Real Square Orders API Integration
- * Actually sends Bean Stalker orders to Square sandbox account
+ * Sends Bean Stalker orders to Square production account
  */
 
 import { storage } from './storage';
@@ -35,7 +35,7 @@ export async function sendOrdersToSquare(): Promise<{
           source: {
             name: "Bean Stalker Coffee Shop"
           },
-          location_id: process.env.SQUARE_LOCATION_ID!,
+          location_id: process.env.SQUARE_LOCATION_ID_PROD!,
           line_items: (order.items as any[])?.map((item, index) => ({
             uid: `item-${order.id}-${index}`,
             name: item.name || 'Coffee Item',
@@ -61,10 +61,10 @@ export async function sendOrdersToSquare(): Promise<{
         };
         
         // Create order in Square
-        const orderResponse = await fetch('https://connect.squareupsandbox.com/v2/orders', {
+        const orderResponse = await fetch('https://connect.squareup.com/v2/orders', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+            'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN_PROD}`,
             'Content-Type': 'application/json',
             'Square-Version': '2023-12-13'
           },
@@ -86,14 +86,14 @@ export async function sendOrdersToSquare(): Promise<{
               currency: 'AUD'
             },
             order_id: squareOrderId,
-            location_id: process.env.SQUARE_LOCATION_ID,
+            location_id: process.env.SQUARE_LOCATION_ID_PROD,
             note: `PAID WITH BEAN STALKER APP CREDITS - Customer: ${customerName || 'Customer'} - Original payment method: Store Credit Balance`
           };
 
-          const paymentResponse = await fetch('https://connect.squareupsandbox.com/v2/payments', {
+          const paymentResponse = await fetch('https://connect.squareup.com/v2/payments', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+              'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN_PROD}`,
               'Content-Type': 'application/json',
               'Square-Version': '2023-12-13'
             },
@@ -123,7 +123,7 @@ export async function sendOrdersToSquare(): Promise<{
       }
     }
     
-    console.log(`🎉 Successfully created ${created}/${orders.length} orders in Square sandbox`);
+    console.log(`🎉 Successfully created ${created}/${orders.length} orders in Square production`);
     
     return {
       success: true,
@@ -142,19 +142,19 @@ export async function sendOrdersToSquare(): Promise<{
 }
 
 /**
- * Get orders from Square sandbox to verify they were created
+ * Get orders from Square production to verify they were created
  */
 export async function getSquareOrders(): Promise<any[]> {
   try {
-    const response = await fetch(`https://connect.squareupsandbox.com/v2/orders/search`, {
+    const response = await fetch(`https://connect.squareup.com/v2/orders/search`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
+        'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN_PROD}`,
         'Content-Type': 'application/json',
         'Square-Version': '2023-12-13'
       },
       body: JSON.stringify({
-        location_ids: [process.env.SQUARE_LOCATION_ID],
+        location_ids: [process.env.SQUARE_LOCATION_ID_PROD],
         query: {
           filter: {
             date_time_filter: {

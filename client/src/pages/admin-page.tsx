@@ -471,7 +471,7 @@ export default function AdminPage() {
       });
       navigate("/");
     }
-  }, [user, navigate, toast]);
+  }, [user, navigate, notify]);
 
   // Define type for orders with user details
   type OrderWithUserDetails = Order & { 

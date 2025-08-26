@@ -36,6 +36,8 @@ export default function OrdersPage() {
     queryKey: ["/api/orders"],
     refetchOnWindowFocus: true,
     refetchOnMount: true,
+    refetchInterval: 15000, // Auto-refresh every 15 seconds for real-time updates
+    refetchIntervalInBackground: false, // Only when app is active
   });
 
   const sortedOrders = [...orders].sort(

@@ -70,6 +70,10 @@ export function PushNotificationProvider({ children }: { children: ReactNode }) 
         if (targetUserId && String(targetUserId) === String(user.id)) {
           console.log('User ID match confirmed, sending notification data back for display');
           
+          // Force refresh orders when notification arrives for this user
+          queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+          console.log('Orders refreshed due to push notification');
+          
           // Send the verified notification back to service worker for display
           navigator.serviceWorker.controller?.postMessage({
             type: 'USER_ID_FOR_TEST_NOTIFICATION',

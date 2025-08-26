@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { AppHeader } from "@/components/app-header";
 import { CategoryFilter } from "@/components/category-filter";
 import { GrabMenuCard } from "@/components/grab-menu-card";
@@ -9,13 +9,40 @@ import { formatCategoryName } from "@/lib/utils";
 import { useNativeNotification } from "@/services/native-notification-service";
 import { Button } from "@/components/ui/button";
 import { MenuItem } from "@shared/schema";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export default function MenuPage() {
   const { menuItems, categories, isLoading, isRefreshing, refreshMenu } = useMenu();
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("coffee");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { notify } = useNativeNotification();
+  const queryClient = useQueryClient();
+
+  // Clear all category queries when switching to prevent contamination
+  useEffect(() => {
+    // Remove all cached category data when switching
+    queryClient.removeQueries({ 
+      queryKey: ["/api/menu/"], 
+      exact: false 
+    });
+  }, [selectedCategory, queryClient]);
+
+  // Fetch category-specific items using the proper Square API
+  const {
+    data: categorySpecificItems = [],
+    isLoading: categoryLoading,
+    error: categoryError,
+    isFetching: categoryFetching
+  } = useQuery<MenuItem[], Error>({
+    queryKey: [`/api/menu/${selectedCategory}`, selectedCategory], // Add selectedCategory as second key for better isolation
+    staleTime: 0, // No caching to prevent cross-contamination
+    gcTime: 0, // Don't keep in cache
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    retry: 3, // Retry failed requests up to 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+  });
 
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
@@ -30,41 +57,17 @@ export default function MenuPage() {
 
   
   const filteredItems = useMemo(() => {
-    if (selectedCategory === "all") {
-      return menuItems;
-    } else {
-      return menuItems.filter((item) => item.category === selectedCategory);
+    // Only return category-specific items if we're not currently fetching and have data for the current category
+    // This prevents showing stale data from previous categories
+    if (categoryFetching || categoryLoading) {
+      return []; // Show empty while loading to prevent stale data
     }
-  }, [menuItems, selectedCategory]);
+    
+    // Items are properly filtered by Square category
+    return categorySpecificItems;
+  }, [categorySpecificItems, categoryFetching, categoryLoading]);
   
-  // Group menu items by category in the correct order
-  const groupedItems = useMemo(() => {
-    if (selectedCategory !== "all") {
-      // If a specific category is selected, only show that category
-      return new Map([[selectedCategory, filteredItems]]);
-    }
-    
-    // When "all" is selected, group items by their categories and order by category display order
-    const grouped = new Map<string, typeof menuItems>();
-    
-    // Group all items by category first
-    menuItems.forEach((item) => {
-      if (!grouped.has(item.category)) {
-        grouped.set(item.category, []);
-      }
-      grouped.get(item.category)?.push(item);
-    });
-    
-    // Create a new map with categories in the correct order
-    const orderedGrouped = new Map<string, typeof menuItems>();
-    categories.forEach((category) => {
-      if (grouped.has(category)) {
-        orderedGrouped.set(category, grouped.get(category)!);
-      }
-    });
-    
-    return orderedGrouped;
-  }, [filteredItems, menuItems, selectedCategory, categories]);
+
 
   // Handle refresh
   const handleRefresh = useCallback(async () => {
@@ -114,62 +117,53 @@ export default function MenuPage() {
             </div>
           </div>
           
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+          <CategoryFilter
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+          />
+          
+          <div>
+            <div className="bg-white border-2 border-orange-200 rounded-xl p-4 mb-4 shadow-sm">
+              <h2 className="font-bold text-xl text-gray-900">
+                {formatCategoryName(selectedCategory)}
+              </h2>
+              <p className="text-gray-600 text-sm">{filteredItems.length} items available</p>
             </div>
-          ) : (
-            <>
-              <CategoryFilter
-                categories={categories}
-                selectedCategory={selectedCategory}
-                onSelectCategory={setSelectedCategory}
-              />
-              
-              {selectedCategory === "all" ? (
-                // When "all" is selected, show sections for each category
-                Array.from(groupedItems.entries()).map(([category, items]) => (
-                  <div key={category} className="mb-8">
-                    <div className="bg-white border-2 border-orange-200 rounded-xl p-4 mb-4 shadow-sm">
-                      <h2 className="font-bold text-xl text-gray-900">
-                        {formatCategoryName(category)}
-                      </h2>
-                      <p className="text-gray-600 text-sm">{items.length} items available</p>
-                    </div>
-                    {/* Grab-style 2-column grid */}
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                      {items.map((item) => (
-                        <GrabMenuCard 
-                          key={item.id} 
-                          item={item} 
-                          onClick={() => handleItemClick(item)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div>
-                  <div className="bg-white border-2 border-orange-200 rounded-xl p-4 mb-4 shadow-sm">
-                    <h2 className="font-bold text-xl text-gray-900">
-                      {formatCategoryName(selectedCategory)}
-                    </h2>
-                    <p className="text-gray-600 text-sm">{filteredItems.length} items available</p>
-                  </div>
-                  {/* Grab-style 2-column grid for selected category */}
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    {filteredItems.map((item) => (
-                      <GrabMenuCard 
-                        key={item.id} 
-                        item={item} 
-                        onClick={() => handleItemClick(item)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+            {/* Show loading state for category-specific data */}
+            {(categoryLoading || categoryFetching) && (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-green-800" />
+              </div>
+            )}
+            
+            {/* Show error state with retry option */}
+            {categoryError && !categoryLoading && !categoryFetching && (
+              <div className="flex flex-col items-center justify-center py-12">
+                <p className="text-red-600 mb-4">Failed to load menu items</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => queryClient.invalidateQueries({ queryKey: [`/api/menu/${selectedCategory}`] })}
+                  className="border-red-200 text-red-700 hover:bg-red-50"
+                >
+                  Try Again
+                </Button>
+              </div>
+            )}
+            
+            {/* Grab-style 2-column grid for selected category */}
+            {!categoryLoading && !categoryFetching && !categoryError && (
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                {filteredItems.map((item) => (
+                  <GrabMenuCard 
+                    key={item.id} 
+                    item={item} 
+                    onClick={() => handleItemClick(item)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </main>
 
       {/* Product Detail Modal */}

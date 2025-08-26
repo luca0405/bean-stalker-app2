@@ -4,16 +4,20 @@
  */
 
 import { storage } from './storage';
+import { squareConfig, getSquareEnvironment } from './square-config';
 
-// Hardcoded Beanstalker Sandbox credentials (bypasses environment caching issues)
+// Use dynamic Square configuration that respects production credentials
 const SQUARE_CONFIG = {
-  locationId: 'LRQ926HVH9WFD',
-  applicationId: 'sandbox-sq0idb-0f_-wyGBcz7NmblQtFkv9A',
-  accessToken: process.env.SQUARE_ACCESS_TOKEN,
-  webhookSignatureKey: process.env.SQUARE_WEBHOOK_SIGNATURE_KEY
+  locationId: squareConfig.locationId,
+  applicationId: squareConfig.applicationId,
+  accessToken: squareConfig.accessToken,
+  webhookSignatureKey: squareConfig.webhookSignatureKey
 };
 
-const SQUARE_API_BASE = 'https://connect.squareupsandbox.com/v2';
+// Dynamic API base URL based on environment
+const SQUARE_API_BASE = getSquareEnvironment() === 'production' 
+  ? 'https://connect.squareup.com/v2' 
+  : 'https://connect.squareupsandbox.com/v2';
 
 interface SquareOrderResult {
   success: boolean;
@@ -51,14 +55,14 @@ export async function createSquareOrder(orderId: number): Promise<SquareOrderRes
       return { success: false, error: `No items found in order #${orderId}` };
     }
 
-    // Create Square line items
+    // Create Square line items with zero price (credit-based orders)
     const lineItems = orderItems.map((item: any, index: number) => ({
       uid: `bs-item-${orderId}-${index}`,
-      name: `${item.name}${item.size ? ` (${item.size})` : ''}${item.flavor ? ` - ${item.flavor}` : ''}`,
+      name: `${item.name}${item.size ? ` (${item.size})` : ''}${item.flavor ? ` - ${item.flavor}` : ''} [PAID BY CREDITS: $${(item.price || 0).toFixed(2)}]`,
       quantity: String(item.quantity || 1),
       item_type: 'ITEM',
       base_price_money: {
-        amount: Math.round((item.price || 0) * 100),
+        amount: 0, // Zero amount since paid by credits
         currency: 'AUD'
       }
     }));
@@ -106,10 +110,8 @@ export async function createSquareOrder(orderId: number): Promise<SquareOrderRes
       return { success: false, error: 'No Square order ID returned' };
     }
 
-    // Create payment to make order visible in dashboard
-    await createSquarePayment(squareOrderId, orderId, order.total || 0, user.username || 'Customer');
-
-    console.log(`✅ Square order created: ${squareOrderId} for Bean Stalker order #${orderId}`);
+    // For Bean Stalker: Zero-amount orders appear immediately in Square POS
+    console.log(`✅ Square order created: ${squareOrderId} for Bean Stalker order #${orderId} (zero-amount, credit-based)`);
     return { success: true, squareOrderId };
 
   } catch (error) {
@@ -123,8 +125,9 @@ export async function createSquareOrder(orderId: number): Promise<SquareOrderRes
  */
 async function createSquarePayment(squareOrderId: string, beanOrderId: number, amount: number, customerName: string) {
   try {
+    // Use CASH payment for Bean Stalker credit-based orders (already paid by credits)  
     const paymentData = {
-      source_id: 'cnon:card-nonce-ok', // Sandbox test nonce
+      source_id: 'CASH',
       idempotency_key: `bs-pay-${beanOrderId}-${Date.now()}`.substring(0, 45),
       amount_money: {
         amount: Math.round(amount * 100),
@@ -132,7 +135,13 @@ async function createSquarePayment(squareOrderId: string, beanOrderId: number, a
       },
       order_id: squareOrderId,
       location_id: SQUARE_CONFIG.locationId,
-      note: `Bean Stalker app credits - Order #${beanOrderId} by ${customerName}`
+      note: `Bean Stalker app credits - Order #${beanOrderId} by ${customerName}`,
+      cash_details: {
+        buyer_supplied_money: {
+          amount: Math.round(amount * 100),
+          currency: 'AUD'
+        }
+      }
     };
 
     const paymentResponse = await fetch(`${SQUARE_API_BASE}/payments`, {
@@ -153,9 +162,12 @@ async function createSquarePayment(squareOrderId: string, beanOrderId: number, a
       console.log(`⚠️ Payment failed for Square order ${squareOrderId}: ${errorText}`);
     }
   } catch (error) {
-    console.error(`Payment creation failed for Square order ${squareOrderId}:`, error);
+    console.error('Error creating zero-amount payment:', error);
   }
 }
+
+// Payment creation removed for credit-based orders
+// Zero-amount orders appear directly in Square POS without payment processing
 
 /**
  * Handle Square webhook for bidirectional sync
@@ -166,8 +178,8 @@ export async function handleSquareWebhook(webhookData: any): Promise<{ success: 
     
     const eventType = webhookData.event_type || webhookData.type || 'unknown';
     
-    // Only process order events
-    if (!eventType.includes('order')) {
+    // Process order and fulfillment events
+    if (!eventType.includes('order') && !eventType.includes('fulfillment')) {
       return { success: true, ordersUpdated: 0 };
     }
 
@@ -176,10 +188,83 @@ export async function handleSquareWebhook(webhookData: any): Promise<{ success: 
       return { success: true, ordersUpdated: 0 };
     }
 
+    // Handle fulfillment update events
+    if (eventType.includes('fulfillment')) {
+      console.log('🔄 Processing fulfillment update webhook');
+      console.log('📨 Webhook data structure:', JSON.stringify(webhookData, null, 2));
+      
+      // Extract fulfillment data from the correct webhook structure
+      const orderFulfillmentUpdated = squareOrder?.order_fulfillment_updated;
+      const fulfillmentUpdates = orderFulfillmentUpdated?.fulfillment_update;
+      
+      console.log('📋 Fulfillment updates:', fulfillmentUpdates);
+      
+      if (fulfillmentUpdates && Array.isArray(fulfillmentUpdates)) {
+        // Process each fulfillment update
+        let updatedOrders = 0;
+        
+        for (const update of fulfillmentUpdates) {
+          const fulfillmentState = update.new_state;
+          const fulfillmentId = update.fulfillment_uid;
+          
+          console.log('📋 Fulfillment state:', fulfillmentState);
+          console.log('🔗 Fulfillment ID:', fulfillmentId);
+          
+          if (fulfillmentId && fulfillmentId.includes('bs-fulfillment-')) {
+            // Map fulfillment state to Bean Stalker status
+            let newStatus = 'processing';
+            if (fulfillmentState === 'PREPARED' || fulfillmentState === 'READY') {
+              newStatus = 'ready';
+            } else if (fulfillmentState === 'COMPLETED') {
+              newStatus = 'completed';
+            } else if (fulfillmentState === 'CANCELED') {
+              newStatus = 'cancelled';
+            }
+            
+            const match = fulfillmentId.match(/bs-fulfillment-(\d+)/);
+            if (match) {
+              const beanOrderId = parseInt(match[1], 10);
+              console.log('🔗 Extracted Bean Stalker order ID from fulfillment:', beanOrderId);
+              
+              // Get and update the order
+              const beanOrder = await storage.getOrderById(beanOrderId);
+              if (beanOrder) {
+                if (beanOrder.status !== newStatus) {
+                  await storage.updateOrderStatus(beanOrderId, newStatus);
+                  
+                  // Send notification to customer
+                  const { sendOrderStatusNotification } = await import('./push-notifications');
+                  await sendOrderStatusNotification(beanOrder.userId, beanOrderId, newStatus);
+                  
+                  console.log(`📱 Order #${beanOrderId} status updated via fulfillment: ${beanOrder.status} → ${newStatus}`);
+                  updatedOrders++;
+                } else {
+                  console.log(`📋 Order #${beanOrderId} status unchanged: ${beanOrder.status}`);
+                }
+              } else {
+                console.log(`❌ Bean Stalker order #${beanOrderId} not found`);
+              }
+            }
+          }
+        }
+        
+        return { success: true, ordersUpdated: updatedOrders };
+      }
+    }
+
     // Extract Bean Stalker order ID
     const beanOrderId = extractBeanStalkerOrderId(squareOrder);
+    console.log('🔍 Order ID extraction result:', beanOrderId);
     if (!beanOrderId) {
-      console.log('No Bean Stalker order ID found in Square webhook data');
+      console.log('❌ No Bean Stalker order ID found in Square webhook data');
+      console.log('🔍 Square order structure:', JSON.stringify({
+        reference_id: squareOrder.reference_id,
+        fulfillments: squareOrder.fulfillments?.map((f: any) => ({
+          pickup_details: f.pickup_details,
+          pickupDetails: f.pickupDetails
+        })),
+        line_items: squareOrder.line_items?.map((li: any) => ({ note: li.note }))
+      }, null, 2));
       return { success: true, ordersUpdated: 0 };
     }
 

@@ -73,11 +73,11 @@ export function FavoriteItemCard({ item }: FavoriteItemCardProps) {
   };
 
   const handleAddToCart = () => {
-    const storedSize = item.selectedSize || (item.hasSizes ? "small" : undefined);
+    const storedSize = (item.selectedSize as 'small' | 'medium' | 'large' | undefined) || (item.hasSizes ? "small" : undefined);
     const storedOptions = item.selectedOptions || [];
     
     addToCart({
-      menuItemId: item.id,
+      menuItemId: item.squareId || item.id?.toString() || '',
       name: item.name,
       price: getCalculatedPrice(),
       quantity: 1,

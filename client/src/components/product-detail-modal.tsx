@@ -34,35 +34,67 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
 
-  // Fetch options if the item has options
+  // Debug logging
+  useEffect(() => {
+    if (isOpen && item) {
+      console.log('ProductDetailModal item data:', {
+        name: item.name,
+        imageUrl: item.imageUrl,
+        squareId: item.squareId,
+        id: item.id,
+        price: item.price,
+        hasOptions: item.hasOptions,
+        hasSizes: item.hasSizes
+      });
+    }
+  }, [isOpen, item]);
+
+  // Fetch options if the item has options - with better error handling
   const { data: flavorOptions } = useQuery<OptionWithChildren[]>({
-    queryKey: ['/api/menu', item?.id, 'options'],
+    queryKey: ['/api/menu', item?.id || item?.squareId, 'options'],
     queryFn: async () => {
       if (!item?.hasOptions) return [];
       try {
-        const res = await apiRequest('GET', `/api/menu/${item.id}/options`);
+        // Use Square ID if database ID is null (Square items)
+        const itemId = item.squareId || item.id;
+        const res = await apiRequest('GET', `/api/menu/${itemId}/options`);
+        if (!res.ok) {
+          console.log(`Options API returned ${res.status}, using empty options`);
+          return [];
+        }
         return await res.json();
       } catch (error) {
-        console.error("Error fetching options:", error);
+        console.log("Options API error (using empty options):", error);
         return [];
       }
     },
-    enabled: !!item?.hasOptions
+    enabled: !!item?.hasOptions,
+    retry: false,
+    staleTime: 5 * 60 * 1000
   });
 
-  // Fetch favorite status
+  // Fetch favorite status - with robust error handling
   const { data: favoriteStatus } = useQuery({
-    queryKey: ['/api/favorites', item?.id],
+    queryKey: ['/api/favorites', item?.id || item?.squareId],
     queryFn: async () => {
       if (!user || !item) return { isFavorite: false };
       try {
-        const res = await apiRequest('GET', `/api/favorites/${item.id}`);
+        // Use Square ID if database ID is null (Square items)
+        const itemId = item.squareId || item.id;
+        const res = await apiRequest('GET', `/api/favorites/${itemId}`);
+        if (!res.ok) {
+          console.log(`Favorites API returned ${res.status}, treating as not favorite`);
+          return { isFavorite: false };
+        }
         return await res.json();
       } catch (error) {
-        return { isFavorite: false };
+        console.log('Favorites API error (treating as not favorite):', error);
+        return { isFavorite: false }; // Always return fallback data
       }
     },
-    enabled: !!user && !!item
+    enabled: !!user && !!item,
+    retry: false, // Don't retry failed requests
+    staleTime: 5 * 60 * 1000 // Cache for 5 minutes
   });
 
   // Reset state when modal opens/closes or item changes
@@ -91,7 +123,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
       if (!item) return;
       const selectedOptionsList = getSelectedOptionsWithPrices();
       const favoriteData = {
-        menuItemId: item.id,
+        menuItemId: item.squareId || item.id, // Use Square ID for Square items
         selectedSize: item.hasSizes ? selectedSize : null,
         selectedOptions: selectedOptionsList.length > 0 ? selectedOptionsList : null
       };
@@ -100,7 +132,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item?.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item?.squareId || item?.id] });
       notify({
         title: "Added to favorites",
         description: `${item?.name} has been added to your favorites.`,
@@ -111,12 +143,13 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   const removeFavoriteMutation = useMutation({
     mutationFn: async () => {
       if (!item) return;
-      const res = await apiRequest('DELETE', `/api/favorites/${item.id}`);
+      const itemId = item.squareId || item.id; // Use Square ID for Square items
+      const res = await apiRequest('DELETE', `/api/favorites/${itemId}`);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/favorites'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item?.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/favorites', item?.squareId || item?.id] });
       notify({
         title: "Removed from favorites",
         description: `${item?.name} has been removed from your favorites.`,
@@ -212,7 +245,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     
     for (let i = 0; i < quantity; i++) {
       addToCart({
-        menuItemId: item.id,
+        menuItemId: item.squareId || item.id?.toString() || '',
         name: item.name,
         price: getPrice(),
         quantity: 1,
@@ -238,39 +271,50 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     onClose();
   };
 
-  if (!item) return null;
+  if (!item) {
+    console.log('ProductDetailModal: No item provided, returning null');
+    return null;
+  }
+
+  console.log('ProductDetailModal: Rendering modal with item:', {
+    name: item.name,
+    description: item.description,
+    price: item.price,
+    id: item.id,
+    category: item.category
+  });
 
   return (
     <AnimatePresence>
       {isOpen && (
         <Portal>
           <div className="popup-container">
-          <div className="popup-content">
-            <div className="max-w-md mx-auto space-y-6">
-              {/* Header */}
-              <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="popup-header flex items-center space-x-4"
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClose}
-                  className="p-2 h-auto"
+            <div className="popup-content">
+              <div className="max-w-md mx-auto space-y-6">
+                {/* Header */}
+                <motion.div 
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="popup-header flex items-center space-x-4"
                 >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <h1 className="text-2xl font-bold text-slate-800">Product Details</h1>
-              </motion.div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClose}
+                    className="p-2 h-auto"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                  <h1 className="text-2xl font-bold text-slate-800">Product Details</h1>
+                </motion.div>
 
-              <div className="scroll-container momentum-scroll">
+                <div className="scroll-container momentum-scroll">
 
-            {/* Content */}
-            <div className="p-6 space-y-6 pb-24">
+                  {/* Content */}
+                  <div className="p-6 space-y-6 pb-24">
               {/* Product Image and Info */}
-              <div className="relative z-0">
-                <div className="aspect-video w-full bg-gray-100 rounded-2xl overflow-hidden mb-4">
+              <div className="relative z-0 mb-6">
+                <div className="aspect-video w-full bg-gray-100 rounded-2xl overflow-hidden mb-6">
                   <img 
                     src={getMobileCompatibleImageUrl(item.imageUrl, item.category)} 
                     alt={item.name}
@@ -323,19 +367,23 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                   </button>
                 )}
 
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">{item.name}</h3>
-                  <p className="text-gray-600 text-sm mb-4">{item.description}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl font-bold text-green-600">
-                      ${getPrice().toFixed(2)}
+              </div>
+
+              {/* Product Title and Details - Fixed positioning */}
+              <div className="relative z-10 bg-white p-6 rounded-lg shadow-lg border-2 border-green-100 mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">{item.name || "Product Name"}</h2>
+                <p className="text-gray-600 text-base mb-4 leading-relaxed">
+                  {item.description || "No description available"}
+                </p>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <span className="text-3xl font-bold text-green-600">
+                    ${getPrice().toFixed(2)}
+                  </span>
+                  {(item.hasSizes || item.hasOptions) && (
+                    <span className="text-sm text-gray-500 bg-green-50 px-3 py-1 rounded-full border border-green-200">
+                      Customizable
                     </span>
-                    {(item.hasSizes || item.hasOptions) && (
-                      <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                        Customizable
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -479,11 +527,10 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                 </CardContent>
               </Card>
 
-            </div>
+                  </div> {/* Close scroll-container content */}
 
-            {/* Sticky Footer with Actions */}
-            {/* Sticky Footer with Actions */}
-            <div className="space-y-3 pt-6">
+                  {/* Sticky Footer with Actions */}
+                  <div className="space-y-3 pt-6">
               {/* Add to Favorites Button */}
               {user && (
                 <Button 
@@ -508,11 +555,11 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
               >
                 Add to Cart • ${(getPrice() * quantity).toFixed(2)}
               </Button>
-            </div>
-              </div>
-            </div>
-          </div>
-        </div>
+                  </div>
+                </div> {/* Close scroll-container */}
+              </div> {/* Close max-w-md */}
+            </div> {/* Close popup-content */}
+          </div> {/* Close popup-container */}
         </Portal>
       )}
     </AnimatePresence>

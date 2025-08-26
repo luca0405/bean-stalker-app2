@@ -43,7 +43,6 @@ const PostgresSessionStore = connectPg(session);
 export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
-  getUserById(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByQrCode(qrCode: string): Promise<User | undefined>;
@@ -86,8 +85,9 @@ export interface IStorage {
   
   // Order operations
   createOrder(order: InsertOrder): Promise<Order>;
-  getOrdersByUserId(userId: number): Promise<Order[]>;
   getOrderById(orderId: number): Promise<Order | undefined>;
+  getOrdersByUserId(userId: number): Promise<Order[]>;
+  getActiveOrders(): Promise<Order[]>;
   getAllOrders(): Promise<Order[]>;
   getAllOrdersWithUserDetails(): Promise<(Order & { userName: string, userFullName: string | null })[]>;
   getRecentOrders(limit?: number): Promise<(Order & { username: string })[]>;
@@ -103,6 +103,7 @@ export interface IStorage {
   createPendingCreditTransfer(transfer: InsertPendingCreditTransfer): Promise<PendingCreditTransfer>;
   getPendingCreditTransferByCode(verificationCode: string): Promise<PendingCreditTransfer | undefined>;
   verifyPendingCreditTransfer(transferId: number, verifiedByUserId: number): Promise<PendingCreditTransfer>;
+  updatePendingCreditTransferStatus(transferId: number, status: string, verifiedByUserId?: number): Promise<PendingCreditTransfer>;
   getPendingCreditTransfersBySender(senderId: number): Promise<PendingCreditTransfer[]>;
   getAllPendingCreditTransfers(): Promise<PendingCreditTransfer[]>;
   getAllCreditTransfers(): Promise<PendingCreditTransfer[]>;
@@ -116,9 +117,11 @@ export interface IStorage {
   // Favorites operations
   addFavorite(favorite: InsertFavorite): Promise<Favorite>;
   removeFavorite(userId: number, menuItemId: number): Promise<void>;
+  removeFavoriteBySquareId(userId: number, squareId: string): Promise<void>;
   getUserFavorites(userId: number): Promise<Favorite[]>;
   getUserFavoritesWithDetails(userId: number): Promise<MenuItem[]>;
   isFavorite(userId: number, menuItemId: number): Promise<boolean>;
+  isFavoriteBySquareId(userId: number, squareId: string): Promise<boolean>;
   getFavoriteWithOptions(userId: number, menuItemId: number): Promise<Favorite | undefined>;
   
   // Session store
@@ -181,9 +184,7 @@ export class MemStorage implements IStorage {
     return this.users.get(id);
   }
 
-  async getUserById(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
+
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
@@ -498,6 +499,12 @@ export class MemStorage implements IStorage {
       order => order.userId === userId
     );
   }
+
+  async getActiveOrders(): Promise<Order[]> {
+    return Array.from(this.orders.values()).filter(
+      order => order.status !== 'completed' && order.status !== 'cancelled'
+    );
+  }
   
   // Menu Item Options methods
   async getMenuItemOptions(menuItemId: number): Promise<MenuItemOption[]> {
@@ -632,6 +639,23 @@ export class MemStorage implements IStorage {
       status: "verified",
       verifiedAt: new Date(),
       verifiedByUserId
+    };
+    
+    this.pendingCreditTransfers.set(transferId, updatedTransfer);
+    return updatedTransfer;
+  }
+
+  async updatePendingCreditTransferStatus(transferId: number, status: string, verifiedByUserId?: number): Promise<PendingCreditTransfer> {
+    const transfer = this.pendingCreditTransfers.get(transferId);
+    if (!transfer) {
+      throw new Error("Pending credit transfer not found");
+    }
+
+    const updatedTransfer: PendingCreditTransfer = {
+      ...transfer,
+      status,
+      verifiedAt: status === "verified" ? new Date() : transfer.verifiedAt,
+      verifiedByUserId: verifiedByUserId || transfer.verifiedByUserId
     };
     
     this.pendingCreditTransfers.set(transferId, updatedTransfer);
@@ -880,11 +904,6 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getUser(id: number): Promise<User | undefined> {
-    const result = await this.db.select().from(users).where(eq(users.id, id));
-    return result[0];
-  }
-
-  async getUserById(id: number): Promise<User | undefined> {
     const result = await this.db.select().from(users).where(eq(users.id, id));
     return result[0];
   }
@@ -1291,6 +1310,15 @@ export class DatabaseStorage implements IStorage {
 
   async getOrdersByUserId(userId: number): Promise<Order[]> {
     return this.db.select().from(orders).where(eq(orders.userId, userId));
+  }
+
+  async getActiveOrders(): Promise<Order[]> {
+    return this.db.select().from(orders).where(
+      and(
+        sql`${orders.status} != 'completed'`,
+        sql`${orders.status} != 'cancelled'`
+      )
+    );
   }
   
   // Push notification subscription methods
@@ -1768,84 +1796,6 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // Push subscription methods (DatabaseStorage)
-  async savePushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription> {
-    try {
-      const result = await this.db.insert(pushSubscriptions).values(subscription).returning();
-      return result[0];
-    } catch (error) {
-      console.error("Error saving push subscription:", error);
-      throw error;
-    }
-  }
-  
-  async getPushSubscriptionsByUserId(userId: number): Promise<PushSubscription[]> {
-    try {
-      return this.db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
-    } catch (error) {
-      console.error("Error getting push subscriptions:", error);
-      throw error;
-    }
-  }
-  
-  async deletePushSubscription(endpoint: string): Promise<void> {
-    try {
-      await this.db.delete(pushSubscriptions).where(eq(pushSubscriptions.endpoint, endpoint));
-    } catch (error) {
-      console.error("Error deleting push subscription:", error);
-      throw error;
-    }
-  }
-
-  // Credit transaction methods (DatabaseStorage)
-  async createCreditTransaction(transaction: InsertCreditTransaction): Promise<CreditTransaction> {
-    try {
-      // If balance_after is not provided, calculate it from current user balance
-      let transactionData = { ...transaction };
-      
-      if (transactionData.balanceAfter === undefined || transactionData.balanceAfter === null) {
-        const user = await this.getUser(transaction.userId);
-        if (user) {
-          // Calculate the new balance after this transaction
-          transactionData.balanceAfter = user.credits + transaction.amount;
-        }
-      }
-      
-      const result = await this.db.insert(creditTransactions).values(transactionData).returning();
-      return result[0];
-    } catch (error) {
-      console.error("Error creating credit transaction:", error);
-      throw error;
-    }
-  }
-  
-  async getCreditTransactionsByUserId(userId: number): Promise<CreditTransaction[]> {
-    try {
-      return this.db
-        .select()
-        .from(creditTransactions)
-        .where(eq(creditTransactions.userId, userId))
-        .orderBy(sql`${creditTransactions.createdAt} DESC`);
-    } catch (error) {
-      console.error("Error getting credit transactions:", error);
-      throw error;
-    }
-  }
-
-  async getCreditTransactionByTransactionId(transactionId: string): Promise<CreditTransaction | undefined> {
-    try {
-      const result = await this.db
-        .select()
-        .from(creditTransactions)
-        .where(eq(creditTransactions.transactionId, transactionId))
-        .limit(1);
-      return result[0] || undefined;
-    } catch (error) {
-      console.error("Error fetching credit transaction by transaction ID:", error);
-      throw error;
-    }
-  }
-
   // Pending Credit Transfer methods (DatabaseStorage)
   async createPendingCreditTransfer(transfer: InsertPendingCreditTransfer): Promise<PendingCreditTransfer> {
     try {
@@ -1911,6 +1861,32 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async updatePendingCreditTransferStatus(transferId: number, status: string, verifiedByUserId?: number): Promise<PendingCreditTransfer> {
+    try {
+      const updateData: any = { status };
+      
+      if (status === "verified" && verifiedByUserId) {
+        updateData.verifiedAt = new Date();
+        updateData.verifiedByUserId = verifiedByUserId;
+      }
+      
+      const result = await this.db
+        .update(pendingCreditTransfers)
+        .set(updateData)
+        .where(eq(pendingCreditTransfers.id, transferId))
+        .returning();
+      
+      if (!result[0]) {
+        throw new Error("Pending credit transfer not found");
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error updating pending credit transfer status:", error);
+      throw error;
+    }
+  }
+
   async getPendingCreditTransfersBySender(senderId: number): Promise<PendingCreditTransfer[]> {
     try {
       return this.db
@@ -1964,67 +1940,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Favorites methods (DatabaseStorage)
-  async addFavorite(favorite: InsertFavorite): Promise<Favorite> {
-    try {
-      const result = await this.db.insert(favorites).values(favorite).returning();
-      return result[0];
-    } catch (error) {
-      console.error("Error adding favorite:", error);
-      throw error;
-    }
-  }
-  
-  async removeFavorite(userId: number, menuItemId: number): Promise<void> {
-    try {
-      await this.db
-        .delete(favorites)
-        .where(
-          and(
-            eq(favorites.userId, userId),
-            eq(favorites.menuItemId, menuItemId)
-          )
-        );
-    } catch (error) {
-      console.error("Error removing favorite:", error);
-      throw error;
-    }
-  }
-  
-  async getUserFavorites(userId: number): Promise<Favorite[]> {
-    try {
-      return this.db
-        .select()
-        .from(favorites)
-        .where(eq(favorites.userId, userId))
-        .orderBy(desc(favorites.createdAt));
-    } catch (error) {
-      console.error("Error getting user favorites:", error);
-      throw error;
-    }
-  }
-  
-
-  
-  async isFavorite(userId: number, menuItemId: number): Promise<boolean> {
-    try {
-      const result = await this.db
-        .select()
-        .from(favorites)
-        .where(
-          and(
-            eq(favorites.userId, userId),
-            eq(favorites.menuItemId, menuItemId)
-          )
-        );
-      
-      return result.length > 0;
-    } catch (error) {
-      console.error("Error checking if item is favorite:", error);
-      throw error;
-    }
-  }
-  
   async getFavoriteWithOptions(userId: number, menuItemId: number): Promise<Favorite | undefined> {
     try {
       const result = await this.db
@@ -2041,6 +1956,41 @@ export class DatabaseStorage implements IStorage {
       return result[0] || undefined;
     } catch (error) {
       console.error("Error getting favorite with options:", error);
+      throw error;
+    }
+  }
+
+  async isFavoriteBySquareId(userId: number, squareId: string): Promise<boolean> {
+    try {
+      const result = await this.db
+        .select()
+        .from(favorites)
+        .where(
+          and(
+            eq(favorites.userId, userId),
+            eq(favorites.squareId, squareId)
+          )
+        );
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error("Error checking if Square item is favorite:", error);
+      throw error;
+    }
+  }
+
+  async removeFavoriteBySquareId(userId: number, squareId: string): Promise<void> {
+    try {
+      await this.db
+        .delete(favorites)
+        .where(
+          and(
+            eq(favorites.userId, userId),
+            eq(favorites.squareId, squareId)
+          )
+        );
+    } catch (error) {
+      console.error("Error removing favorite by Square ID:", error);
       throw error;
     }
   }

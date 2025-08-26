@@ -147,7 +147,7 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
     const optionsList = getSelectedOptionsWithPrices();
     
     addToCart({
-      menuItemId: item.id,
+      menuItemId: item.squareId || item.id?.toString() || '',
       name: item.name,
       price: getPrice(),
       quantity: 1,

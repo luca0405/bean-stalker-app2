@@ -108,71 +108,258 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files statically
   app.use('/uploads', express.static(uploadsDir));
 
-  // Menu routes
+  // Menu routes - now directly fetching from Square catalog with location filtering
   app.get("/api/menu", async (req, res) => {
     try {
-      const items = await storage.getMenuItems();
-      res.json(items);
+      console.log('📱 Fetching ALL menu items by combining all Bean Stalker categories...');
+      const { getSquareCategories, getSquareItemsByCategory } = await import('./square-catalog-sync');
+      
+      // Get all Bean Stalker categories
+      const categories = await getSquareCategories();
+      
+      // Get items from each category and combine them
+      const allItems: any[] = [];
+      const seenItems = new Set<string>(); // Track items by Square ID to avoid duplicates
+      
+      for (const category of categories) {
+        try {
+          const categoryItems = await getSquareItemsByCategory(category.id, category.name);
+          
+          // Add only unique items (deduplication by Square ID)
+          categoryItems.forEach(item => {
+            if (!seenItems.has(item.squareId)) {
+              seenItems.add(item.squareId);
+              allItems.push(item);
+            }
+          });
+          
+          console.log(`📱 Added ${categoryItems.length} items from category '${category.name}'`);
+        } catch (error) {
+          console.error(`❌ Failed to fetch items from category '${category.name}':`, error);
+          // Continue with other categories even if one fails
+        }
+      }
+      
+      console.log(`📱 Retrieved ${allItems.length} total items from ${categories.length} Bean Stalker categories`);
+      res.json(allItems);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch menu items" });
+      console.error('❌ Failed to fetch menu from Square, falling back to database:', error);
+      // Fallback to database if Square fails
+      try {
+        const items = await storage.getMenuItems();
+        res.json(items);
+      } catch (fallbackError) {
+        console.error('❌ Database fallback also failed:', fallbackError);
+        res.status(500).json({ message: "Failed to fetch menu items" });
+      }
     }
   });
   
-  // Get options for a specific menu item (public)
+  // Get options for a specific menu item (public) - supports both database IDs and Square IDs
   app.get("/api/menu/:menuItemId/options", async (req, res) => {
     try {
-      const menuItemId = parseInt(req.params.menuItemId);
-      const options = await storage.getMenuItemOptions(menuItemId);
+      const { menuItemId } = req.params;
       
-      // Organize options into a hierarchical structure
-      const parentOptions = options.filter(option => option.isParent);
-      const standardOptions = options.filter(option => !option.isParent && !option.parentId);
-      const childOptions = options.filter(option => option.parentId);
+      // Check if it's a Square ID (contains letters) or database ID (numbers only)
+      const isSquareId = /[A-Z]/.test(menuItemId);
       
-      // For each parent option, attach its children
-      const result = [
-        ...standardOptions,
-        ...parentOptions.map(parent => ({
-          ...parent,
-          children: childOptions.filter(child => child.parentId === parent.id)
-        }))
-      ];
+      console.log(`🔧 Processing menu item ID: ${menuItemId}, isSquareId: ${isSquareId}`);
       
-      res.json(result);
+      if (isSquareId) {
+        // Handle Square item variations
+        try {
+          const { getSquareItemVariations } = await import('./square-catalog-sync');
+          const variations = await getSquareItemVariations(menuItemId);
+          res.json(variations);
+        } catch (squareError) {
+          console.error("Error fetching Square item variations:", squareError);
+          res.json([]); // Return empty array for Square items without variations
+        }
+      } else {
+        // Handle database items (legacy)
+        const dbMenuItemId = parseInt(menuItemId);
+        if (isNaN(dbMenuItemId)) {
+          console.log(`⚠️  Invalid database ID: ${menuItemId}`);
+          res.json([]);
+          return;
+        }
+        const options = await storage.getMenuItemOptions(dbMenuItemId);
+        
+        // Organize options into a hierarchical structure
+        const parentOptions = options.filter(option => option.isParent);
+        const standardOptions = options.filter(option => !option.isParent && !option.parentId);
+        const childOptions = options.filter(option => option.parentId);
+        
+        // For each parent option, attach its children
+        const result = [
+          ...standardOptions,
+          ...parentOptions.map(parent => ({
+            ...parent,
+            children: childOptions.filter(child => child.parentId === parent.id)
+          }))
+        ];
+        
+        res.json(result);
+      }
     } catch (error) {
       console.error("Error fetching menu item options:", error);
       res.status(500).json({ message: "Failed to fetch menu item options" });
     }
   });
 
-  // Public endpoint to get string categories (legacy)
+  // Public endpoint to get string categories (legacy) - now synced with Square catalog
   app.get("/api/menu/categories", async (req, res) => {
     try {
-      const categories = await storage.getMenuCategories();
-      res.json(categories);
+      console.log('📂 Fetching categories from Square catalog...');
+      const { getSquareCategories } = await import('./square-catalog-sync');
+      const squareCategories = await getSquareCategories();
+      
+      // Convert to legacy format (array of category names)
+      const categoryNames = squareCategories.map((cat: any) => cat.name);
+      console.log(`📂 Retrieved ${categoryNames.length} category names from Square catalog`);
+      res.json(categoryNames);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch menu categories" });
+      console.error('❌ Failed to fetch categories from Square, falling back to database:', error);
+      // Fallback to database if Square fails
+      try {
+        const categories = await storage.getMenuCategories();
+        res.json(categories);
+      } catch (fallbackError) {
+        console.error('❌ Database fallback also failed:', fallbackError);
+        res.status(500).json({ message: "Failed to fetch menu categories" });
+      }
     }
   });
   
-  // Public endpoint to get category objects
+  // Public endpoint to get category objects - now synced with Square catalog
   app.get("/api/categories", async (req, res) => {
     try {
-      const categories = await storage.getAllCategories();
-      res.json(categories);
+      console.log('📂 Fetching categories from Square catalog...');
+      const { getSquareCategories } = await import('./square-catalog-sync');
+      const allCategories = await getSquareCategories();
+      
+      // Filter to only include the specific categories for mobile app interface
+      const allowedCategories = [
+        'coffee', 'hot-drinks', 'iced-drinks', 'smoothies', 
+        'breakfast', 'lunch', 'pastries', 'retail'
+      ];
+      
+      const filteredCategories = allCategories.filter((cat: any) => 
+        allowedCategories.includes(cat.name)
+      );
+      
+      // Remove duplicates by category name, keep the first occurrence
+      const seenNames = new Set();
+      const uniqueCategories = filteredCategories.filter((cat: any) => {
+        if (seenNames.has(cat.name)) {
+          return false;
+        }
+        seenNames.add(cat.name);
+        return true;
+      });
+      
+      console.log(`📂 Retrieved ${uniqueCategories.length}/${allCategories.length} unique mobile app categories from Square catalog`);
+      res.json(uniqueCategories);
     } catch (error) {
-      console.error("Error fetching categories:", error);
-      res.status(500).json({ message: "Failed to fetch categories" });
+      console.error("❌ Failed to fetch categories from Square, falling back to database:", error);
+      // Fallback to database if Square fails
+      try {
+        const categories = await storage.getAllCategories();
+        const allowedCategories = [
+          'coffee', 'hot-drinks', 'iced-drinks', 'smoothies', 
+          'breakfast', 'lunch', 'pastries', 'retail'
+        ];
+        const filteredCategories = categories.filter((cat: any) => 
+          allowedCategories.includes(cat.name)
+        );
+        
+        // Remove duplicates by category name, keep the first occurrence
+        const seenNames = new Set();
+        const uniqueCategories = filteredCategories.filter((cat: any) => {
+          if (seenNames.has(cat.name)) {
+            return false;
+          }
+          seenNames.add(cat.name);
+          return true;
+        });
+        
+        res.json(uniqueCategories);
+      } catch (fallbackError) {
+        console.error('❌ Database fallback also failed:', fallbackError);
+        res.status(500).json({ message: "Failed to fetch categories" });
+      }
     }
   });
 
   app.get("/api/menu/:category", async (req, res) => {
     try {
       const { category } = req.params;
-      const items = await storage.getMenuItemsByCategory(category);
+      console.log(`📱 Fetching menu items for category '${category}' from Square catalog...`);
+      
+      // Get categories to find the Square category ID for this category name
+      const { getSquareCategories, getSquareItemsByCategory } = await import('./square-catalog-sync');
+      const categories = await getSquareCategories();
+      
+      let items: any[] = [];
+      
+      // Special handling for retail category - aggregate from all retail-related categories
+      if (category === 'retail') {
+        console.log(`🔍 Special handling for retail category - aggregating from all retail-related categories`);
+        const seenItems = new Set<string>();
+        
+        // Find all retail-related categories
+        const retailCategories = categories.filter((cat: any) => 
+          cat.name === 'retail' || 
+          cat.displayName?.toLowerCase().includes('retail') ||
+          cat.displayName?.toLowerCase().includes('bean') ||
+          cat.displayName?.toLowerCase().includes('beans') ||
+          cat.displayName?.toLowerCase().includes('tea')
+        );
+        
+        console.log(`🔍 Found ${retailCategories.length} retail-related categories:`, 
+          retailCategories.map(cat => `${cat.displayName} (${cat.name})`));
+        
+        for (const retailCategory of retailCategories) {
+          try {
+            const categoryItems = await getSquareItemsByCategory(retailCategory.id, category);
+            // Add only unique items (deduplication by Square ID)
+            categoryItems.forEach(item => {
+              if (!seenItems.has(item.squareId)) {
+                seenItems.add(item.squareId);
+                items.push(item);
+              }
+            });
+            console.log(`📱 Added ${categoryItems.length} items from category '${retailCategory.displayName}'`);
+          } catch (error) {
+            console.error(`❌ Failed to fetch items from category '${retailCategory.displayName}':`, error);
+          }
+        }
+      } else {
+        // Regular category handling
+        const matchingCategory = categories.find((cat: any) => cat.name === category);
+        
+        if (matchingCategory && matchingCategory.id) {
+          // Use only Square's official category assignments
+          console.log(`🔍 Using Square SearchCatalogItems API for category '${category}' (Square ID: ${matchingCategory.id})`);
+          items = await getSquareItemsByCategory(matchingCategory.id, category);
+        } else {
+          console.log(`❌ Category '${category}' not found in Square catalog`);
+          items = [];
+        }
+      }
+      
+      console.log(`📱 Retrieved ${items.length} items for category '${category}' from Square catalog`);
       res.json(items);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch menu items" });
+      console.error(`❌ Failed to fetch menu items for category '${req.params.category}' from Square, falling back to database:`, error);
+      // Fallback to database if Square fails
+      try {
+        const items = await storage.getMenuItemsByCategory(req.params.category);
+        res.json(items);
+      } catch (fallbackError) {
+        console.error('❌ Database fallback also failed:', fallbackError);
+        res.status(500).json({ message: "Failed to fetch menu items" });
+      }
     }
   });
 
@@ -2354,23 +2541,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Menu item ID is required" });
       }
       
-      // Check if the menu item exists
-      const menuItem = await storage.getMenuItem(menuItemId);
-      if (!menuItem) {
-        return res.status(404).json({ message: "Menu item not found" });
+      // For Square items (string IDs), check if already favorited using Square ID
+      // For database items (numeric IDs), use the original logic
+      let isAlreadyFavorite = false;
+      let menuItem = null;
+      
+      if (typeof menuItemId === 'string' && isNaN(Number(menuItemId))) {
+        // Square ID (string) - check if already favorited by Square ID
+        isAlreadyFavorite = await storage.isFavoriteBySquareId(userId, menuItemId);
+      } else {
+        // Database ID (numeric) - original logic
+        const numericId = parseInt(menuItemId);
+        if (isNaN(numericId)) {
+          return res.status(400).json({ message: "Invalid menu item ID" });
+        }
+        
+        menuItem = await storage.getMenuItem(numericId);
+        if (!menuItem) {
+          return res.status(404).json({ message: "Menu item not found" });
+        }
+        
+        isAlreadyFavorite = await storage.isFavorite(userId, numericId);
       }
       
-      // Check if already favorited
-      const isAlreadyFavorite = await storage.isFavorite(userId, menuItemId);
       if (isAlreadyFavorite) {
         return res.status(400).json({ message: "Item is already in favorites" });
       }
       
-
-      
       const favorite = await storage.addFavorite({
         userId,
-        menuItemId,
+        menuItemId: typeof menuItemId === 'string' ? null : parseInt(menuItemId), // null for Square items
+        squareId: typeof menuItemId === 'string' ? menuItemId : null, // Square ID for Square items
         selectedSize: selectedSize || null,
         selectedOptions: selectedOptions || null
       });
@@ -2387,19 +2588,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const menuItemId = parseInt(req.params.menuItemId);
+      const menuItemId = req.params.menuItemId;
       
-      if (isNaN(menuItemId)) {
-        return res.status(400).json({ message: "Invalid menu item ID" });
+      // Handle both Square IDs (strings) and database IDs (numbers)
+      let isFavorite = false;
+      
+      if (isNaN(Number(menuItemId))) {
+        // Square ID (string)
+        isFavorite = await storage.isFavoriteBySquareId(userId, menuItemId);
+        if (!isFavorite) {
+          return res.status(404).json({ message: "Item is not in favorites" });
+        }
+        await storage.removeFavoriteBySquareId(userId, menuItemId);
+      } else {
+        // Database ID (numeric)
+        const numericId = parseInt(menuItemId);
+        isFavorite = await storage.isFavorite(userId, numericId);
+        if (!isFavorite) {
+          return res.status(404).json({ message: "Item is not in favorites" });
+        }
+        await storage.removeFavorite(userId, numericId);
       }
       
-      // Check if it's a favorite first
-      const isFavorite = await storage.isFavorite(userId, menuItemId);
-      if (!isFavorite) {
-        return res.status(404).json({ message: "Item is not in favorites" });
-      }
-      
-      await storage.removeFavorite(userId, menuItemId);
       res.status(200).json({ message: "Favorite removed successfully" });
     } catch (error) {
       console.error("Error removing favorite:", error);
@@ -2430,13 +2640,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       const userId = req.user!.id;
-      const menuItemId = parseInt(req.params.menuItemId);
+      const menuItemId = req.params.menuItemId;
       
-      if (isNaN(menuItemId)) {
-        return res.status(400).json({ message: "Invalid menu item ID" });
+      // Handle both Square IDs (strings) and database IDs (numbers)
+      let isFavorite = false;
+      
+      if (isNaN(Number(menuItemId))) {
+        // Square ID (string)
+        isFavorite = await storage.isFavoriteBySquareId(userId, menuItemId);
+      } else {
+        // Database ID (numeric)
+        const numericId = parseInt(menuItemId);
+        isFavorite = await storage.isFavorite(userId, numericId);
       }
       
-      const isFavorite = await storage.isFavorite(userId, menuItemId);
       res.json({ isFavorite });
     } catch (error) {
       console.error("Error checking favorite status:", error);
@@ -2617,7 +2834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const sender = await storage.getUser(transfer.senderId);
           return {
             ...transfer,
-            senderName: sender?.username || "Unknown",
+            senderName: sender?.fullName || sender?.username || "Unknown",
             senderFullName: sender?.fullName || null
           };
         })
@@ -2642,12 +2859,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           let verifierName = null;
           if (transfer.verifiedByUserId) {
             const verifier = await storage.getUser(transfer.verifiedByUserId);
-            verifierName = verifier?.username || "Unknown";
+            verifierName = verifier?.fullName || verifier?.username || "Unknown";
           }
           
           return {
             ...transfer,
-            senderName: sender?.username || "Unknown",
+            senderName: sender?.fullName || sender?.username || "Unknown",
             senderFullName: sender?.fullName || null,
             verifierName
           };
@@ -2923,31 +3140,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Sender not found" });
       }
 
-      // Check if credits were already deducted during SMS sending
-      // If not, deduct them now
-      if (sender.credits < pendingTransfer.amount) {
-        return res.status(400).json({ message: "Sender has insufficient credits" });
+      // IMPORTANT: Credits should NEVER be deducted during verification!
+      // Credits are already deducted when SMS is sent during /api/share-credits
+      // Verification only marks the transfer as completed - no financial transaction here
+      
+      // The verification process should be purely administrative - marking the code as used
+      console.log(`🔧 VERIFICATION: Code ${verificationCode} is being verified by admin ${req.user.username}`);
+      console.log(`🔧 VERIFICATION: Sender ${sender.username} originally shared $${pendingTransfer.amount}`);
+      console.log(`🔧 VERIFICATION: Current sender balance: $${sender.credits} (no deduction during verification)`);
+      
+      // No credit deduction here - credits were already deducted when the transfer was created
+
+      // Mark transfer as verified (atomic operation to prevent double-verification)
+      const updateResult = await storage.updatePendingCreditTransferStatus(pendingTransfer.id, "verified", req.user.id);
+      
+      // Double-check that the update actually happened (prevents race conditions from multiple clicks)
+      const verifiedTransfer = await storage.getPendingCreditTransferByCode(verificationCode);
+      if (verifiedTransfer?.status !== "verified") {
+        console.error(`⚠️ Race condition detected: Transfer ${pendingTransfer.id} status update may have failed`);
+        return res.status(500).json({ message: "Verification failed due to race condition. Please try again." });
       }
-
-      // Deduct credits from sender (either first time or retry)
-      const updatedSender = await storage.updateUserCredits(pendingTransfer.senderId, sender.credits - pendingTransfer.amount);
-
-      // Create transaction record for credit deduction
-      await storage.createCreditTransaction({
-        userId: pendingTransfer.senderId,
-        type: "send",
-        amount: -pendingTransfer.amount,
-        balanceAfter: updatedSender.credits,
-        description: `Shared credits verified by ${req.user.username}`,
-        metadata: { 
-          recipientPhone: pendingTransfer.recipientPhone, 
-          verificationCode: pendingTransfer.verificationCode,
-          verifiedByUserId: req.user.id
-        }
-      });
-
-      // Mark transfer as verified
-      await storage.updatePendingCreditTransferStatus(pendingTransfer.id, "verified", req.user.id);
 
       // Send push notification to sender about successful credit share
       try {
@@ -2967,10 +3179,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         success: true,
-        message: `Successfully deducted $${pendingTransfer.amount} from ${sender.username}`,
-        senderName: sender.username,
+        message: `Successfully verified credit share code for ${sender.fullName || sender.username}`,
+        senderName: sender.fullName || sender.username,
         amount: pendingTransfer.amount,
-        recipientPhone: pendingTransfer.recipientPhone
+        recipientPhone: pendingTransfer.recipientPhone,
+        note: "Credits were already deducted when SMS was sent - verification only marks the transfer as complete"
       });
 
     } catch (error) {
@@ -3032,7 +3245,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get Square menu items for sync
+  // Square catalog synchronization endpoints
+  
+  // Sync Bean Stalker catalog TO Square (one-way sync)
+  app.post("/api/admin/square/catalog/sync-to-square", isAdmin, async (req, res) => {
+    try {
+      console.log('🏪 Admin initiated catalog sync from Bean Stalker to Square...');
+      const { syncFullCatalogToSquare } = await import('./square-catalog-sync');
+      const result = await syncFullCatalogToSquare();
+      
+      if (result.success) {
+        console.log('✅ Catalog sync to Square completed successfully');
+        res.json({
+          success: true,
+          message: 'Catalog synced to Square successfully',
+          ...result
+        });
+      } else {
+        console.error('❌ Catalog sync to Square failed');
+        res.status(500).json({
+          success: false,
+          message: 'Failed to sync catalog to Square',
+          error: result.error
+        });
+      }
+    } catch (error) {
+      console.error('❌ Catalog sync to Square error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Catalog sync failed',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+  
+  // Test fetching catalog FROM Square (admin diagnostic)
+  app.get("/api/admin/square/catalog/test-fetch", isAdmin, async (req, res) => {
+    try {
+      console.log('🔧 Admin testing catalog fetch from Square...');
+      const { getSquareCatalog } = await import('./square-catalog-sync');
+      const catalog = await getSquareCatalog();
+      
+      console.log(`✅ Successfully fetched ${catalog.categories.length} categories and ${catalog.menuItems.length} items from Square`);
+      res.json({
+        success: true,
+        message: 'Successfully fetched catalog from Square',
+        catalog,
+        summary: {
+          categories: catalog.categories.length,
+          menuItems: catalog.menuItems.length
+        }
+      });
+    } catch (error) {
+      console.error('❌ Failed to fetch catalog from Square:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch catalog from Square',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get Square sales channels for analysis
+  app.get("/api/admin/square/channels", isAdmin, async (req, res) => {
+    try {
+      console.log('🔧 Fetching Square sales channels...');
+      const { getSquareAccessToken, getSquareLocationId } = await import('./square-config');
+      const accessToken = getSquareAccessToken();
+      
+      if (!accessToken) {
+        return res.status(500).json({ error: 'Square access token not configured' });
+      }
+      
+      // Fetch sales channels from Square
+      const response = await fetch('https://connect.squareupsandbox.com/v2/online-store/sales-channels', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'Square-Version': '2023-12-13'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        return res.status(response.status).json({ 
+          error: `Square API error: ${response.status} - ${errorText}` 
+        });
+      }
+      
+      const channelsData = await response.json();
+      console.log('📡 Square sales channels:', JSON.stringify(channelsData, null, 2));
+      
+      res.json({
+        success: true,
+        channels: channelsData,
+        message: 'Sales channels fetched successfully'
+      });
+      
+    } catch (error) {
+      console.error('❌ Failed to fetch Square sales channels:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Get Square menu items for sync (legacy endpoint)
   app.get("/api/restaurant/menu/sync", isAdmin, async (req, res) => {
     try {
       const { getSquareMenuItems } = await import('./square-restaurant');

@@ -5,8 +5,8 @@ import { useNativeNotification } from "@/services/native-notification-service";
 interface CartContextType {
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
-  removeFromCart: (menuItemId: number, size?: string, option?: string, options?: CartItemOption[]) => void;
-  updateCartItemQuantity: (menuItemId: number, quantity: number, size?: string, option?: string, options?: CartItemOption[]) => void;
+  removeFromCart: (menuItemId: string, size?: string, option?: string, options?: CartItemOption[]) => void;
+  updateCartItemQuantity: (menuItemId: string, quantity: number, size?: string, option?: string, options?: CartItemOption[]) => void;
   clearCart: () => void;
   calculateSubtotal: () => number;
   calculateTax: () => number;
@@ -144,7 +144,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const removeFromCart = (menuItemId: number, size?: string, option?: string, options?: CartItemOption[]) => {
+  const removeFromCart = (menuItemId: string, size?: string, option?: string, options?: CartItemOption[]) => {
     setCart((prevCart) => {
       let updatedCart;
       let removedItem;
@@ -198,7 +198,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const updateCartItemQuantity = (menuItemId: number, quantity: number, size?: string, option?: string, options?: CartItemOption[]) => {
+  const updateCartItemQuantity = (menuItemId: string, quantity: number, size?: string, option?: string, options?: CartItemOption[]) => {
     if (quantity <= 0) {
       removeFromCart(menuItemId, size, option, options);
       return;
