@@ -36,6 +36,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useNativeNotification } from "@/services/native-notification-service";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "../lib/queryClient";
+import { useState } from "react";
+import { Trash2, AlertTriangle } from "lucide-react";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const profileFormSchema = z.object({
   username: z.string(),
@@ -51,8 +64,9 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { notify } = useNativeNotification();
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   
   const {
@@ -92,6 +106,38 @@ export default function ProfilePage() {
     onError: (error: Error) => {
       notify({
         title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create a mutation for deleting the account
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("DELETE", "/api/user/account");
+      return response.json();
+    },
+    onSuccess: () => {
+      notify({
+        title: "Account Deleted Successfully",
+        description: "Your account and all associated data have been permanently deleted.",
+      });
+      
+      // Clear the confirmation text
+      setDeleteConfirmText("");
+      
+      // Logout and redirect to home
+      logout();
+      
+      // Navigate to home page after a brief delay to ensure logout completes
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1000);
+    },
+    onError: (error: Error) => {
+      notify({
+        title: "Delete Failed", 
         description: error.message,
         variant: "destructive",
       });
@@ -389,6 +435,92 @@ export default function ProfilePage() {
           <AppInstallButton />
           
           <PushNotificationToggle />
+
+          {/* Danger Zone - Account Deletion */}
+          <Card className="border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-red-800">Danger Zone</CardTitle>
+              <CardDescription className="text-red-600">
+                Permanently delete your account and all associated data
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Account
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="w-[95vw] max-w-md mx-auto">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+                      <AlertTriangle className="h-5 w-5" />
+                      Delete Account
+                    </AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-3">
+                      <p>
+                        This action cannot be undone. This will permanently delete your account and remove all of your data from our servers.
+                      </p>
+                      <div>
+                        <p className="font-semibold text-gray-800 mb-3">
+                          This will delete:
+                        </p>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
+                            <span className="text-gray-700">Your profile information</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
+                            <span className="text-gray-700">Your credit balance <span className="font-medium text-green-600">(${user?.credits?.toFixed(2) || '0.00'})</span></span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
+                            <span className="text-gray-700">Your order history</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
+                            <span className="text-gray-700">Your favorites</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></div>
+                            <span className="text-gray-700">All transaction records</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
+                        <p className="text-sm text-amber-800 font-medium mb-2">
+                          Type "DELETE" to confirm:
+                        </p>
+                        <Input
+                          value={deleteConfirmText}
+                          onChange={(e) => setDeleteConfirmText(e.target.value)}
+                          placeholder="Type DELETE to confirm"
+                          className="mt-2"
+                        />
+                      </div>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
+                    <AlertDialogCancel 
+                      onClick={() => setDeleteConfirmText("")}
+                      className="w-full sm:w-auto"
+                    >
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => deleteAccountMutation.mutate()}
+                      disabled={deleteConfirmText !== "DELETE" || deleteAccountMutation.isPending}
+                      className="w-full sm:w-auto bg-red-600 hover:bg-red-700"
+                    >
+                      {deleteAccountMutation.isPending ? "Deleting..." : "Delete Account"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </CardContent>
+          </Card>
           </div>
         </div>
       </main>

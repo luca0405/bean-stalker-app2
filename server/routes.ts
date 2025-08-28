@@ -1376,6 +1376,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Delete user account
+  app.delete("/api/user/account", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
+    
+    try {
+      const userId = req.user!.id;
+      const user = req.user!;
+      
+      // Check if user is admin - prevent admin account deletion for safety
+      if (user.isAdmin) {
+        return res.status(403).json({ message: "Admin accounts cannot be deleted" });
+      }
+      
+      // Delete all user data in the correct order to avoid foreign key conflicts
+      await storage.deleteUserFavorites(userId);
+      await storage.deleteUserTransactions(userId);
+      await storage.deleteUserOrders(userId);
+      await storage.deleteUser(userId);
+      
+      // Logout the user
+      req.logout((err) => {
+        if (err) {
+          console.error("Error during logout:", err);
+        }
+        res.json({ message: "Account deleted successfully" });
+      });
+    } catch (error) {
+      console.error("Error deleting user account:", error);
+      res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
+
   // Update user credits (for IAP purchases)
   app.patch("/api/user", async (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });

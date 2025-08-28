@@ -118,6 +118,10 @@ export interface IStorage {
   addFavorite(favorite: InsertFavorite): Promise<Favorite>;
   removeFavorite(userId: number, menuItemId: number): Promise<void>;
   removeFavoriteBySquareId(userId: number, squareId: string): Promise<void>;
+  deleteUser(userId: number): Promise<void>;
+  deleteUserOrders(userId: number): Promise<void>;
+  deleteUserFavorites(userId: number): Promise<void>;
+  deleteUserTransactions(userId: number): Promise<void>;
   getUserFavorites(userId: number): Promise<Favorite[]>;
   getUserFavoritesWithDetails(userId: number): Promise<MenuItem[]>;
   isFavorite(userId: number, menuItemId: number): Promise<boolean>;
@@ -584,6 +588,48 @@ export class MemStorage implements IStorage {
   
   async deletePushSubscription(endpoint: string): Promise<void> {
     this.pushSubscriptions.delete(endpoint);
+  }
+
+  async deleteUser(userId: number): Promise<void> {
+    this.users.delete(userId);
+  }
+
+  async deleteUserOrders(userId: number): Promise<void> {
+    // Remove all orders for this user
+    const orderEntries = Array.from(this.orders.entries());
+    orderEntries.forEach(([orderId, order]) => {
+      if (order.userId === userId) {
+        this.orders.delete(orderId);
+      }
+    });
+  }
+
+  async deleteUserFavorites(userId: number): Promise<void> {
+    // Remove all favorites for this user
+    const favoriteEntries = Array.from(this.favorites.entries());
+    favoriteEntries.forEach(([key, favorite]) => {
+      if (favorite.userId === userId) {
+        this.favorites.delete(key);
+      }
+    });
+  }
+
+  async deleteUserTransactions(userId: number): Promise<void> {
+    // Remove all credit transactions for this user
+    const transactionEntries = Array.from(this.creditTransactions.entries());
+    transactionEntries.forEach(([transactionId, transaction]) => {
+      if (transaction.userId === userId) {
+        this.creditTransactions.delete(transactionId);
+      }
+    });
+
+    // Also remove any pending credit transfers involving this user
+    const transferEntries = Array.from(this.pendingCreditTransfers.entries());
+    transferEntries.forEach(([transferId, transfer]) => {
+      if (transfer.senderId === userId || transfer.recipientId === userId) {
+        this.pendingCreditTransfers.delete(transferId);
+      }
+    });
   }
   
   // Credit transaction methods
@@ -1991,6 +2037,58 @@ export class DatabaseStorage implements IStorage {
         );
     } catch (error) {
       console.error("Error removing favorite by Square ID:", error);
+      throw error;
+    }
+  }
+
+  async deleteUser(userId: number): Promise<void> {
+    try {
+      await this.db
+        .delete(users)
+        .where(eq(users.id, userId));
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      throw error;
+    }
+  }
+
+  async deleteUserOrders(userId: number): Promise<void> {
+    try {
+      await this.db
+        .delete(orders)
+        .where(eq(orders.userId, userId));
+    } catch (error) {
+      console.error("Error deleting user orders:", error);
+      throw error;
+    }
+  }
+
+  async deleteUserFavorites(userId: number): Promise<void> {
+    try {
+      await this.db
+        .delete(favorites)
+        .where(eq(favorites.userId, userId));
+    } catch (error) {
+      console.error("Error deleting user favorites:", error);
+      throw error;
+    }
+  }
+
+  async deleteUserTransactions(userId: number): Promise<void> {
+    try {
+      await this.db
+        .delete(creditTransactions)
+        .where(eq(creditTransactions.userId, userId));
+      
+      // Also remove any pending credit transfers sent by this user
+      await this.db
+        .delete(pendingCreditTransfers)
+        .where(eq(pendingCreditTransfers.senderId, userId));
+      
+      // Note: pendingCreditTransfers uses recipientPhone, not recipientId
+      // so we don't need to delete by recipient since it's not linked by user ID
+    } catch (error) {
+      console.error("Error deleting user transactions:", error);
       throw error;
     }
   }
