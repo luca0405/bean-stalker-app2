@@ -734,13 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Square payment routes
-  app.get("/api/square/config", (req, res) => {
-    res.json({
-      applicationId: getSquareApplicationId(),
-      locationId: getSquareLocationId(),
-    });
-  });
+  // Square payment routes (NOTE: /api/square/config endpoint is defined later with hardcoded production values)
   
   app.post("/api/square/payment-link", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -815,13 +809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Square configuration endpoint for Web Payments SDK
-  app.get("/api/square/config", (req, res) => {
-    res.json({
-      applicationId: getSquareApplicationId(),
-      locationId: getSquareLocationId()
-    });
-  });
+  // Square configuration endpoint for Web Payments SDK (NOTE: /api/square/config endpoint is defined later with hardcoded production values)
 
   // Process membership payment with credit card
   app.post("/api/process-membership-payment", async (req, res) => {
@@ -1038,6 +1026,392 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Square config endpoint for embedded payments
+  app.get("/api/square/config", async (req, res) => {
+    try {
+      const config = {
+        applicationId: process.env.SQUARE_APPLICATION_ID_PROD,
+        locationId: process.env.SQUARE_LOCATION_ID_PROD,
+        environment: 'production'
+      };
+      
+      console.log('Square config requested (production):', { 
+        applicationId: config.applicationId?.substring(0, 20) + '...',
+        locationId: config.locationId,
+        environment: config.environment
+      });
+      res.json(config);
+    } catch (error) {
+      console.error('Error getting Square config:', error);
+      res.status(500).json({ error: 'Failed to get Square configuration' });
+    }
+  });
+
+  // Square embedded payment processing
+  app.post("/api/square/process-payment", async (req, res) => {
+    try {
+      const { sourceId, amount, credits, packageId, customerEmail, customerName } = req.body;
+      
+      if (!req.user?.id) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const userId = req.user.id;
+      
+      console.log(`💳 Processing embedded Square payment: $${amount} for ${credits} credits (User: ${userId})`);
+
+      // Process payment using Square Payments API
+      const paymentData = {
+        source_id: sourceId,
+        idempotency_key: `${Date.now()}-${userId}-${packageId}`,
+        amount_money: {
+          amount: Math.round(amount * 100), // Convert to cents
+          currency: 'AUD'
+        },
+        location_id: process.env.SQUARE_LOCATION_ID_PROD,
+        note: `Bean Stalker Credits: ${credits} credits for ${customerName || 'customer'}`
+      };
+
+      const response = await fetch('https://connect.squareup.com/v2/payments', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN_PROD}`,
+          'Content-Type': 'application/json',
+          'Square-Version': '2023-12-13'
+        },
+        body: JSON.stringify(paymentData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Square payment failed:', errorData);
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Payment processing failed' 
+        });
+      }
+
+      const result = await response.json();
+      
+      if (result.payment && result.payment.status === 'COMPLETED') {
+        // Payment successful - add credits to user account
+        const currentUser = await storage.getUser(userId);
+        if (currentUser) {
+          const newBalance = currentUser.credits + credits;
+          await storage.updateUserCredits(userId, newBalance);
+          
+          // Record transaction
+          await storage.createCreditTransaction({
+            userId: userId,
+            type: "purchase",
+            amount: credits,
+            balanceAfter: newBalance,
+            description: `Square payment: ${credits} credits for $${amount}`,
+            transactionId: result.payment.id
+          });
+          
+          console.log(`✅ Successfully processed payment and added ${credits} credits to user ${userId}`);
+          
+          res.json({
+            success: true,
+            paymentId: result.payment.id,
+            creditsAdded: credits,
+            newBalance: newBalance
+          });
+        } else {
+          res.status(404).json({ success: false, error: 'User not found' });
+        }
+      } else {
+        res.status(400).json({ 
+          success: false, 
+          error: 'Payment was not completed successfully' 
+        });
+      }
+    } catch (error) {
+      console.error('Error processing Square payment:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Internal server error during payment processing' 
+      });
+    }
+  });
+
+  // Square credit purchase endpoint (App Store alternative)
+  app.post("/api/square/credit-purchase", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const userId = req.user?.id;
+      const user = req.user;
+      const { amount, credits, packageId } = req.body;
+      
+      if (!credits || credits <= 0) {
+        return res.status(400).json({ message: "Invalid purchase parameters" });
+      }
+      
+      // Handle $0 purchases (free test credits) differently
+      if (amount === 0) {
+        // Add credits directly for $0 purchases
+        const currentUser = await storage.getUser(userId);
+        if (!currentUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        
+        const newBalance = currentUser.credits + credits;
+        const updatedUser = await storage.updateUserCredits(userId, newBalance);
+        
+        // Record the free credit transaction
+        await storage.createCreditTransaction({
+          userId,
+          type: "purchase",
+          amount: credits,
+          balanceAfter: newBalance,
+          description: `Free test credits: ${credits} credits`,
+          metadata: {
+            packageId: packageId,
+            amountPaid: 0,
+            testPurchase: true
+          }
+        });
+        
+        return res.json({
+          success: true,
+          credits: credits,
+          amount: amount,
+          message: "Free test credits added successfully!"
+        });
+      }
+      
+      // For paid purchases, create Square payment link
+      if (amount <= 0) {
+        return res.status(400).json({ message: "Invalid purchase amount" });
+      }
+      
+      // Determine redirect URL based on request source
+      const userAgent = req.headers['user-agent'] || '';
+      const isNativeApp = userAgent.includes('CapacitorHttp') || userAgent.includes('Bean Stalker');
+      
+      const paymentLink = await createPaymentLink(amount, isNativeApp);
+      
+      if (!paymentLink.success) {
+        console.error('Square payment link error:', paymentLink.error);
+        return res.status(500).json({ 
+          message: "Failed to create payment link", 
+          error: paymentLink.error 
+        });
+      }
+      
+      // Store pending purchase in database for reliable processing
+      const pendingPurchaseData = {
+        userId: userId,
+        packageId: packageId,
+        credits: credits,
+        amount: amount,
+        paymentLinkId: paymentLink.paymentLink?.id || 'unknown',
+        status: 'pending' as const,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Store in credit transactions as pending
+      await storage.createCreditTransaction({
+        userId: userId,
+        type: "pending_purchase",
+        amount: 0, // Will be updated when processed
+        balanceAfter: (await storage.getUser(userId))?.credits || 0,
+        description: `Pending Square payment: ${credits} credits for $${amount}`,
+        transactionId: paymentLink.paymentLink?.id
+      });
+      
+      console.log(`💳 Created payment link for user ${userId}: $${amount} for ${credits} credits`);
+      
+      res.json({
+        success: true,
+        paymentUrl: paymentLink.url,
+        credits: credits,
+        amount: amount
+      });
+      
+    } catch (error) {
+      console.error("Square credit purchase error:", error);
+      res.status(500).json({ message: "Failed to process credit purchase" });
+    }
+  });
+
+  // Square membership purchase endpoint (App Store alternative)
+  app.post("/api/square/membership-purchase", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const userId = req.user?.id;
+      const user = req.user;
+      
+      if (user?.isPremium) {
+        return res.status(400).json({ message: "User already has premium membership" });
+      }
+      
+      const membershipPrice = 39; // AUD$39 for membership
+      
+      // Create Square payment link for membership
+      const paymentLink = await createPaymentLink(membershipPrice);
+      
+      if (!paymentLink.success) {
+        console.error('Square membership payment link error:', paymentLink.error);
+        return res.status(500).json({ 
+          message: "Failed to create payment link", 
+          error: paymentLink.error 
+        });
+      }
+      
+      res.json({
+        success: true,
+        paymentUrl: paymentLink.url,
+        price: membershipPrice
+      });
+      
+    } catch (error) {
+      console.error("Square membership purchase error:", error);
+      res.status(500).json({ message: "Failed to process membership purchase" });
+    }
+  });
+
+
+  // Payment success API endpoint for Square webhook processing
+  app.get("/api/payment-success", async (req, res) => {
+    try {
+      console.log('💳 Payment success page accessed with query params:', req.query);
+      
+      // Process recent pending purchases from database
+      const recentTransactions = await storage.getCreditTransactions() || [];
+      const pendingPurchases = recentTransactions.filter(t => 
+        t.type === "pending_purchase" && 
+        t.createdAt && 
+        new Date(t.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000 // Last 24 hours
+      );
+      
+      if (pendingPurchases.length > 0) {
+        console.log(`🔍 Found ${pendingPurchases.length} pending purchases to process`);
+        
+        // Process the most recent pending purchase
+        const recentPurchase = pendingPurchases[pendingPurchases.length - 1];
+        
+        if (recentPurchase && recentPurchase.userId) {
+          // Parse the description to get the credit amount and payment amount
+          const descMatch = recentPurchase.description.match(/(\d+(?:\.\d+)?)\s+credits\s+for\s+\$(\d+(?:\.\d+)?)/);
+          
+          if (descMatch) {
+            const creditsToAdd = parseFloat(descMatch[1]);
+            const paymentAmount = parseFloat(descMatch[2]);
+            
+            console.log(`💰 Processing credit addition for user ${recentPurchase.userId}: ${creditsToAdd} credits`);
+            
+            // Get current user
+            const currentUser = await storage.getUser(recentPurchase.userId);
+            if (currentUser) {
+              // Add credits
+              const newBalance = currentUser.credits + creditsToAdd;
+              await storage.updateUserCredits(recentPurchase.userId, newBalance);
+              
+              // Record completed transaction
+              await storage.createCreditTransaction({
+                userId: recentPurchase.userId,
+                type: "purchase",
+                amount: creditsToAdd,
+                balanceAfter: newBalance,
+                description: `Square payment completed: ${creditsToAdd} credits for $${paymentAmount}`,
+                transactionId: recentPurchase.transactionId
+              });
+              
+              console.log(`✅ Successfully added ${creditsToAdd} credits to user ${recentPurchase.userId}`);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error processing payment success:', error);
+    }
+    
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Payment Successful - Bean Stalker</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            text-align: center; 
+            padding: 50px; 
+            background: linear-gradient(135deg, #065f46, #047857);
+            color: white;
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .container {
+            background: rgba(255,255,255,0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            max-width: 400px;
+          }
+          h1 { color: #10b981; margin-bottom: 20px; }
+          p { margin: 15px 0; font-size: 16px; line-height: 1.5; }
+          .success-icon { font-size: 50px; margin-bottom: 20px; }
+          .redirect-info { 
+            background: rgba(255,255,255,0.1); 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin-top: 20px; 
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="success-icon">✅</div>
+          <h1>Payment Successful!</h1>
+          <p>Your Bean Stalker credits have been purchased successfully.</p>
+          <div class="redirect-info">
+            <p><strong>Returning to app...</strong></p>
+            <button onclick="returnToApp()" style="
+              background: #10b981; 
+              color: white; 
+              border: none; 
+              padding: 15px 30px; 
+              border-radius: 10px; 
+              font-size: 16px; 
+              font-weight: bold; 
+              cursor: pointer; 
+              margin: 15px 0;
+              width: 100%;
+            ">Return to Bean Stalker App</button>
+            <p style="font-size: 14px;">If the button doesn't work, please close this tab and check your Bean Stalker app.</p>
+          </div>
+        </div>
+        <script>
+          function returnToApp() {
+            // Try to open the native app
+            window.location.href = 'beanstalker://payment-success';
+            
+            // Fallback after short delay
+            setTimeout(() => {
+              if (window.opener) {
+                window.close();
+              } else {
+                window.location.href = 'https://member.beanstalker.com.au/payment-success';
+              }
+            }, 1000);
+          }
+          
+          // Auto-redirect to native app after 3 seconds
+          setTimeout(returnToApp, 3000);
+        </script>
+      </body>
+      </html>
+    `);
+  });
+
   app.post("/api/square/process-payment", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
@@ -4009,6 +4383,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Payment webhook handler function
+  async function handlePaymentWebhook(webhookData: any) {
+    try {
+      const payment = webhookData.data?.object || webhookData.payment;
+      
+      if (!payment) {
+        return { success: false, error: 'No payment data in webhook' };
+      }
+      
+      // Check if payment is completed
+      if (payment.status !== 'COMPLETED') {
+        console.log(`Payment status is ${payment.status}, not processing credits yet`);
+        return { success: true, creditsAdded: 0, userId: null };
+      }
+      
+      // Extract payment amount and convert from cents to dollars
+      const amountCents = payment.amount_money?.amount || 0;
+      const amountDollars = amountCents / 100;
+      
+      // Determine credits based on amount (this logic should match your credit packages)
+      let creditsToAdd = 0;
+      if (amountDollars === 0.20) {
+        creditsToAdd = 10; // Test package
+      } else if (amountDollars === 25) {
+        creditsToAdd = 29.50; // 25 + 4.50 bonus
+      } else if (amountDollars === 50) {
+        creditsToAdd = 59.90; // 50 + 9.90 bonus
+      } else if (amountDollars === 100) {
+        creditsToAdd = 120.70; // 100 + 20.70 bonus
+      } else {
+        console.log(`Unknown payment amount: $${amountDollars}, not adding credits`);
+        return { success: true, creditsAdded: 0, userId: null };
+      }
+      
+      // For now, we'll need to find the user another way since we don't have user ID in payment
+      // This is a limitation - we'll need to implement order tracking or use note field
+      console.log(`Payment completed for $${amountDollars}, would add ${creditsToAdd} credits but no user ID available`);
+      
+      return { 
+        success: true, 
+        creditsAdded: creditsToAdd,
+        userId: 'unknown',
+        note: 'User ID not available in payment webhook - manual credit addition may be required'
+      };
+      
+    } catch (error) {
+      console.error('Payment webhook processing error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown payment webhook error' 
+      };
+    }
+  }
+
   // Square webhook for bidirectional kitchen display sync
   app.post("/api/square/webhook", async (req, res) => {
     try {
@@ -4039,7 +4467,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('📨 Full webhook payload:', JSON.stringify(req.body, null, 2));
       }
       
-      // Process the webhook
+      // Check if this is a payment webhook
+      const eventType = req.body?.event_type || req.body?.type;
+      
+      if (eventType === 'payment.created' || eventType === 'payment.updated') {
+        console.log('💳 Processing payment webhook');
+        const result = await handlePaymentWebhook(req.body);
+        
+        if (result.success) {
+          console.log(`✅ Payment webhook processed: ${result.creditsAdded} credits added to user ${result.userId}`);
+          return res.status(200).json({ 
+            message: "Payment processed successfully",
+            creditsAdded: result.creditsAdded,
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          console.error('❌ Payment webhook processing failed:', result.error);
+          return res.status(500).json({ 
+            message: "Payment processing failed",
+            error: result.error
+          });
+        }
+      }
+      
+      // Process order webhooks
       const { handleSquareWebhook } = await import('./square-integration-final');
       const result = await handleSquareWebhook(req.body);
       

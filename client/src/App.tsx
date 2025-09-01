@@ -16,6 +16,7 @@ import KitchenDisplayPage from "@/pages/kitchen-display";
 import MembershipPage from "@/pages/membership-page";
 import SendCreditsPage from "@/pages/send-credits-page";
 import AdminCreditVerification from "@/pages/admin-credit-verification";
+import { PaymentSuccessPage } from "@/pages/payment-success-page";
 import { ProtectedRoute } from "@/lib/protected-route";
 import { AuthProvider } from "@/hooks/use-auth";
 import { MenuProvider } from "@/contexts/menu-context";
@@ -25,6 +26,7 @@ import { IOSNotificationProvider } from "@/contexts/ios-notification-context";
 import { AppUpdateProvider } from "@/contexts/app-update-context";
 import { IAPProvider } from "@/hooks/use-iap";
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SplashScreen } from "@/components/splash-screen";
 import { DeviceBindingManager } from "@/components/device-binding-manager";
@@ -33,7 +35,36 @@ import { DeviceBindingManager } from "@/components/device-binding-manager";
 import { useState, useEffect } from 'react';
 
 function Router() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  
+  useEffect(() => {
+    // Listen for URL scheme deep links (native app)
+    if (Capacitor.isNativePlatform()) {
+      const handleUrlOpen = (event: any) => {
+        console.log('Deep link received:', event.url);
+        
+        // Handle payment success redirect
+        if (event.url && event.url.includes('payment-success')) {
+          console.log('Navigating to payment success page');
+          setLocation('/payment-success');
+        }
+        
+        // Handle other deep links as needed
+        // Example: beanstalker://menu -> navigate to /menu
+        if (event.url && event.url.includes('menu')) {
+          setLocation('/menu');
+        }
+      };
+
+      // Add listener for app URL open events
+      CapacitorApp.addListener('appUrlOpen', handleUrlOpen);
+
+      // Cleanup listener on unmount
+      return () => {
+        CapacitorApp.removeAllListeners();
+      };
+    }
+  }, [setLocation]);
   
   return (
     <Switch>
@@ -50,6 +81,7 @@ function Router() {
       <ProtectedRoute path="/admin/credit-verification" component={AdminCreditVerification} />
       <ProtectedRoute path="/kitchen" component={KitchenDisplayPage} />
       <ProtectedRoute path="/send-credits" component={SendCreditsPage} />
+      <ProtectedRoute path="/payment-success" component={PaymentSuccessPage} />
       <Route component={NotFound} />
     </Switch>
   );

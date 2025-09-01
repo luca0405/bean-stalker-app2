@@ -5,12 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Capacitor } from '@capacitor/core';
 import { useIAP } from '@/hooks/use-iap';
 import { useNativeNotification } from '@/services/native-notification-service';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 
 import { APP_CONFIG } from '../config/environment';
 
 import { formatCurrency } from '@/lib/utils';
 import { CreditCard, ShoppingBag, Star, Gift, Smartphone } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { SquarePaymentForm } from './square-payment-form';
 
 interface CreditPackage {
   id: string;
@@ -21,6 +24,7 @@ interface CreditPackage {
 }
 
 const CREDIT_PACKAGES: CreditPackage[] = [
+  { id: 'com.beanstalker.test', amount: 10, price: 0.20, bonus: 0 }, // TEST PACKAGE - $0.20 for 10 credits
   { id: 'com.beanstalker.credits25', amount: 25, price: 25, bonus: 4.50 }, // $25 → $29.50 (+18%)
   { id: 'com.beanstalker.credits50', amount: 50, price: 50, bonus: 9.90, popular: true }, // $50 → $59.90 (+19.8%)  
   { id: 'com.beanstalker.credits100', amount: 100, price: 100, bonus: 20.70 }, // $100 → $120.70 (+20.7%)
@@ -28,35 +32,93 @@ const CREDIT_PACKAGES: CreditPackage[] = [
 
 export function EnhancedBuyCredits() {
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { purchaseProduct, isAvailable: iapAvailable, isLoading: iapLoading } = useIAP();
   const { notify } = useNativeNotification();
   const isNative = Capacitor.isNativePlatform();
 
-  const handlePurchase = async (creditPackage: CreditPackage) => {
-    setIsProcessing(true);
-    setSelectedPackage(creditPackage);
-
-    try {
-      // Process IAP purchase through App Store
-      const result = await purchaseProduct(creditPackage.id);
-      if (result.success) {
+  const queryClient = useQueryClient();
+  
+  // Square Payment mutation for credit purchases
+  const squarePaymentMutation = useMutation({
+    mutationFn: async (creditPackage: CreditPackage) => {
+      const response = await apiRequest('POST', '/api/square/credit-purchase', {
+        amount: creditPackage.price,
+        credits: creditPackage.amount + (creditPackage.bonus || 0),
+        packageId: creditPackage.id
+      });
+      return response.json();
+    },
+    onSuccess: (data, creditPackage) => {
+      // For $0 purchases, credits are added immediately
+      if (creditPackage.price === 0) {
+        notify({
+          title: "Free Test Credits Added!",
+          description: `${formatCurrency(creditPackage.amount + (creditPackage.bonus || 0))} credits added to your account.`,
+        });
+        // Invalidate user data to refresh credit balance
+        queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+        return;
+      }
+      
+      // For paid purchases, redirect to Square checkout
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
         notify({
           title: "Purchase Successful!",
           description: `${formatCurrency(creditPackage.amount + (creditPackage.bonus || 0))} credits added to your account.`,
         });
+        // Invalidate user data to refresh credit balance
+        queryClient.invalidateQueries({ queryKey: ['/api/user'] });
       }
-    } catch (error) {
-      console.error('App Store purchase failed:', error);
+    },
+    onError: (error: any) => {
+      console.error('Square payment failed:', error);
+      const errorMessage = error?.message || "Please try again or contact support if the issue persists.";
       notify({
         title: "Purchase Failed",
-        description: "Please try again or contact support if the issue persists.",
+        description: errorMessage,
         variant: "destructive",
       });
-    } finally {
-      setIsProcessing(false);
-      setSelectedPackage(null);
     }
+  });
+
+  const handlePurchase = async (creditPackage: CreditPackage) => {
+    setSelectedPackage(creditPackage);
+
+    try {
+      // For $0 purchases, handle directly
+      if (creditPackage.price === 0) {
+        setIsProcessing(true);
+        squarePaymentMutation.mutate(creditPackage);
+        return;
+      }
+
+      // For all paid purchases, show embedded Square payment form
+      setShowPaymentForm(true);
+    } catch (error) {
+      console.error('Purchase error:', error);
+      
+      notify({
+        title: "Purchase Failed",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
+      });
+    }
+  };
+
+  const handlePaymentSuccess = () => {
+    // Delay closing the form to let user see success message
+    setTimeout(() => {
+      setShowPaymentForm(false);
+      setSelectedPackage(null);
+    }, 2000); // Wait 2 seconds before closing
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPaymentForm(false);
+    setSelectedPackage(null);
   };
 
   return (
@@ -203,8 +265,23 @@ export function EnhancedBuyCredits() {
         </Card>
       </motion.div>
 
-
-
+      {/* Embedded Square Payment Form */}
+      {showPaymentForm && selectedPackage && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+        >
+          <div className="w-full max-w-md">
+            <SquarePaymentForm
+              creditPackage={selectedPackage}
+              onSuccess={handlePaymentSuccess}
+              onCancel={handlePaymentCancel}
+            />
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

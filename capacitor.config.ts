@@ -51,7 +51,13 @@ const config: CapacitorConfig = {
     backgroundColor: '#ffffff',
     contentInset: 'never',
     scrollEnabled: false,
-    allowsLinkPreview: false
+    allowsLinkPreview: false,
+    scheme: 'beanstalker',
+    urlScheme: 'beanstalker'
+  },
+  android: {
+    scheme: 'beanstalker',
+    urlScheme: 'beanstalker'
   },
 };
 

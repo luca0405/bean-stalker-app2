@@ -5,7 +5,7 @@
 
 // Production-only Square configuration
 function getSquareConfig() {
-  // Require production credentials - no fallback to sandbox
+  // Temporarily use production credentials since sandbox won't update
   if (!process.env.SQUARE_ACCESS_TOKEN_PROD || !process.env.SQUARE_LOCATION_ID_PROD) {
     throw new Error('SQUARE_ACCESS_TOKEN_PROD and SQUARE_LOCATION_ID_PROD are required');
   }
