@@ -10,7 +10,7 @@ import { Order } from "@shared/schema";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { EnhancedBuyCredits } from "@/components/enhanced-buy-credits";
 import { motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -33,6 +33,13 @@ export default function HomePage() {
   const { notify } = useNativeNotification();
   const { notificationsEnabled } = usePushNotificationContext();
   const { addToCart } = useCart();
+  
+  // Pull-to-refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [startY, setStartY] = useState(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const maxPullDistance = 100;
   
   const { data: orders = [] } = useQuery<Order[], Error>({
     queryKey: ["/api/orders"],
@@ -119,6 +126,63 @@ export default function HomePage() {
       navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
     };
   }, [user, notificationsEnabled]);
+
+  // Pull-to-refresh functionality
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    try {
+      // Invalidate user data to refresh credit balance
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+      // Invalidate orders to get latest status
+      queryClient.invalidateQueries({ queryKey: ['/api/orders'] });
+      
+      // Add a small delay to ensure the UI feels responsive
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      notify({
+        title: "Refreshed",
+        description: "Credit balance and orders updated",
+      });
+    } catch (error) {
+      notify({
+        title: "Refresh Failed",
+        description: "Unable to refresh data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+      setPullDistance(0);
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (scrollContainerRef.current && scrollContainerRef.current.scrollTop === 0) {
+      setStartY(e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (scrollContainerRef.current && startY > 0 && scrollContainerRef.current.scrollTop === 0) {
+      const currentY = e.touches[0].clientY;
+      const distance = Math.max(0, currentY - startY);
+      
+      if (distance > 0) {
+        e.preventDefault(); // Prevent default scroll behavior
+        setPullDistance(Math.min(distance, maxPullDistance));
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (pullDistance >= 60) { // Trigger refresh if pulled far enough
+      handleRefresh();
+    } else {
+      setPullDistance(0);
+    }
+    setStartY(0);
+  };
   
   // Sort orders by date, most recent first
   const recentOrders = [...orders]
@@ -237,10 +301,37 @@ export default function HomePage() {
     >
       <AppHeader />
       
-      <main className="px-6 py-8 pb-32 w-full mx-auto
-        sm:max-w-none sm:px-8 
-        md:max-w-5xl md:px-10
-        lg:max-w-6xl lg:px-12"
+      {/* Pull-to-refresh indicator */}
+      {pullDistance > 0 && (
+        <div 
+          className="fixed top-16 left-0 right-0 z-50 flex justify-center transition-all duration-200"
+          style={{ 
+            transform: `translateY(${Math.min(pullDistance - 20, 40)}px)`,
+            opacity: Math.min(pullDistance / 60, 1)
+          }}
+        >
+          <div className="bg-white rounded-full shadow-lg px-4 py-2 flex items-center gap-2">
+            <RefreshCw className={`h-4 w-4 text-green-600 ${pullDistance >= 60 || isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="text-sm text-gray-700">
+              {pullDistance >= 60 ? 'Release to refresh' : 'Pull to refresh'}
+            </span>
+          </div>
+        </div>
+      )}
+      
+      <main 
+        ref={scrollContainerRef}
+        className="px-6 py-8 pb-32 w-full mx-auto overflow-y-auto h-full
+          sm:max-w-none sm:px-8 
+          md:max-w-5xl md:px-10
+          lg:max-w-6xl lg:px-12"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ 
+          paddingTop: `${Math.max(32, 32 + pullDistance * 0.5)}px`,
+          transition: isRefreshing ? 'padding-top 0.3s ease' : 'none'
+        }}
       >
         {/* Welcome Section */}
         <div className="mb-6">
