@@ -82,20 +82,16 @@ export async function createPaymentLink(amount: number, credits: number, userId:
       checkout_options: {
         redirect_url: 'https://member.beanstalker.com.au/api/payment-success'
       },
-      order: {
-        location_id: process.env.SQUARE_LOCATION_ID_PROD,
-        reference_id: userId, // This will be passed back in redirect URL
-        line_items: [{
-          name: `${credits} credits for Bean Stalker`,
-          quantity: '1',
-          base_price_money: {
-            amount: Math.round(amount * 100),
-            currency: 'AUD'
-          }
-        }]
+      quick_pay: {
+        name: `${credits} credits for Bean Stalker`,
+        price_money: {
+          amount: Math.round(amount * 100),
+          currency: 'AUD'
+        },
+        location_id: process.env.SQUARE_LOCATION_ID_PROD
       },
-      payment_options: {
-        autocomplete: true
+      order: {
+        reference_id: userId // This will be passed back in redirect URL
       }
     };
 
