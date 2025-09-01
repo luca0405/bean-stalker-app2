@@ -80,7 +80,7 @@ export async function createPaymentLink(amount: number, credits: number, userId:
     const checkoutData = {
       idempotency_key: randomUUID(),
       checkout_options: {
-        redirect_url: 'https://member.beanstalker.com.au/api/payment-success'
+        redirect_url: `https://member.beanstalker.com.au/api/payment-success?userId=${userId}`
       },
       quick_pay: {
         name: `${credits} credits for Bean Stalker`,
@@ -89,9 +89,6 @@ export async function createPaymentLink(amount: number, credits: number, userId:
           currency: 'AUD'
         },
         location_id: process.env.SQUARE_LOCATION_ID_PROD
-      },
-      order: {
-        reference_id: userId // This will be passed back in redirect URL
       }
     };
 

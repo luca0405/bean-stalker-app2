@@ -1274,44 +1274,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('💳 Payment success page accessed with query params:', req.query);
       
-      // Extract Square's automatic redirect parameters
-      const { orderId, transactionId, checkoutId, referenceId } = req.query;
-      console.log(`🎯 Square redirect parameters - Order: ${orderId}, Transaction: ${transactionId}, Checkout: ${checkoutId}, Reference: ${referenceId}`);
+      // Extract Square's automatic redirect parameters and our custom userId
+      const { orderId, transactionId, checkoutId, referenceId, userId } = req.query;
+      console.log(`🎯 Square redirect parameters - Order: ${orderId}, Transaction: ${transactionId}, Checkout: ${checkoutId}, Reference: ${referenceId}, UserId: ${userId}`);
       
       let processedPayment = false;
       
-      // If we have Square parameters, use them to find the corresponding purchase
-      if (referenceId && typeof referenceId === 'string') {
-        console.log(`🔍 Looking for pending purchase with reference: ${referenceId}`);
+      // Use userId from our custom parameter (since quick_pay doesn't support reference_id)
+      const targetUserId = userId || referenceId;
+      
+      if (targetUserId && typeof targetUserId === 'string') {
+        console.log(`🔍 Looking for pending purchase for user: ${targetUserId}`);
         
-        // Reference ID should be the user ID we passed when creating the payment link
-        const userId = referenceId;
-        const userTransactions = await storage.getCreditTransactionsByUserId(userId);
+        // Convert string userId to number for database operations
+        const numericUserId = parseInt(targetUserId, 10);
+        if (isNaN(numericUserId)) {
+          console.error(`❌ Invalid userId format: ${targetUserId} - must be numeric`);
+          return res.status(400).json({ message: "Invalid user ID format" });
+        }
+        
+        const userTransactions = await storage.getCreditTransactionsByUserId(numericUserId);
         const pendingPurchases = userTransactions.filter(t => 
           t.type === "pending_purchase" && 
           t.createdAt && 
-          new Date(t.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000 // Last 24 hours
+          new Date(t.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000 && // Last 24 hours
+          t.amount > 0 // Only process purchases with actual credit amounts
         );
         
+        console.log(`📝 Found ${pendingPurchases.length} valid pending purchases for user ${numericUserId}`);
+        
+        // Debug: Show all pending purchases
+        pendingPurchases.forEach((p, i) => {
+          console.log(`  📦 Pending purchase ${i}: ${p.amount} credits, transaction: ${p.transactionId}, created: ${p.createdAt}`);
+        });
+        
         if (pendingPurchases.length > 0) {
-          const recentPurchase = pendingPurchases[pendingPurchases.length - 1];
+          // Get the most recent pending purchase with credits > 0
+          const recentPurchase = pendingPurchases
+            .filter(p => p.amount > 0)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+          
+          console.log(`📦 Processing most recent valid purchase: ${recentPurchase?.amount || 0} credits for transaction ${recentPurchase?.transactionId}`);
           
           if (recentPurchase) {
             const creditsToAdd = recentPurchase.amount;
             const paymentAmount = recentPurchase.metadata?.paymentAmount || 0;
             
-            console.log(`💰 Processing credit addition for user ${userId}: ${creditsToAdd} credits`);
+            console.log(`💰 Processing credit addition for user ${numericUserId}: ${creditsToAdd} credits`);
             
             // Get current user
-            const currentUser = await storage.getUser(userId);
+            const currentUser = await storage.getUser(numericUserId);
             if (currentUser) {
               // Add credits
               const newBalance = currentUser.credits + creditsToAdd;
-              await storage.updateUserCredits(userId, newBalance);
+              await storage.updateUserCredits(numericUserId, newBalance);
               
               // Record completed transaction
               await storage.createCreditTransaction({
-                userId: userId,
+                userId: numericUserId,
                 type: "purchase",
                 amount: creditsToAdd,
                 balanceAfter: newBalance,
@@ -1325,7 +1345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
               });
               
-              console.log(`✅ Successfully added ${creditsToAdd} credits to user ${userId} - New balance: $${newBalance}`);
+              console.log(`✅ Successfully added ${creditsToAdd} credits to user ${numericUserId} - New balance: $${newBalance}`);
               processedPayment = true;
             }
           }
