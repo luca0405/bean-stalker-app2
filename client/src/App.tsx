@@ -40,29 +40,45 @@ function Router() {
   useEffect(() => {
     // Listen for URL scheme deep links (native app)
     if (Capacitor.isNativePlatform()) {
+      console.log('🔧 Setting up deep link listener for native platform');
+      
       const handleUrlOpen = (event: any) => {
-        console.log('Deep link received:', event.url);
+        console.log('🔗 Deep link received:', event.url);
         
         // Handle payment success redirect
         if (event.url && event.url.includes('payment-success')) {
-          console.log('Navigating to payment success page');
+          console.log('✅ Payment success deep link - navigating to payment success page');
           setLocation('/payment-success');
+          return;
         }
         
         // Handle other deep links as needed
-        // Example: beanstalker://menu -> navigate to /menu
         if (event.url && event.url.includes('menu')) {
+          console.log('🍽️ Menu deep link - navigating to menu page');
           setLocation('/menu');
+          return;
         }
+        
+        // Handle general app deep links
+        if (event.url && event.url.startsWith('beanstalker://')) {
+          console.log('🏠 General deep link - navigating to home page');
+          setLocation('/');
+          return;
+        }
+        
+        console.log('❓ Unknown deep link format:', event.url);
       };
 
       // Add listener for app URL open events
       CapacitorApp.addListener('appUrlOpen', handleUrlOpen);
+      console.log('🔗 Deep link listener registered successfully');
 
       // Cleanup listener on unmount
       return () => {
         CapacitorApp.removeAllListeners();
       };
+    } else {
+      console.log('🌐 Running on web platform - deep links not available');
     }
   }, [setLocation]);
   

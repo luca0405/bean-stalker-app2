@@ -70,17 +70,23 @@ export async function processPayment(paymentRequest: SquarePaymentRequest) {
 /**
  * Generate a payment link for Square Checkout using HTTP requests
  * @param amount The amount to charge
+ * @param credits Number of credits being purchased
+ * @param userId User ID to include as reference for tracking
  * @param isNativeApp Whether this is for a native app (uses custom URL scheme)
  * @returns The payment link object with URL
  */
-export async function createPaymentLink(amount: number, isNativeApp: boolean = false) {
+export async function createPaymentLink(amount: number, credits: number, userId: string, isNativeApp: boolean = false) {
   try {
     const checkoutData = {
       idempotency_key: randomUUID(),
+      checkout_options: {
+        redirect_url: 'https://member.beanstalker.com.au/api/payment-success'
+      },
       order: {
         location_id: process.env.SQUARE_LOCATION_ID_PROD,
+        reference_id: userId, // This will be passed back in redirect URL
         line_items: [{
-          name: 'Bean Stalker Premium Membership',
+          name: `${credits} credits for Bean Stalker`,
           quantity: '1',
           base_price_money: {
             amount: Math.round(amount * 100),
@@ -90,10 +96,7 @@ export async function createPaymentLink(amount: number, isNativeApp: boolean = f
       },
       payment_options: {
         autocomplete: true
-      },
-      redirect_url: isNativeApp 
-        ? 'https://member.beanstalker.com.au/api/payment-success'
-        : 'https://member.beanstalker.com.au/api/payment-success'
+      }
     };
 
     const response = await fetch('https://connect.squareup.com/v2/online-checkout/payment-links', {

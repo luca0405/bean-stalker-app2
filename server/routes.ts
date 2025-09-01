@@ -1191,7 +1191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userAgent = req.headers['user-agent'] || '';
       const isNativeApp = userAgent.includes('CapacitorHttp') || userAgent.includes('Bean Stalker');
       
-      const paymentLink = await createPaymentLink(amount, isNativeApp);
+      const paymentLink = await createPaymentLink(amount, credits, user.id, isNativeApp);
       
       if (!paymentLink.success) {
         console.error('Square payment link error:', paymentLink.error);
@@ -1274,45 +1274,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log('💳 Payment success page accessed with query params:', req.query);
       
-      // Process recent pending purchases from database
-      const recentTransactions = await storage.getCreditTransactions() || [];
-      const pendingPurchases = recentTransactions.filter(t => 
-        t.type === "pending_purchase" && 
-        t.createdAt && 
-        new Date(t.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000 // Last 24 hours
-      );
+      // Extract Square's automatic redirect parameters
+      const { orderId, transactionId, checkoutId, referenceId } = req.query;
+      console.log(`🎯 Square redirect parameters - Order: ${orderId}, Transaction: ${transactionId}, Checkout: ${checkoutId}, Reference: ${referenceId}`);
       
-      if (pendingPurchases.length > 0) {
-        console.log(`🔍 Found ${pendingPurchases.length} pending purchases to process`);
+      let processedPayment = false;
+      
+      // If we have Square parameters, use them to find the corresponding purchase
+      if (referenceId && typeof referenceId === 'string') {
+        console.log(`🔍 Looking for pending purchase with reference: ${referenceId}`);
         
-        // Process the most recent pending purchase
-        const recentPurchase = pendingPurchases[pendingPurchases.length - 1];
+        // Reference ID should be the user ID we passed when creating the payment link
+        const userId = referenceId;
+        const userTransactions = await storage.getCreditTransactionsByUserId(userId);
+        const pendingPurchases = userTransactions.filter(t => 
+          t.type === "pending_purchase" && 
+          t.createdAt && 
+          new Date(t.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000 // Last 24 hours
+        );
         
-        if (recentPurchase && recentPurchase.userId) {
-          // Use stored metadata for reliable credit processing
-          const creditsToAdd = recentPurchase.amount; // Credits stored in amount field
-          const paymentAmount = recentPurchase.metadata?.paymentAmount || 0;
+        if (pendingPurchases.length > 0) {
+          const recentPurchase = pendingPurchases[pendingPurchases.length - 1];
           
-          console.log(`💰 Processing credit addition for user ${recentPurchase.userId}: ${creditsToAdd} credits`);
+          if (recentPurchase) {
+            const creditsToAdd = recentPurchase.amount;
+            const paymentAmount = recentPurchase.metadata?.paymentAmount || 0;
+            
+            console.log(`💰 Processing credit addition for user ${userId}: ${creditsToAdd} credits`);
+            
+            // Get current user
+            const currentUser = await storage.getUser(userId);
+            if (currentUser) {
+              // Add credits
+              const newBalance = currentUser.credits + creditsToAdd;
+              await storage.updateUserCredits(userId, newBalance);
+              
+              // Record completed transaction
+              await storage.createCreditTransaction({
+                userId: userId,
+                type: "purchase",
+                amount: creditsToAdd,
+                balanceAfter: newBalance,
+                description: `Square payment completed: ${creditsToAdd} credits for $${paymentAmount}`,
+                transactionId: transactionId as string || recentPurchase.transactionId,
+                metadata: {
+                  orderId: orderId as string,
+                  checkoutId: checkoutId as string,
+                  squareTransactionId: transactionId as string,
+                  originalPendingId: recentPurchase.id
+                }
+              });
+              
+              console.log(`✅ Successfully added ${creditsToAdd} credits to user ${userId} - New balance: $${newBalance}`);
+              processedPayment = true;
+            }
+          }
+        }
+      }
+      
+      // Fallback: Process recent pending purchases from database (if no Square parameters)
+      if (!processedPayment) {
+        console.log('🔄 Fallback: Processing recent pending purchases from database');
+        const recentTransactions = await storage.getCreditTransactions() || [];
+        const pendingPurchases = recentTransactions.filter(t => 
+          t.type === "pending_purchase" && 
+          t.createdAt && 
+          new Date(t.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000 // Last 24 hours
+        );
+        
+        if (pendingPurchases.length > 0) {
+          console.log(`🔍 Found ${pendingPurchases.length} pending purchases to process`);
           
-          // Get current user
-          const currentUser = await storage.getUser(recentPurchase.userId);
-          if (currentUser) {
-            // Add credits
-            const newBalance = currentUser.credits + creditsToAdd;
-            await storage.updateUserCredits(recentPurchase.userId, newBalance);
+          // Process the most recent pending purchase
+          const recentPurchase = pendingPurchases[pendingPurchases.length - 1];
+          
+          if (recentPurchase && recentPurchase.userId) {
+            // Use stored metadata for reliable credit processing
+            const creditsToAdd = recentPurchase.amount; // Credits stored in amount field
+            const paymentAmount = recentPurchase.metadata?.paymentAmount || 0;
             
-            // Record completed transaction
-            await storage.createCreditTransaction({
-              userId: recentPurchase.userId,
-              type: "purchase",
-              amount: creditsToAdd,
-              balanceAfter: newBalance,
-              description: `Square payment completed: ${creditsToAdd} credits for $${paymentAmount}`,
-              transactionId: recentPurchase.transactionId
-            });
+            console.log(`💰 Processing credit addition for user ${recentPurchase.userId}: ${creditsToAdd} credits`);
             
-            console.log(`✅ Successfully added ${creditsToAdd} credits to user ${recentPurchase.userId} - New balance: $${newBalance}`);
+            // Get current user
+            const currentUser = await storage.getUser(recentPurchase.userId);
+            if (currentUser) {
+              // Add credits
+              const newBalance = currentUser.credits + creditsToAdd;
+              await storage.updateUserCredits(recentPurchase.userId, newBalance);
+              
+              // Record completed transaction
+              await storage.createCreditTransaction({
+                userId: recentPurchase.userId,
+                type: "purchase",
+                amount: creditsToAdd,
+                balanceAfter: newBalance,
+                description: `Square payment completed: ${creditsToAdd} credits for $${paymentAmount}`,
+                transactionId: transactionId as string || recentPurchase.transactionId
+              });
+              
+              console.log(`✅ Successfully added ${creditsToAdd} credits to user ${recentPurchase.userId} - New balance: $${newBalance}`);
+            }
           }
         }
       }
@@ -1385,18 +1446,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const isIOS = /iPad|iPhone|iPod/.test(userAgent);
             const isAndroid = /Android/.test(userAgent);
             
-            if (isIOS || isAndroid) {
-              // Try to open the native app with custom scheme
-              window.location.href = 'beanstalker://payment-success';
-              
-              // Fallback after short delay - redirect to main app page
-              setTimeout(() => {
-                window.location.href = 'https://member.beanstalker.com.au/';
-              }, 2000);
-            } else {
-              // For web browsers, redirect to main app
+            // Always try the native app deep link first
+            console.log('Attempting deep link to native app...');
+            window.location.href = 'beanstalker://payment-success';
+            
+            // Shorter fallback for faster response
+            setTimeout(() => {
+              console.log('Deep link fallback - redirecting to web app');
               window.location.href = 'https://member.beanstalker.com.au/';
-            }
+            }, 1500);
           }
           
           // Auto-redirect to native app after 3 seconds
