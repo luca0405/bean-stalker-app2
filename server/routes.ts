@@ -1201,25 +1201,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Store pending purchase in database for reliable processing
-      const pendingPurchaseData = {
-        userId: userId,
-        packageId: packageId,
-        credits: credits,
-        amount: amount,
-        paymentLinkId: paymentLink.paymentLink?.id || 'unknown',
-        status: 'pending' as const,
-        createdAt: new Date().toISOString()
-      };
-      
-      // Store in credit transactions as pending
+      // Store pending purchase data for processing after payment
       await storage.createCreditTransaction({
         userId: userId,
         type: "pending_purchase",
-        amount: 0, // Will be updated when processed
+        amount: credits, // Store the credits amount here for easy access
         balanceAfter: (await storage.getUser(userId))?.credits || 0,
         description: `Pending Square payment: ${credits} credits for $${amount}`,
-        transactionId: paymentLink.paymentLink?.id
+        transactionId: paymentLink.paymentLink?.id,
+        metadata: {
+          packageId: packageId,
+          paymentAmount: amount,
+          creditsToAdd: credits
+        }
       });
       
       console.log(`💳 Created payment link for user ${userId}: $${amount} for ${credits} credits`);
@@ -1295,34 +1289,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const recentPurchase = pendingPurchases[pendingPurchases.length - 1];
         
         if (recentPurchase && recentPurchase.userId) {
-          // Parse the description to get the credit amount and payment amount
-          const descMatch = recentPurchase.description.match(/(\d+(?:\.\d+)?)\s+credits\s+for\s+\$(\d+(?:\.\d+)?)/);
+          // Use stored metadata for reliable credit processing
+          const creditsToAdd = recentPurchase.amount; // Credits stored in amount field
+          const paymentAmount = recentPurchase.metadata?.paymentAmount || 0;
           
-          if (descMatch) {
-            const creditsToAdd = parseFloat(descMatch[1]);
-            const paymentAmount = parseFloat(descMatch[2]);
+          console.log(`💰 Processing credit addition for user ${recentPurchase.userId}: ${creditsToAdd} credits`);
+          
+          // Get current user
+          const currentUser = await storage.getUser(recentPurchase.userId);
+          if (currentUser) {
+            // Add credits
+            const newBalance = currentUser.credits + creditsToAdd;
+            await storage.updateUserCredits(recentPurchase.userId, newBalance);
             
-            console.log(`💰 Processing credit addition for user ${recentPurchase.userId}: ${creditsToAdd} credits`);
+            // Record completed transaction
+            await storage.createCreditTransaction({
+              userId: recentPurchase.userId,
+              type: "purchase",
+              amount: creditsToAdd,
+              balanceAfter: newBalance,
+              description: `Square payment completed: ${creditsToAdd} credits for $${paymentAmount}`,
+              transactionId: recentPurchase.transactionId
+            });
             
-            // Get current user
-            const currentUser = await storage.getUser(recentPurchase.userId);
-            if (currentUser) {
-              // Add credits
-              const newBalance = currentUser.credits + creditsToAdd;
-              await storage.updateUserCredits(recentPurchase.userId, newBalance);
-              
-              // Record completed transaction
-              await storage.createCreditTransaction({
-                userId: recentPurchase.userId,
-                type: "purchase",
-                amount: creditsToAdd,
-                balanceAfter: newBalance,
-                description: `Square payment completed: ${creditsToAdd} credits for $${paymentAmount}`,
-                transactionId: recentPurchase.transactionId
-              });
-              
-              console.log(`✅ Successfully added ${creditsToAdd} credits to user ${recentPurchase.userId}`);
-            }
+            console.log(`✅ Successfully added ${creditsToAdd} credits to user ${recentPurchase.userId} - New balance: $${newBalance}`);
           }
         }
       }
@@ -1391,17 +1381,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </div>
         <script>
           function returnToApp() {
-            // Try to open the native app
-            window.location.href = 'beanstalker://payment-success';
+            const userAgent = navigator.userAgent;
+            const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+            const isAndroid = /Android/.test(userAgent);
             
-            // Fallback after short delay
-            setTimeout(() => {
-              if (window.opener) {
-                window.close();
-              } else {
-                window.location.href = 'https://member.beanstalker.com.au/payment-success';
-              }
-            }, 1000);
+            if (isIOS || isAndroid) {
+              // Try to open the native app with custom scheme
+              window.location.href = 'beanstalker://payment-success';
+              
+              // Fallback after short delay - redirect to main app page
+              setTimeout(() => {
+                window.location.href = 'https://member.beanstalker.com.au/';
+              }, 2000);
+            } else {
+              // For web browsers, redirect to main app
+              window.location.href = 'https://member.beanstalker.com.au/';
+            }
           }
           
           // Auto-redirect to native app after 3 seconds

@@ -96,14 +96,17 @@ export function EnhancedBuyCredits() {
         return;
       }
 
-      // For all paid purchases, show embedded Square payment form
-      setShowPaymentForm(true);
+      // Use Square direct checkout link for all platforms
+      console.log('Using Square checkout link for purchase');
+      setIsProcessing(true);
+      squarePaymentMutation.mutate(creditPackage);
     } catch (error) {
       console.error('Purchase error:', error);
       
       notify({
         title: "Purchase Failed",
         description: error instanceof Error ? error.message : "Unknown error occurred",
+        variant: "destructive",
       });
     }
   };

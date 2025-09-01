@@ -24,10 +24,7 @@ export function PaymentSuccessPage() {
           // Invalidate user data to refresh credit balance
           queryClient.invalidateQueries({ queryKey: ['/api/user'] });
           
-          // Auto-redirect to app after processing
-          setTimeout(() => {
-            window.location.href = 'beanstalker://payment-success';
-          }, 1000);
+          // Payment processing completed - stay on success page
         }, 2000);
       } catch (error) {
         console.error('Error processing payment:', error);

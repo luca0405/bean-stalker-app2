@@ -92,8 +92,8 @@ export async function createPaymentLink(amount: number, isNativeApp: boolean = f
         autocomplete: true
       },
       redirect_url: isNativeApp 
-        ? 'beanstalker://payment-success'
-        : 'https://member.beanstalker.com.au/payment-success'
+        ? 'https://member.beanstalker.com.au/api/payment-success'
+        : 'https://member.beanstalker.com.au/api/payment-success'
     };
 
     const response = await fetch('https://connect.squareup.com/v2/online-checkout/payment-links', {
