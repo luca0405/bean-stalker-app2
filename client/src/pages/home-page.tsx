@@ -23,6 +23,7 @@ import { MenuItem } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useMutation } from "@tanstack/react-query";
 import { Portal } from "@/components/portal";
+import { backgroundNotificationService } from "@/services/background-notification-service";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -91,6 +92,9 @@ export default function HomePage() {
   useEffect(() => {
     if (!user) return;
     
+    // Initialize background notification service for native apps
+    backgroundNotificationService.initialize();
+    
     // Check if service worker is available
     if (!('serviceWorker' in navigator)) {
       console.log("Service worker not available");
@@ -126,6 +130,16 @@ export default function HomePage() {
       navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
     };
   }, [user, notificationsEnabled]);
+
+  // Track order status changes for background notifications (native apps)
+  useEffect(() => {
+    if (!user || !orders) return;
+    
+    // Update tracked orders in background notification service
+    orders.forEach(order => {
+      backgroundNotificationService.updateOrderStatus(order.id, order.status);
+    });
+  }, [orders, user]);
 
   // Pull-to-refresh functionality
   const handleRefresh = async () => {

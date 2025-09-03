@@ -471,29 +471,41 @@ export async function sendOrderStatusNotification(
       break;
   }
   
-  // Send the notification with enhanced format
-  await sendPushNotificationToUser(userId, {
-    title,
-    body,
-    message: body, // Add message property for browsers that prefer it
-    icon,
-    badge: '/images/badge.svg',
-    tag: `order-${orderId}-${Date.now()}`, // Ensure notification is unique
-    vibrate: [100, 50, 100], // Add vibration pattern for mobile devices
-    requireInteraction: true, // Makes notification stay until user interacts with it
-    actions: [
-      {
-        action: 'view',
-        title: 'View Order'
+  // HYBRID NOTIFICATION SYSTEM:
+  // 1. Send web push notification (for web users and when app is active)
+  try {
+    await sendPushNotificationToUser(userId, {
+      title,
+      body,
+      message: body, // Add message property for browsers that prefer it
+      icon,
+      badge: '/images/badge.svg',
+      tag: `order-${orderId}-${Date.now()}`, // Ensure notification is unique
+      vibrate: [100, 50, 100], // Add vibration pattern for mobile devices
+      requireInteraction: true, // Makes notification stay until user interacts with it
+      actions: [
+        {
+          action: 'view',
+          title: 'View Order'
+        }
+      ],
+      data: {
+        orderId,
+        status,
+        timestamp: new Date().toISOString(),
+        url: '/orders' // URL to open when notification is clicked
       }
-    ],
-    data: {
-      orderId,
-      status,
-      timestamp: new Date().toISOString(),
-      url: '/orders' // URL to open when notification is clicked
-    }
-  });
+    });
+    console.log(`📨 Web push notification sent to user #${userId} for order #${orderId}`);
+  } catch (error) {
+    console.error(`❌ Failed to send web push notification to user #${userId}:`, error);
+  }
+  
+  // 2. For native apps, notifications will be handled by foreground detection
+  console.log(`📱 Native background notification system will handle status changes for user #${userId}`);
+  
+  // Note: Native mobile apps will detect order status changes when they come back to foreground
+  // and show local notifications using Capacitor LocalNotifications
 }
 
 /**
