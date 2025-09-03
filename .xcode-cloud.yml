@@ -1,69 +1,220 @@
 version: 1
 
-# Optimized Xcode Cloud Configuration for Bean Stalker iOS
+# Xcode Cloud Configuration for Bean Stalker iOS - Matching GitHub Workflow
 workflows:
-  # Efficient TestFlight Build Workflow
+  # TestFlight Build Workflow (matches ios-simple-fix.yml)
   bean-stalker-testflight:
-    name: "Bean Stalker TestFlight (Optimized)"
-    description: "High-performance build for TestFlight distribution"
+    name: "Bean Stalker TestFlight"
+    description: "TestFlight build matching successful GitHub workflow"
     
     # Trigger conditions
     branch_patterns:
       - "main"
       - "master"
     
-    # Build environment - Latest stable versions
+    # Build environment (matching GitHub workflow versions)
     environment:
-      xcode: "15.4"
+      xcode: "16.2"  # Match GitHub workflow Xcode version
       macos: "14.5"
       node: "20"
     
-    # Optimized build steps
+    # Environment variables (matching GitHub workflow secrets)
+    environment_variables:
+      - name: VITE_REVENUECAT_API_KEY
+        value: "$(VITE_REVENUECAT_API_KEY)"
+      - name: OMNISEND_API_KEY  
+        value: "$(OMNISEND_API_KEY)"
+      - name: VITE_FORCE_SANDBOX
+        value: "true"
+      # Twilio SMS Integration
+      - name: TWILIO_ACCOUNT_SID
+        value: "$(TWILIO_ACCOUNT_SID)"
+      - name: TWILIO_AUTH_TOKEN
+        value: "$(TWILIO_AUTH_TOKEN)"
+      - name: TWILIO_PHONE_NUMBER
+        value: "$(TWILIO_PHONE_NUMBER)"
+      - name: TWILIO_SENDER_ID
+        value: "$(TWILIO_SENDER_ID)"
+      # Apple Wallet Integration
+      - name: APPLE_TEAM_ID
+        value: "$(APPLE_TEAM_ID)"
+      - name: APPLE_WALLET_CERT_PASSWORD
+        value: "$(APPLE_WALLET_CERT_PASSWORD)"
+      - name: APPLE_WALLET_CERT_BASE64
+        value: "$(APPLE_WALLET_CERT_BASE64)"
+      - name: APPLE_WALLET_WWDR_BASE64
+        value: "$(APPLE_WALLET_WWDR_BASE64)"
+      # Square API Integration (Sandbox)
+      - name: SQUARE_ACCESS_TOKEN
+        value: "$(SQUARE_ACCESS_TOKEN)"
+      - name: SQUARE_APPLICATION_ID
+        value: "$(SQUARE_APPLICATION_ID)"
+      - name: SQUARE_LOCATION_ID
+        value: "$(SQUARE_LOCATION_ID)"
+      - name: SQUARE_WEBHOOK_SIGNATURE_KEY
+        value: "$(SQUARE_WEBHOOK_SIGNATURE_KEY)"
+      # Square API Integration (Production)
+      - name: SQUARE_ACCESS_TOKEN_PROD
+        value: "$(SQUARE_ACCESS_TOKEN_PROD)"
+      - name: SQUARE_APPLICATION_ID_PROD
+        value: "$(SQUARE_APPLICATION_ID_PROD)"
+      - name: SQUARE_APPLICATION_SECRET_PROD
+        value: "$(SQUARE_APPLICATION_SECRET_PROD)"
+      - name: SQUARE_LOCATION_ID_PROD
+        value: "$(SQUARE_LOCATION_ID_PROD)"
+      - name: SQUARE_WEBHOOK_SIGNATURE_KEY_PROD
+        value: "$(SQUARE_WEBHOOK_SIGNATURE_KEY_PROD)"
+    
+    # Build steps (matching GitHub workflow logic)
     steps:
-      # Step 1: Fast web application build
-      - name: "Build Web App"
+      # Step 1: Environment verification and setup (matches GitHub workflow)
+      - name: "Environment Setup & Verification"
+        script: |
+          set -e
+          echo "🚀 Bean Stalker Build - Environment Setup..."
+          
+          # Verify environment variables (matching GitHub workflow checks)
+          echo "=== RevenueCat API Key Verification ==="
+          if [ -z "$VITE_REVENUECAT_API_KEY" ]; then
+            echo "❌ VITE_REVENUECAT_API_KEY is empty or not set"
+            echo "Please configure the environment variable in Xcode Cloud"
+            exit 1
+          else
+            echo "✅ VITE_REVENUECAT_API_KEY is configured"
+            echo "Key length: ${#VITE_REVENUECAT_API_KEY} characters"
+            echo "Key starts with: ${VITE_REVENUECAT_API_KEY:0:8}..."
+          fi
+          
+          echo "=== Omnisend API Key Verification ==="
+          if [ -z "$OMNISEND_API_KEY" ]; then
+            echo "❌ OMNISEND_API_KEY is empty or not set"
+            exit 1
+          else
+            echo "✅ OMNISEND_API_KEY is configured"
+            echo "Key length: ${#OMNISEND_API_KEY} characters"
+            echo "Key starts with: ${OMNISEND_API_KEY:0:8}..."
+          fi
+          
+          echo "=== Twilio SMS Integration Verification ==="
+          if [ -z "$TWILIO_ACCOUNT_SID" ]; then
+            echo "❌ TWILIO_ACCOUNT_SID is empty or not set"
+          else
+            echo "✅ TWILIO_ACCOUNT_SID is configured"
+            echo "Account SID: ${TWILIO_ACCOUNT_SID:0:8}..."
+          fi
+          
+          echo "=== Apple Wallet Integration Verification ==="
+          if [ -z "$APPLE_TEAM_ID" ]; then
+            echo "❌ APPLE_TEAM_ID is empty or not set"
+          else
+            echo "✅ APPLE_TEAM_ID is configured: $APPLE_TEAM_ID"
+          fi
+          
+          echo "=== Square Production API Integration Verification ==="
+          if [ -z "$SQUARE_ACCESS_TOKEN_PROD" ]; then
+            echo "⚠️ SQUARE_ACCESS_TOKEN_PROD is empty or not set"
+            echo "Will use sandbox Square API instead"
+          else
+            echo "✅ SQUARE_ACCESS_TOKEN_PROD is configured"
+            echo "Production Kitchen Display integration enabled"
+          fi
+          
+          echo "✅ Environment verification complete"
+      
+      # Step 2: Apple Wallet certificate setup (matches GitHub workflow)
+      - name: "Apple Wallet Certificate Setup"
+        script: |
+          set -e
+          echo "=== Creating Apple Wallet Certificate Files ==="
+          mkdir -p certs
+          
+          if [ -n "$APPLE_WALLET_CERT_BASE64" ]; then
+            echo "$APPLE_WALLET_CERT_BASE64" | base64 -d > certs/bean_stalker_pass_cert.p12
+            echo "✅ Created Apple Wallet certificate file"
+          else
+            echo "❌ APPLE_WALLET_CERT_BASE64 not available"
+          fi
+          
+          if [ -n "$APPLE_WALLET_WWDR_BASE64" ]; then
+            echo "$APPLE_WALLET_WWDR_BASE64" | base64 -d > certs/wwdr.pem
+            echo "✅ Created WWDR certificate file"
+          else
+            echo "❌ APPLE_WALLET_WWDR_BASE64 not available"
+          fi
+          
+          # Verify certificate files were created
+          ls -la certs/ || echo "No certificates directory found"
+      
+      # Step 3: Build web application (matches GitHub workflow)
+      - name: "Build Web Application"
         script: |
           set -e
           echo "🚀 Building Bean Stalker web app..."
           
-          # Fast dependency installation
-          npm ci --prefer-offline --no-audit --silent
+          # Install dependencies
+          npm ci
           
-          # Optimized production build
-          NODE_ENV=production npm run build
+          echo "Building with RevenueCat API Key: $(test -n "$VITE_REVENUECAT_API_KEY" && echo "CONFIGURED" || echo "MISSING")"
+          echo "Building with Twilio SMS: $(test -n "$TWILIO_ACCOUNT_SID" && echo "CONFIGURED" || echo "MISSING")"
+          echo "Building with Apple Wallet Certificates: $(test -f "certs/bean_stalker_pass_cert.p12" && echo "CONFIGURED" || echo "MISSING")"
+          echo "Building with Square API: $(test -n "$SQUARE_ACCESS_TOKEN" && echo "CONFIGURED" || echo "MISSING")"
+          echo "Building in development mode for sandbox IAP testing"
           
-          # Quick Capacitor sync
-          npx cap sync ios --no-open
+          # Embed certificates in server code for TestFlight builds
+          echo "=== Embedding Apple Wallet certificates in server code ==="
+          node embed-certificates.js || echo "Certificate embedding script not found or failed"
           
-          echo "✅ Web build complete"
+          # Build the app with embedded certificates
+          VITE_FORCE_SANDBOX=true npm run build
+          
+          # Handle build output location issue (matches GitHub workflow)
+          echo "=== Verifying and fixing build output ==="
+          ls -la dist/
+          
+          # Check if files are in dist/public and move them
+          if [ -d "dist/public" ] && [ -f "dist/public/index.html" ]; then
+            echo "Moving files from dist/public to dist/"
+            cp -r dist/public/* dist/
+            ls -la dist/
+          fi
+          
+          if [ ! -f "dist/index.html" ]; then
+            echo "Error: dist/index.html still not found after build"
+            ls -la dist/
+            exit 1
+          fi
+          echo "✅ Build verification successful"
+          
+          # Verify environment variables are available for Capacitor
+          echo "RevenueCat API Key for Capacitor sync: $(test -n "$VITE_REVENUECAT_API_KEY" && echo "CONFIGURED" || echo "MISSING")"
+          echo "Apple Wallet Team ID: $(test -n "$APPLE_TEAM_ID" && echo "CONFIGURED" || echo "MISSING")"
+          
+          # Sync with iOS
+          npx cap sync ios
+          
+          echo "✅ Web build and Capacitor sync complete"
       
-      # Step 2: Efficient iOS dependencies
+      # Step 4: Install iOS dependencies (matches GitHub workflow)
       - name: "Install iOS Dependencies"
         script: |
           set -e
           echo "📱 Setting up iOS dependencies..."
           cd ios/App
           
-          # Clean installation
-          rm -rf Pods/ Podfile.lock .symlinks/
+          # Clean installation (matches GitHub workflow)
+          rm -rf Pods Podfile.lock
           
-          # Install CocoaPods with proper PATH
-          gem install cocoapods --no-document --quiet
-          export PATH="$HOME/.gem/ruby/3.1.0/bin:/usr/local/bin:$PATH"
+          # Install pods with updated Podfile
+          pod install --repo-update
           
-          # Verify installation
-          pod --version || exit 1
-          
-          # Fast pod install
-          pod install --silent || pod install --verbose
-          
-          # Verify xcconfig files
-          ls -la "Pods/Target Support Files/Pods-App/" || exit 1
+          # Verify Podfile configuration applied
+          echo "=== Verifying Pod target bundle IDs ==="
+          grep -r "PRODUCT_BUNDLE_IDENTIFIER" Pods/Target\ Support\ Files/ | head -10 || echo "No bundle ID conflicts found"
           
           echo "✅ iOS dependencies ready"
           cd ../..
       
-      # Step 3: Build and archive
+      # Step 5: Build and archive iOS app (matches GitHub workflow settings)
       - name: "Build iOS App"
         xcode:
           scheme: "App"
@@ -71,18 +222,22 @@ workflows:
           archive: true
           workspace: "ios/App/App.xcworkspace"
           
-          # Optimized build settings
+          # Build settings matching GitHub workflow
           build_settings:
             CODE_SIGN_STYLE: "Automatic"
+            CODE_SIGN_IDENTITY: ""
+            PROVISIONING_PROFILE_SPECIFIER: ""
             DEVELOPMENT_TEAM: "A43TZWNYA3"
+            PRODUCT_BUNDLE_IDENTIFIER: "com.beanstalker.member"
             IPHONEOS_DEPLOYMENT_TARGET: "13.0"
             ENABLE_BITCODE: "NO"
             SWIFT_VERSION: "5.0"
-            PRODUCT_BUNDLE_IDENTIFIER: "com.beanstalker.member"
             ONLY_ACTIVE_ARCH: "NO"
             VALID_ARCHS: "arm64"
             ARCHS: "arm64"
             COMPILER_INDEX_STORE_ENABLE: "NO"
+            SWIFT_OPTIMIZATION_LEVEL: "-O"
+            SWIFT_COMPILATION_MODE: "wholemodule"
             
-          # Release configuration for TestFlight
-          archive_configuration: "Release"
+          # Debug configuration for TestFlight (matches GitHub workflow)
+          archive_configuration: "Debug"
