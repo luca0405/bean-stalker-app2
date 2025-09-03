@@ -69,3 +69,82 @@ self.addEventListener('activate', event => {
     })
   );
 });
+
+// Handle push notifications when app is in background or closed
+self.addEventListener('push', event => {
+  console.log('Service Worker: Push event received');
+  
+  let notificationData = {};
+  
+  try {
+    if (event.data) {
+      notificationData = event.data.json();
+      console.log('Service Worker: Push data:', notificationData);
+    }
+  } catch (error) {
+    console.error('Service Worker: Error parsing push data:', error);
+    // Fallback notification
+    notificationData = {
+      title: 'Bean Stalker',
+      body: 'You have a new notification',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png'
+    };
+  }
+
+  const options = {
+    body: notificationData.body || 'You have a new notification',
+    icon: notificationData.icon || '/icon-192.png',
+    badge: notificationData.badge || '/icon-192.png',
+    tag: notificationData.tag || 'bean-stalker-notification',
+    data: notificationData.data || {},
+    requireInteraction: true,
+    vibrate: notificationData.vibrate || [100, 50, 100],
+    actions: notificationData.actions || [
+      {
+        action: 'view',
+        title: 'View'
+      }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(
+      notificationData.title || 'Bean Stalker',
+      options
+    )
+  );
+});
+
+// Handle notification clicks
+self.addEventListener('notificationclick', event => {
+  console.log('Service Worker: Notification clicked');
+  
+  event.notification.close();
+  
+  const notificationData = event.notification.data || {};
+  const targetUrl = notificationData.url || '/orders';
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // Check if app is already open
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          // Focus existing window and navigate if needed
+          if (targetUrl !== '/orders' || !client.url.includes('/orders')) {
+            client.postMessage({
+              type: 'NAVIGATE',
+              url: targetUrl
+            });
+          }
+          return client.focus();
+        }
+      }
+      
+      // Open new window if app is not open
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});

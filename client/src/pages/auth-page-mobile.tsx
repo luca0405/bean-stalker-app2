@@ -314,12 +314,13 @@ export default function AuthPageMobile() {
   };
 
   return (
-    <div className="relative overflow-hidden iphone-fullscreen" style={{ 
+    <div className="relative overflow-auto min-h-screen" style={{ 
       backgroundColor: '#1a3b29',
-      height: '-webkit-fill-available',
       width: '100vw',
       margin: 0,
-      padding: 0 
+      padding: 0,
+      paddingBottom: 'env(safe-area-inset-bottom)',
+      minHeight: '100vh'
     }}>
       {/* White background section at top */}
       <div className="w-full bg-white pt-safe pb-4"></div>

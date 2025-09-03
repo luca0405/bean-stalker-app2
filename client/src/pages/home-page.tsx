@@ -140,11 +140,6 @@ export default function HomePage() {
       
       // Add a small delay to ensure the UI feels responsive
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      notify({
-        title: "Refreshed",
-        description: "Credit balance and orders updated",
-      });
     } catch (error) {
       notify({
         title: "Refresh Failed",

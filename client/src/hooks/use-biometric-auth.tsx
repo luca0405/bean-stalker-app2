@@ -159,11 +159,7 @@ export function useBiometricAuth() {
             saveBiometric: false // Don't save credentials again for biometric login
           });
 
-          const authType = getBiometricDisplayName(biometricState.biometricType || 'biometric');
-          notify({
-            title: "Authentication Successful",
-            description: `Signed in with ${authType}`,
-          });
+          // Silent login - no notification needed
 
           console.log('🔐 HOOK: Login successful');
           return true;

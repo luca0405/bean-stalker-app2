@@ -136,10 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      notify({
-        title: "Welcome back!",
-        description: `Logged in as ${userData.username}`,
-      });
+      // Silent login - no notification needed
     },
     onError: (error: Error) => {
       let title = "Sign In Failed";

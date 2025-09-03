@@ -119,10 +119,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? ` with ${newItem.option}`
             : '';
             
-        notify({
-          title: "Cart updated",
-          description: `Increased ${newItem.name}${sizeLabel}${optionsLabel} quantity.`,
-        });
+        // Notification handled by calling component
         
         return updatedCart;
       } else {
@@ -134,10 +131,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? ` with ${newItem.option}`
             : '';
             
-        notify({
-          title: "Item added to cart",
-          description: `${newItem.name}${sizeLabel}${optionsLabel} has been added to your cart.`,
-        });
+        // Notification handled by calling component
         
         return [...prevCart, newItem];
       }
