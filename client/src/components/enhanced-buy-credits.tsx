@@ -24,7 +24,6 @@ interface CreditPackage {
 }
 
 const CREDIT_PACKAGES: CreditPackage[] = [
-  { id: 'com.beanstalker.test', amount: 10, price: 0.20, bonus: 0 }, // TEST PACKAGE - $0.20 for 10 credits
   { id: 'com.beanstalker.credits25', amount: 25, price: 25, bonus: 4.50 }, // $25 → $29.50 (+18%)
   { id: 'com.beanstalker.credits50', amount: 50, price: 50, bonus: 9.90, popular: true }, // $50 → $59.90 (+19.8%)  
   { id: 'com.beanstalker.credits100', amount: 100, price: 100, bonus: 20.70 }, // $100 → $120.70 (+20.7%)

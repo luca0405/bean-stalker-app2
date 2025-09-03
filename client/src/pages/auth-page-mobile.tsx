@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useBiometricAuth } from "@/hooks/use-biometric-auth";
-import { useIAP } from "@/hooks/use-iap";
+// import { useIAP } from "@/hooks/use-iap"; // Removed IAP import
 import { iapService } from "@/services/iap-service";
 import { biometricService } from "@/services/biometric-service";
 
@@ -17,9 +17,9 @@ import { deviceService } from "@/services/device-service";
 
 
 export default function AuthPageMobile() {
-  const { user, loginMutation, registerMutation } = useAuth();
+  const { user, loginMutation } = useAuth();
   const { notify } = useNativeNotification();
-  const { purchaseProduct, isAvailable: iapAvailable, isLoading: iapLoading } = useIAP();
+  // Removed IAP functionality - now using Square payments for membership
 
   const {
     biometricState,
@@ -38,6 +38,7 @@ export default function AuthPageMobile() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [lastUsername, setLastUsername] = useState("");
+  const [isSettingUpPayment, setIsSettingUpPayment] = useState(false);
   
   const [registerData, setRegisterData] = useState({
     username: "",
@@ -49,7 +50,7 @@ export default function AuthPageMobile() {
   });
 
 
-  // Load last used username for convenience
+  // Load last used username for convenience and handle URL parameters
   useEffect(() => {
     const loadLastUsername = async () => {
       try {
@@ -68,8 +69,28 @@ export default function AuthPageMobile() {
       }
     };
 
+    // Check for URL parameters (new account from payment)
+    const checkUrlParams = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const username = urlParams.get('username');
+      const newAccount = urlParams.get('newAccount');
+      
+      if (username && newAccount === 'true') {
+        setLoginData(prev => ({ ...prev, username }));
+        setIsLogin(true);
+        notify({
+          title: "Account Created Successfully!",
+          description: `Welcome ${username}! Your premium membership is active. Please log in with your password.`,
+        });
+        
+        // Clean URL after processing
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    };
+
     loadLastUsername();
-  }, []);
+    checkUrlParams();
+  }, [notify]);
   if (user) {
     // Check if payment is being processed to prevent redirect
     const isProcessingPayment = sessionStorage.getItem('payment-processing') === 'true';
@@ -252,16 +273,6 @@ export default function AuthPageMobile() {
       password: registerData.password
     };
 
-    // Validate required fields
-    if (!userData.username || !userData.email || !userData.password) {
-      notify({
-        title: "Missing Information",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(userData.email)) {
@@ -273,188 +284,32 @@ export default function AuthPageMobile() {
       return;
     }
 
-    if (registerData.joinPremium) {
-      // Bean Stalker is exclusively a native mobile app
+    setIsSettingUpPayment(true);
+    try {
+      const response = await fetch('/api/square/create-anonymous-membership-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: 6900,
+          description: 'Premium Membership - $69.00',
+          userData: userData
+        })
+      });
       
-      // Native mobile app - always use RevenueCat for premium membership
-        try {
-          console.log('🚀 Starting premium membership registration with payment...');
-          // Set payment processing flag to prevent navigation
-          sessionStorage.setItem('payment-processing', 'true');
-          
-          const response = await apiRequest('POST', '/api/register-with-membership', userData);
-          
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: 'Registration failed' }));
-            throw new Error(errorData.message || 'Registration failed');
-          }
-          
-          if (response.ok) {
-            const result = await response.json();
-            const newUser = result.user;
-            // Manual login after registration to establish proper session
-            console.log('🔐 Logging in new user for RevenueCat purchase...');
-            const loginResponse = await apiRequest('POST', '/api/login', {
-              username: userData.username,
-              password: userData.password
-            });
-            
-            if (!loginResponse.ok) {
-              const errorData = await loginResponse.json().catch(() => ({ message: 'Login failed' }));
-              throw new Error(errorData.message || 'Failed to login after registration');
-            }
-            
-            // Set user data in React Query cache
-            const loginData = await loginResponse.json();
-            queryClient.setQueryData(["/api/user"], loginData);
-            console.log('✅ User session established:', loginData.username);
-            
-            notify({
-              title: "Account Created",
-              description: "Processing your premium membership payment...",
-            });
-            
-            // Small delay to ensure login session is established
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // STEP 2: Native Payment Popup - RevenueCat setup
-            console.log('💳 MEMBERSHIP PAYMENT: Setting up RevenueCat with authenticated user ID:', newUser.id);
-            
-            try {
-              // SIMPLE DIRECT FIX: Force correct user ID
-              const { forceCorrectUserID } = await import('@/services/simple-revenucat-fix');
-              
-              console.log('🔧 ANONYMOUS FLOW: Using RevenueCat recommended anonymous flow...');
-              
-              // ANONYMOUS FLOW: Let RevenueCat handle anonymous IDs (recommended approach)
-              const { RevenueCatAnonymousFlow } = await import('@/services/revenuecat-anonymous-flow');
-              
-              const configResult = await RevenueCatAnonymousFlow.configureAnonymousFlow();
-              if (!configResult.success) {
-                throw new Error(configResult.error || 'Could not configure RevenueCat');
-              }
-              
-              // Store mapping between anonymous ID and real user for webhook
-              if (configResult.anonymousId) {
-                try {
-                  await fetch('/api/revenuecat/store-user-mapping', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      anonymousId: configResult.anonymousId,
-                      realUserId: newUser.id.toString()
-                    })
-                  });
-                  console.log('✅ Anonymous ID mapping stored for webhook processing');
-                } catch (error) {
-                  console.error('❌ Failed to store anonymous mapping:', error);
-                }
-              }
-              
-              // Attempt purchase with anonymous flow
-              const purchaseResult = await RevenueCatAnonymousFlow.attemptPurchase();
-              
-              if (!purchaseResult.success) {
-                throw new Error(purchaseResult.error || 'Purchase failed');
-              }
-              
-              console.log('✅ APPLE PAY SUCCESSFUL! Purchase completed.');
-              console.log('✅ Customer ID:', purchaseResult.purchaseResult?.customerInfo?.originalAppUserId);
-              
-              // Credits are now added automatically during registration on the server side
-              // Just refresh user data to show the updated balance
-              await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-              console.log('✅ Credits added automatically during registration - refreshing user data');
-              
-              // Show success message - credits are automatically added on server
-              notify({
-                title: "Premium Membership Activated!",
-                description: "$69 credits have been added to your account!",
-              });
-              
-              // Clear payment processing flag and redirect to homepage
-              sessionStorage.removeItem('payment-processing');
-              
-              // Delay before navigation to ensure everything is complete
-              setTimeout(() => {
-                window.location.href = '/';
-              }, 2000);
-              
-            } catch (error: any) {
-              console.error('💳 Apple Pay/RevenueCat process failed:', error);
-              
-              // Clear payment processing flag on error
-              sessionStorage.removeItem('payment-processing');
-              
-              // Check if this was a post-purchase aliasing error (purchase succeeded but aliasing failed)
-              if (error.message?.includes('expected pattern') || error.message?.includes('aliasing')) {
-                // Purchase was successful, just aliasing failed - treat as success
-                console.log('✅ PURCHASE SUCCESS: Payment completed, aliasing error ignored');
-                
-                notify({
-                  title: "Premium Membership Activated!",
-                  description: "Welcome to Bean Stalker Premium! Your credits will appear shortly.",
-                });
-                
-                // Clear payment processing flag and redirect
-                sessionStorage.removeItem('payment-processing');
-                setTimeout(() => {
-                  window.location.href = '/';
-                }, 2000);
-                
-                return; // Exit the error handler
-              }
-              
-              if (error.message?.includes('cancel') || error.userCancelled) {
-                notify({
-                  title: "Payment Cancelled",
-                  description: "You cancelled the Apple Pay popup. Account created - retry from Buy Credits page.",
-                  variant: "destructive",
-                });
-              } else if (error.message?.includes('No RevenueCat packages')) {
-                notify({
-                  title: "Configuration Error",
-                  description: "RevenueCat products not configured. Contact support.",
-                  variant: "destructive",
-                });
-              } else {
-                notify({
-                  title: "Apple Pay Failed",
-                  description: `Payment error: ${error.message}. Account created - retry from Buy Credits page.`,
-                  variant: "destructive",
-                });
-              }
-            }
-          } else {
-            throw new Error('Registration failed');
-          }
-        } catch (error: any) {
-          console.error('Premium membership process failed:', error);
-          // Clear payment processing flag on error
-          sessionStorage.removeItem('payment-processing');
-          
-          notify({
-            title: "Registration Failed",
-            description: error.message || "Please try again or contact support.",
-            variant: "destructive",
-          });
-        }
-
-    } else {
-      // Regular registration without premium membership
-      try {
-        await registerMutation.mutateAsync(userData);
-        notify({
-          title: "Account created successfully!",
-          description: "Welcome to Bean Stalker!",
-        });
-      } catch (error: any) {
-        notify({
-          title: "Registration failed",
-          description: error.message || "Please try again",
-          variant: "destructive",
-        });
+      if (!response.ok) {
+        throw new Error('Failed to create payment');
       }
+      
+      const data = await response.json();
+      window.location.href = data.url;
+      
+    } catch (error: any) {
+      setIsSettingUpPayment(false);
+      notify({
+        title: "Payment Setup Failed", 
+        description: "Please try again",
+        variant: "destructive",
+      });
     }
   };
 
@@ -605,21 +460,31 @@ export default function AuthPageMobile() {
                   />
                 </div>
 
-                {/* Premium Membership Option */}
-                <div className="flex items-start space-x-3 p-4 rounded-lg border border-white/40 bg-white/10">
-                  <Checkbox
-                    checked={registerData.joinPremium}
-                    onCheckedChange={(checked) => setRegisterData({ ...registerData, joinPremium: Boolean(checked) })}
-                    className="border-gray-400 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 mt-1"
-                  />
-                  <div className="flex-1">
-                    <label className="flex items-center space-x-2 text-sm font-medium text-white cursor-pointer">
-                      <CreditCard className="h-4 w-4 text-green-400" />
-                      <span>Premium Membership - AUD$69</span>
-                    </label>
-                    <p className="text-xs text-gray-300 mt-1">
-                      Get instant AUD$69 credit plus exclusive benefits and priority ordering.
-                    </p>
+                {/* Account Creation Notice - Payment Required */}
+                <div className="p-4 rounded-lg border border-white/40 bg-white/10">
+                  <div className="flex items-center space-x-2 text-sm font-medium text-white mb-2">
+                    <CreditCard className="h-4 w-4 text-green-400" />
+                    <span>Account Creation - AUD$69 Required</span>
+                  </div>
+                  <p className="text-xs text-gray-300">
+                    All accounts require payment verification. You'll receive AUD$69 in app credits to start ordering.
+                  </p>
+                  
+                  {/* Optional Premium Benefits */}
+                  <div className="flex items-start space-x-3 mt-3">
+                    <Checkbox
+                      checked={registerData.joinPremium}
+                      onCheckedChange={(checked) => setRegisterData({ ...registerData, joinPremium: Boolean(checked) })}
+                      className="border-gray-400 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 mt-1"
+                    />
+                    <div className="flex-1">
+                      <label className="text-xs font-medium text-white cursor-pointer">
+                        Include Premium Benefits
+                      </label>
+                      <p className="text-xs text-gray-300 mt-1">
+                        Priority ordering, exclusive offers, and notifications.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -627,10 +492,9 @@ export default function AuthPageMobile() {
                 <Button
                   type="submit"
                   className="w-full py-5 bg-green-700 hover:bg-green-800 text-white font-semibold rounded-full text-lg shadow-lg"
-                  disabled={registerMutation.isPending}
+                  disabled={isSettingUpPayment}
                 >
-                  {registerMutation.isPending ? "Creating Account..." : 
-                   registerData.joinPremium ? "Join Premium - AUD$69" : "Create Account"}
+                  {isSettingUpPayment ? "Setting up Payment..." : "Pay AUD$69 & Create Account"}
                 </Button>
               </form>
             )}

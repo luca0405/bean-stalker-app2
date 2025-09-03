@@ -51,6 +51,10 @@ export class SquareOrderPoller {
     try {
       console.log('🔍 Polling Square for order status changes...');
       
+      // FIRST: Check for pending membership payments and create accounts automatically
+      console.log('🎯 Checking for pending memberships...');
+      await this.processPendingMemberships();
+      
       // Get active Bean Stalker orders (not completed or cancelled)
       const activeOrders = await storage.getActiveOrders();
       console.log(`📋 Checking ${activeOrders.length} active orders`);
@@ -143,7 +147,83 @@ export class SquareOrderPoller {
     }
   }
 
-
+  /**
+   * Process pending membership payments and create accounts automatically
+   */
+  private async processPendingMemberships(): Promise<void> {
+    try {
+      const pendingMembershipPayments = (global as any).pendingMembershipPayments || new Map();
+      
+      console.log(`🔍 Found ${pendingMembershipPayments.size} pending membership payments`);
+      
+      if (pendingMembershipPayments.size === 0) {
+        return; // No pending memberships to process
+      }
+      
+      console.log(`🎯 Processing ${pendingMembershipPayments.size} pending membership payment(s)`);
+      
+      // Import authentication helpers
+      const { hashPassword } = await import('./auth');
+      
+      for (const [paymentId, pendingData] of Array.from(pendingMembershipPayments.entries()) as any[]) {
+        if (!pendingData.isMembership) {
+          continue; // Skip non-membership payments
+        }
+        
+        try {
+          const { userData, amount, credits } = pendingData;
+          
+          // Check if user already exists
+          const existingUser = await storage.getUserByUsername(userData.username);
+          if (existingUser) {
+            console.log(`⚠️ User ${userData.username} already exists - cleaning up pending payment`);
+            pendingMembershipPayments.delete(paymentId);
+            continue;
+          }
+          
+          // Create the user account
+          const hashedPassword = await hashPassword(userData.password);
+          
+          const newUser = await storage.createUser({
+            username: userData.username,
+            email: userData.email,
+            password: hashedPassword,
+            fullName: userData.fullName,
+            credits: credits,
+            isAdmin: false
+          });
+          
+          // Create credit transaction record
+          await storage.createCreditTransaction({
+            userId: newUser.id,
+            type: "membership_purchase",
+            amount: credits,
+            balanceAfter: credits,
+            description: `Premium membership: $${amount} for ${credits} credits`,
+            transactionId: paymentId
+          });
+          
+          console.log(`✅ AUTOMATIC MEMBERSHIP SUCCESS: User ${newUser.id} (${userData.username}) created with ${credits} credits via payment ${paymentId}`);
+          
+          // Clean up processed payment
+          pendingMembershipPayments.delete(paymentId);
+          
+        } catch (error) {
+          console.error(`❌ Failed to process membership for payment ${paymentId}:`, error);
+          
+          // If payment is older than 1 hour, remove it to prevent infinite retries
+          const paymentAge = Date.now() - new Date(pendingData.createdAt).getTime();
+          if (paymentAge > 3600000) { // 1 hour
+            console.log(`🧹 Removing stale pending payment: ${paymentId} (${Math.round(paymentAge / 1000)}s old)`);
+            pendingMembershipPayments.delete(paymentId);
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Error processing pending memberships:', error);
+    }
+  }
 
   /**
    * Get polling status

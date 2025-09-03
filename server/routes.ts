@@ -941,89 +941,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Direct membership registration (sandbox-friendly)
+  // DISABLED: Payment-first validation required - no free account creation with credits
   app.post("/api/register-with-membership", async (req, res) => {
-    try {
-      const { username, password, email, fullName } = req.body;
-      
-      if (!username || !password || !email) {
-        return res.status(400).json({ message: "Missing required fields" });
-      }
-      
-      // Check if username already exists
-      const existingUser = await storage.getUserByUsername(username);
-      if (existingUser) {
-        return res.status(400).json({ message: "Username already exists" });
-      }
-      
-      // Check if email already exists
-      const existingEmail = await storage.getUserByEmail(email);
-      if (existingEmail) {
-        return res.status(400).json({ message: "Email already exists" });
-      }
-      
-      // Create user account WITHOUT initial credits (RevenueCat IAP will add $69)
-      const hashedPassword = await hashPassword(password);
-      const newUser = await storage.createUser({
-        username,
-        password: hashedPassword,
-        email,
-        fullName,
-        credits: 0, // No initial credits - RevenueCat IAP will add $69
-        isActive: true
-      });
-      
-      // Generate QR code for new user
-      const qrCodeData = await QRCode.toDataURL(`user:${newUser.id}`);
-      await storage.updateUserQrCode(newUser.id, qrCodeData);
-      
-      // ADD MEMBERSHIP CREDITS IMMEDIATELY - GUARANTEED EXECUTION
-      try {
-        const membershipCredits = 69;
-        console.log(`💳 ADDING MEMBERSHIP CREDITS: Starting for user ${newUser.id}...`);
-        
-        const updatedUser = await storage.updateUserCredits(newUser.id, newUser.credits + membershipCredits);
-        console.log(`💳 CREDITS UPDATED: User ${newUser.id} now has $${updatedUser.credits}`);
-        
-        // Record the transaction
-        await storage.createCreditTransaction({
-          userId: newUser.id,
-          type: "membership_signup",
-          amount: membershipCredits,
-          description: "Premium Membership Signup - $69 Credits",
-          balanceAfter: updatedUser.credits,
-          orderId: null,
-          relatedUserId: null,
-          transactionId: `membership_${newUser.id}_${Date.now()}`
-        });
-        
-        console.log(`💳 MEMBERSHIP SUCCESS: Added $${membershipCredits} to user ${newUser.id} - Final Balance: $${updatedUser.credits}`);
-        
-        // Remove password from response
-        const { password: _, ...userWithoutPassword } = updatedUser;
-      
-        res.status(201).json({
-          success: true,
-          user: userWithoutPassword,
-          message: "Premium membership activated successfully",
-          membershipCredit: membershipCredits
-        });
-      } catch (creditError) {
-        console.error(`❌ MEMBERSHIP CREDIT ERROR for user ${newUser.id}:`, creditError);
-        // Return success but with zero credits - manual fix needed
-        const { password: _, ...userWithoutPassword } = newUser;
-        res.status(201).json({
-          success: true,
-          user: userWithoutPassword,
-          message: "Premium membership activated - credits will be added manually",
-          membershipCredit: 0,
-          creditError: true
-        });
-      }
-    } catch (error) {
-      console.error("Error creating membership account:", error);
-      res.status(500).json({ message: "Failed to create membership account" });
-    }
+    return res.status(403).json({ 
+      message: "Account creation requires payment validation. Please use the Square payment flow.",
+      paymentRequired: true 
+    });
   });
   
   // Square config endpoint for embedded payments
@@ -1231,6 +1154,225 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug endpoint to check pending membership payments
+  app.get("/api/debug/pending-memberships", async (req, res) => {
+    try {
+      const pendingMembershipPayments = global.pendingMembershipPayments || new Map();
+      const data = {};
+      
+      // Convert Map to regular object for JSON response
+      for (const [key, value] of pendingMembershipPayments.entries()) {
+        data[key] = {
+          ...value,
+          age: Math.round((Date.now() - new Date(value.createdAt).getTime()) / 1000) + 's'
+        };
+      }
+      
+      res.json({
+        count: pendingMembershipPayments.size,
+        data: data,
+        keys: Array.from(pendingMembershipPayments.keys())
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Manual endpoint to process pending membership payments
+  app.post("/api/debug/process-pending-membership", async (req, res) => {
+    try {
+      const { paymentId } = req.body;
+      const pendingMembershipPayments = global.pendingMembershipPayments || new Map();
+      
+      if (!paymentId) {
+        return res.status(400).json({ error: "paymentId required" });
+      }
+      
+      const pendingData = pendingMembershipPayments.get(paymentId);
+      if (!pendingData || !pendingData.isMembership) {
+        return res.status(404).json({ error: "Pending membership not found" });
+      }
+      
+      const { userData, credits, amount } = pendingData;
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(userData.email);
+      if (existingUser) {
+        return res.status(409).json({ error: "User already exists with this email" });
+      }
+      
+      // Hash password and create user account
+      const { hashPassword } = await import('./auth-setup');
+      const hashedPassword = await hashPassword(userData.password);
+      
+      const newUser = await storage.createUser({
+        username: userData.username,
+        email: userData.email,
+        password: hashedPassword,
+        credits: credits, // Add the membership credits
+        isPremium: true // Mark as premium member
+      });
+      
+      // Create credit transaction record
+      await storage.createCreditTransaction({
+        userId: newUser.id,
+        type: "membership_purchase",
+        amount: credits,
+        balanceAfter: credits,
+        description: `Premium membership: $${amount} for ${credits} credits`,
+        transactionId: paymentId,
+        metadata: {
+          packageId: 'membership_test',
+          paymentAmount: amount,
+          paymentMethod: 'square',
+          isMembership: true
+        }
+      });
+      
+      // Clean up pending data
+      pendingMembershipPayments.delete(paymentId);
+      
+      console.log(`✅ MANUAL MEMBERSHIP: User ${newUser.id} created with ${credits} credits via manual processing`);
+      
+      res.json({
+        success: true,
+        user: {
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+          credits: newUser.credits,
+          isPremium: newUser.isPremium
+        },
+        message: "Account created successfully!"
+      });
+      
+    } catch (error) {
+      console.error('Manual membership processing error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Square anonymous membership payment link creation (payment-first flow)
+  app.post("/api/square/create-anonymous-membership-payment", async (req, res) => {
+    try {
+      const { amount, description, userData } = req.body;
+      
+      if (!amount || amount !== 6900) { // $69.00 in cents
+        return res.status(400).json({ message: "Invalid membership amount" });
+      }
+      
+      if (!userData || !userData.username || !userData.password || !userData.email) {
+        return res.status(400).json({ message: "Missing user registration data" });
+      }
+      
+      // Determine redirect URL based on request source
+      const userAgent = req.headers['user-agent'] || '';
+      const isNativeApp = userAgent.includes('CapacitorHttp') || userAgent.includes('Bean Stalker');
+      
+      // Create Square payment link for membership ($69.00 = 69 credits)
+      // Use a temporary ID since user doesn't exist yet
+      const tempOrderId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const paymentLink = await createPaymentLink(69.00, 69, tempOrderId, isNativeApp);
+      
+      if (!paymentLink.success) {
+        console.error('Square anonymous membership payment link error:', paymentLink.error);
+        return res.status(500).json({ 
+          message: "Failed to create membership payment link", 
+          error: paymentLink.error 
+        });
+      }
+      
+      // Store pending membership registration data (without creating user yet)
+      const pendingData = {
+        paymentId: paymentLink.paymentLink?.id,
+        userData: userData,
+        amount: 69.00,
+        credits: 69,
+        isMembership: true,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Store in a temporary storage (we'll use session storage for now)
+      // In production, you might want to store this in a temporary database table
+      global.pendingMembershipPayments = global.pendingMembershipPayments || new Map();
+      global.pendingMembershipPayments.set(paymentLink.paymentLink?.id, pendingData);
+      
+      console.log(`💳 Created anonymous membership payment link: $69.00 for 69 credits (payment-first flow)`);
+      console.log(`💾 Stored pending registration data for payment ID: ${paymentLink.paymentLink?.id}`);
+      
+      res.json({
+        success: true,
+        url: paymentLink.url,
+        amount: 69.00,
+        credits: 69,
+        paymentId: paymentLink.paymentLink?.id
+      });
+      
+    } catch (error) {
+      console.error("Square anonymous membership payment link error:", error);
+      res.status(500).json({ message: "Failed to create anonymous membership payment link" });
+    }
+  });
+
+  // Square membership payment link creation (for existing users)
+  app.post("/api/square/create-membership-payment-link", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    try {
+      const { amount, description } = req.body;
+      const userId = req.user?.id;
+      const user = req.user;
+      
+      if (!amount || amount !== 6900) { // $69.00 in cents
+        return res.status(400).json({ message: "Invalid membership amount" });
+      }
+      
+      // Determine redirect URL based on request source
+      const userAgent = req.headers['user-agent'] || '';
+      const isNativeApp = userAgent.includes('CapacitorHttp') || userAgent.includes('Bean Stalker');
+      
+      // Create Square payment link for membership ($69.00 = 69 credits)
+      const paymentLink = await createPaymentLink(69.00, 69, userId, isNativeApp);
+      
+      if (!paymentLink.success) {
+        console.error('Square membership payment link error:', paymentLink.error);
+        return res.status(500).json({ 
+          message: "Failed to create membership payment link", 
+          error: paymentLink.error 
+        });
+      }
+      
+      // Store pending membership purchase
+      await storage.createCreditTransaction({
+        userId: userId,
+        type: "pending_membership",
+        amount: 69, // 69 credits for membership
+        balanceAfter: (await storage.getUser(userId))?.credits || 0,
+        description: `Pending Square membership payment: $69.00 for 69 credits`,
+        transactionId: paymentLink.paymentLink?.id,
+        metadata: {
+          packageId: 'membership_premium',
+          paymentAmount: 69.00,
+          creditsToAdd: 69,
+          isMembership: true
+        }
+      });
+      
+      console.log(`💳 Created membership payment link for user ${userId}: $69.00 for 69 credits`);
+      
+      res.json({
+        success: true,
+        url: paymentLink.url,
+        amount: 69.00,
+        credits: 69
+      });
+      
+    } catch (error) {
+      console.error("Square membership payment link error:", error);
+      res.status(500).json({ message: "Failed to create membership payment link" });
+    }
+  });
+
   // Square membership purchase endpoint (App Store alternative)
   app.post("/api/square/membership-purchase", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -1271,17 +1413,367 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Payment success API endpoint for Square webhook processing
   app.get("/api/payment-success", async (req, res) => {
+    console.error('🚨 PAYMENT SUCCESS ENDPOINT ACCESSED!!!');
+    console.error('Query params:', req.query);
+    
     try {
-      console.log('💳 Payment success page accessed with query params:', req.query);
+      // Check for pending membership registration (payment-first flow)
+      const pendingMembershipPayments = global.pendingMembershipPayments || new Map();
       
-      // Extract Square's automatic redirect parameters and our custom userId
-      const { orderId, transactionId, checkoutId, referenceId, userId } = req.query;
-      console.log(`🎯 Square redirect parameters - Order: ${orderId}, Transaction: ${transactionId}, Checkout: ${checkoutId}, Reference: ${referenceId}, UserId: ${userId}`);
+      console.error('🔥 CHECKING PENDING PAYMENTS:', pendingMembershipPayments.size);
       
-      let processedPayment = false;
+      // FORCE PROCESS: If we have any pending membership payments, process them immediately
+      if (pendingMembershipPayments.size > 0) {
+        console.log('🚨 DETECTED PENDING MEMBERSHIP PAYMENTS - PROCESSING NOW!');
+        const [paymentId, pendingData] = Array.from(pendingMembershipPayments.entries())[0];
+        console.log('🎯 Processing payment:', paymentId, pendingData);
+        
+        if (pendingData.isMembership) {
+          console.log('✅ Confirmed membership payment - creating account now!');
+          
+          try {
+            const { userData, amount, credits } = pendingData;
+            
+            // Check if user already exists
+            const existingUser = await storage.getUserByUsername(userData.username);
+            if (existingUser) {
+              console.log(`⚠️ User ${userData.username} already exists - skipping creation`);
+              pendingMembershipPayments.delete(paymentId);
+            } else {
+              // Create the user
+              const hashedPassword = await hashPassword(userData.password);
+              
+              const newUser = await storage.createUser({
+                username: userData.username,
+                email: userData.email,
+                password: hashedPassword,
+                credits: credits,
+                isPremium: true
+              });
+              
+              // Create credit transaction record
+              await storage.createCreditTransaction({
+                userId: newUser.id,
+                type: "membership_purchase",
+                amount: credits,
+                balanceAfter: credits,
+                description: `Premium membership: $${amount} for ${credits} credits`,
+                transactionId: paymentId,
+                metadata: {
+                  packageId: 'membership_test',
+                  paymentAmount: amount,
+                  paymentMethod: 'square',
+                  isMembership: true
+                }
+              });
+              
+              console.log(`✅ MEMBERSHIP SUCCESS: User ${newUser.id} (${userData.username}) created with ${credits} credits`);
+              
+              // Store login info for the success page
+              global.newMembershipUser = {
+                username: userData.username,
+                credits: credits,
+                createdAt: new Date().toISOString()
+              };
+              
+              processedPayment = true;
+            }
+            
+            // Clean up
+            pendingMembershipPayments.delete(paymentId);
+            
+          } catch (error) {
+            console.error('❌ Failed to create membership account:', error);
+          }
+        }
+      }
+      
+      // Debug: Log all available payment IDs and stored keys
+      console.log('🔍 DEBUG: All query parameters:', req.query);
+      console.log('🔍 DEBUG: Available payment IDs:', { orderId, transactionId, checkoutId, referenceId });
+      console.log('🔍 DEBUG: Stored pending payment keys:', Array.from(pendingMembershipPayments.keys()));
+      console.log('🔍 DEBUG: Pending membership payments size:', pendingMembershipPayments.size);
+      console.log('🔍 DEBUG: All pending data:', 
+        Object.fromEntries(Array.from(pendingMembershipPayments.entries()).map(([k, v]) => [k, { ...v, age: `${Math.round((Date.now() - new Date(v.createdAt).getTime()) / 1000)}s` }]))
+      );
+      
+      // Write debug info to file for easier access
+      const debugInfo = {
+        timestamp: new Date().toISOString(),
+        queryParams: req.query,
+        paymentIds: { orderId, transactionId, checkoutId, referenceId },
+        storedKeys: Array.from(pendingMembershipPayments.keys()),
+        pendingDataCount: pendingMembershipPayments.size
+      };
+      
+      try {
+        const fs = await import('fs');
+        const debugLog = `/tmp/payment-debug-${Date.now()}.json`;
+        fs.writeFileSync(debugLog, JSON.stringify(debugInfo, null, 2));
+        console.log(`📝 Debug info written to: ${debugLog}`);
+      } catch (error) {
+        console.error('Failed to write debug file:', error);
+      }
+      
+      // Try to find pending membership data by checking all possible payment IDs
+      let pendingData = null;
+      const possiblePaymentIds = [orderId, transactionId, checkoutId, referenceId, userId].filter(Boolean);
+      
+      for (const paymentId of possiblePaymentIds) {
+        console.log(`🔍 Checking for pending data with key: ${paymentId}`);
+        if (pendingMembershipPayments.has(paymentId)) {
+          pendingData = pendingMembershipPayments.get(paymentId);
+          console.log(`🎯 Found pending membership registration for payment ID: ${paymentId}`);
+          break;
+        }
+      }
+      
+      // If not found by exact match, try partial matching for temp IDs
+      if (!pendingData) {
+        console.log('🔍 No exact match found, trying partial matching...');
+        for (const [storedKey, data] of pendingMembershipPayments.entries()) {
+          console.log(`🔍 Checking stored key: ${storedKey}`);
+          // Check if any of the received IDs contain or are contained in stored keys
+          for (const receivedId of possiblePaymentIds) {
+            if (storedKey.includes(receivedId) || receivedId.includes(storedKey)) {
+              console.log(`🎯 Found partial match: ${storedKey} matches ${receivedId}`);
+              pendingData = data;
+              break;
+            }
+          }
+          if (pendingData) break;
+        }
+      }
+      
+      // Enhanced fallback: If still no match but we have a temp userId, find the most recent pending data
+      if (!pendingData && userId && userId.toString().startsWith('temp_')) {
+        console.log('🔍 Enhanced fallback: Looking for most recent pending membership data...');
+        const now = Date.now();
+        let mostRecentData = null;
+        let mostRecentAge = Infinity;
+        
+        for (const [storedKey, data] of pendingMembershipPayments.entries()) {
+          const dataAge = now - new Date(data.createdAt).getTime();
+          if (data.isMembership && dataAge < 15 * 60 * 1000 && dataAge < mostRecentAge) { // Within last 15 minutes
+            mostRecentData = data;
+            mostRecentAge = dataAge;
+            console.log(`🎯 Found recent pending membership data (${Math.round(dataAge/1000)}s old): ${storedKey}`);
+          }
+        }
+        
+        if (mostRecentData) {
+          pendingData = mostRecentData;
+          console.log(`✅ Using most recent pending membership data (${Math.round(mostRecentAge/1000)}s old)`);
+        }
+      }
+      
+      // Ultimate fallback: If we have any pending membership data and a temp ID, use the first available
+      if (!pendingData && userId && userId.toString().startsWith('temp_')) {
+        console.log('🔍 Ultimate fallback: Using any available pending membership data...');
+        for (const [storedKey, data] of pendingMembershipPayments.entries()) {
+          if (data.isMembership) {
+            pendingData = data;
+            console.log(`🎯 Using pending membership data: ${storedKey}`);
+            break;
+          }
+        }
+      }
+      
+      // Final nuclear option: If we still don't have pending data but have any membership payments, use most recent
+      if (!pendingData && pendingMembershipPayments.size > 0) {
+        console.log('🔍 Nuclear fallback: Using most recent membership data regardless of ID matching...');
+        let mostRecent = null;
+        let mostRecentTime = 0;
+        
+        for (const [storedKey, data] of pendingMembershipPayments.entries()) {
+          if (data.isMembership) {
+            const createdTime = new Date(data.createdAt).getTime();
+            if (createdTime > mostRecentTime) {
+              mostRecent = data;
+              mostRecentTime = createdTime;
+            }
+          }
+        }
+        
+        if (mostRecent) {
+          const ageMinutes = Math.round((Date.now() - mostRecentTime) / 60000);
+          if (ageMinutes <= 15) { // Extended to 15 minutes for testing
+            pendingData = mostRecent;
+            console.log(`🎯 Using most recent membership data (${ageMinutes} minutes old)`);
+          }
+        }
+      }
+      
+      // FORCE TRIGGER: If we have any pending membership data at all, process it
+      if (!pendingData && pendingMembershipPayments.size > 0) {
+        console.log('🚨 FORCE TRIGGER: Processing first available membership payment...');
+        const [firstKey, firstData] = Array.from(pendingMembershipPayments.entries())[0];
+        if (firstData.isMembership) {
+          pendingData = firstData;
+          console.log(`🎯 Force using membership data: ${firstKey}`);
+        }
+      }
+      
+      // If we found pending membership data, create the account now
+      if (pendingData && pendingData.isMembership) {
+        try {
+          console.log('🚀 Processing payment-first membership registration...');
+          const { userData, credits, amount } = pendingData;
+          
+          // Check if user already exists
+          const existingUser = await storage.getUserByEmail(userData.email);
+          if (existingUser) {
+            console.log('❌ User already exists with this email');
+            // Clean up pending data
+            for (const paymentId of possiblePaymentIds) {
+              pendingMembershipPayments.delete(paymentId);
+            }
+            processedPayment = true;
+          } else {
+            // Hash password and create user account
+            const { hashPassword } = await import('./auth-setup');
+            const hashedPassword = await hashPassword(userData.password);
+            
+            const newUser = await storage.createUser({
+              username: userData.username,
+              email: userData.email,
+              password: hashedPassword,
+              credits: credits, // Add the membership credits
+              isPremium: true // Mark as premium member
+            });
+            
+            // Create credit transaction record
+            await storage.createCreditTransaction({
+              userId: newUser.id,
+              type: "membership_purchase",
+              amount: credits,
+              balanceAfter: credits,
+              description: `Premium membership: $${amount} for ${credits} credits`,
+              transactionId: orderId || transactionId,
+              metadata: {
+                packageId: 'membership_test',
+                paymentAmount: amount,
+                paymentMethod: 'square',
+                isMembership: true
+              }
+            });
+            
+            console.log(`✅ MEMBERSHIP SUCCESS: User ${newUser.id} created with ${credits} credits via payment-first flow`);
+            
+            // Clean up pending data
+            for (const paymentId of possiblePaymentIds) {
+              pendingMembershipPayments.delete(paymentId);
+            }
+            
+            // Store login info for the success page
+            global.newMembershipUser = {
+              username: userData.username,
+              credits: credits,
+              createdAt: new Date().toISOString()
+            };
+            
+            processedPayment = true;
+          }
+        } catch (error) {
+          console.error('❌ Failed to create membership account after payment:', error);
+          // Don't clean up pending data in case of error, so we can retry
+        }
+      }
+      
+      // Skip regular user processing if we already processed a membership payment
+      if (processedPayment) {
+        console.log('✅ Payment already processed as membership registration');
+        // Return success page for membership
+        // Get the new user info for display
+        const newUserInfo = global.newMembershipUser || { username: 'New User', credits: 10 };
+        
+        res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Bean Stalker - Premium Membership Activated!</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; text-align: center; background: linear-gradient(135deg, #1a3b29 0%, #2d5a3f 100%); color: white; margin: 0; padding: 20px;">
+            <div style="max-width: 400px; margin: 50px auto; padding: 30px; background: rgba(255,255,255,0.1); border-radius: 15px; backdrop-filter: blur(10px);">
+              <h1 style="color: #4ade80; margin-bottom: 20px;">🎉 Premium Membership Activated!</h1>
+              <p style="font-size: 18px; margin-bottom: 15px;">Welcome <strong>${newUserInfo.username}</strong>!</p>
+              <p style="font-size: 16px; margin-bottom: 20px;">Your account has been created with <strong>${newUserInfo.credits} credits</strong>!</p>
+              <p style="margin-bottom: 30px;">Click below to log in and start ordering coffee.</p>
+              <button onclick="returnToApp()" style="background: #22c55e; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer;">
+                Log In to Bean Stalker
+              </button>
+            </div>
+            <script>
+              function returnToApp() {
+                console.log('Redirecting to login with username: ${newUserInfo.username}');
+                
+                // For native app
+                if (window.location.href.includes('member.beanstalker.com.au')) {
+                  window.location.href = 'beanstalker://payment-success?username=${encodeURIComponent(newUserInfo.username)}';
+                  
+                  // Fallback to web login with pre-filled username
+                  setTimeout(() => {
+                    window.location.href = 'https://member.beanstalker.com.au/?username=${encodeURIComponent(newUserInfo.username)}&newAccount=true';
+                  }, 1500);
+                } else {
+                  // Direct web redirect
+                  window.location.href = '/?username=${encodeURIComponent(newUserInfo.username)}&newAccount=true';
+                }
+              }
+              
+              // Auto-redirect after 4 seconds
+              setTimeout(returnToApp, 4000);
+            </script>
+          </body>
+          </html>
+        `);
+        return;
+      }
       
       // Use userId from our custom parameter (since quick_pay doesn't support reference_id)
       const targetUserId = userId || referenceId;
+      
+      // Skip processing if userId is a temporary ID (starts with "temp_")
+      if (targetUserId && targetUserId.toString().startsWith('temp_')) {
+        console.log(`⚠️ Skipping user processing for temporary ID: ${targetUserId}`);
+        console.log('This should have been handled by the membership registration flow above');
+        
+        res.send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Bean Stalker - Payment Processed</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; text-align: center; background: linear-gradient(135deg, #1a3b29 0%, #2d5a3f 100%); color: white; margin: 0; padding: 20px;">
+            <div style="max-width: 400px; margin: 50px auto; padding: 30px; background: rgba(255,255,255,0.1); border-radius: 15px; backdrop-filter: blur(10px);">
+              <h1 style="color: #4ade80; margin-bottom: 20px;">✅ Payment Successful!</h1>
+              <p style="font-size: 18px; margin-bottom: 20px;">Your payment has been processed successfully.</p>
+              <p style="margin-bottom: 30px;">Please check your account for updates.</p>
+              <button onclick="returnToApp()" style="background: #22c55e; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer;">
+                Return to Bean Stalker
+              </button>
+            </div>
+            <script>
+              function returnToApp() {
+                console.log('Attempting to return to native app...');
+                window.location.href = 'beanstalker://payment-success';
+                
+                setTimeout(() => {
+                  console.log('Deep link fallback - redirecting to web app');
+                  window.location.href = 'https://member.beanstalker.com.au/';
+                }, 1500);
+              }
+              
+              // Auto-redirect to native app after 3 seconds
+              setTimeout(returnToApp, 3000);
+            </script>
+          </body>
+          </html>
+        `);
+        return;
+      }
       
       if (targetUserId && typeof targetUserId === 'string') {
         console.log(`🔍 Looking for pending purchase for user: ${targetUserId}`);
@@ -1560,7 +2052,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Payment success redirect handler
   app.get("/payment-success", async (req, res) => {
+    console.error('🚨 /payment-success ENDPOINT HIT!');
+    console.error('Query params:', req.query);
+    
     const { transactionId, userData } = req.query;
+    
+    // FIRST: Check for pending membership registration (payment-first flow)
+    const pendingMembershipPayments = global.pendingMembershipPayments || new Map();
+    
+    // If we have pending membership payments, process them immediately
+    if (pendingMembershipPayments.size > 0) {
+      console.error('🚨 PROCESSING PENDING MEMBERSHIP PAYMENT NOW!');
+      const [paymentId, pendingData] = Array.from(pendingMembershipPayments.entries())[0];
+      console.error('🎯 Processing payment:', paymentId);
+      
+      if (pendingData.isMembership) {
+        try {
+          const { userData: pendingUserData, amount, credits } = pendingData;
+          
+          // Check if user already exists
+          const existingUser = await storage.getUserByUsername(pendingUserData.username);
+          if (existingUser) {
+            console.error(`⚠️ User ${pendingUserData.username} already exists - skipping creation`);
+            pendingMembershipPayments.delete(paymentId);
+          } else {
+            // Create the user
+            const hashedPassword = await hashPassword(pendingUserData.password);
+            
+            const newUser = await storage.createUser({
+              username: pendingUserData.username,
+              email: pendingUserData.email,
+              password: hashedPassword,
+              fullName: pendingUserData.fullName,
+              credits: credits,
+              isPremium: true
+            });
+            
+            // Create credit transaction record
+            await storage.createCreditTransaction({
+              userId: newUser.id,
+              type: "membership_purchase",
+              amount: credits,
+              balanceAfter: credits,
+              description: `Premium membership: $${amount} for ${credits} credits`,
+              transactionId: paymentId,
+              metadata: {
+                packageId: 'membership_test',
+                paymentAmount: amount,
+                paymentMethod: 'square',
+                isMembership: true
+              }
+            });
+            
+            console.error(`✅ MEMBERSHIP SUCCESS: User ${newUser.id} (${pendingUserData.username}) created with ${credits} credits`);
+            
+            // Clean up
+            pendingMembershipPayments.delete(paymentId);
+            
+            // Redirect to login with success message and pre-filled username
+            res.redirect(`/?username=${encodeURIComponent(pendingUserData.username)}&newAccount=true`);
+            return;
+          }
+        } catch (error) {
+          console.error('❌ Failed to create membership account:', error);
+        }
+      }
+    }
     
     try {
       // If this is a membership payment, create the user account

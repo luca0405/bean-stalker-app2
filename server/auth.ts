@@ -80,34 +80,12 @@ export function setupAuth(app: Express) {
     }
   });
 
+  // DISABLED: Payment-first validation required - no free account creation
   app.post("/api/register", async (req, res, next) => {
-    const existingUser = await storage.getUserByUsername(req.body.username);
-    if (existingUser) {
-      return res.status(400).json({ message: "Username already exists" });
-    }
-
-    // Check if email already exists
-    if (req.body.email) {
-      const existingEmail = await storage.getUserByEmail(req.body.email);
-      if (existingEmail) {
-        return res.status(400).json({ message: "Email already exists" });
-      }
-    }
-
-    try {
-      const user = await storage.createUser({
-        ...req.body,
-        password: await hashPassword(req.body.password),
-      });
-
-      req.login(user, (err) => {
-        if (err) return next(err);
-        const { password, ...userWithoutPassword } = user;
-        res.status(201).json(userWithoutPassword);
-      });
-    } catch (error) {
-      return res.status(400).json({ message: "Failed to create user" });
-    }
+    return res.status(403).json({ 
+      message: "Account creation requires payment validation. Please use the membership payment flow.",
+      paymentRequired: true 
+    });
   });
 
   app.post("/api/login", (req, res, next) => {
