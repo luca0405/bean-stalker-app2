@@ -9,7 +9,7 @@ import { Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNativeNotification } from "@/services/native-notification-service";
-import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard } from "lucide-react";
+import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard, X } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { deviceService } from "@/services/device-service";
@@ -354,10 +354,32 @@ export default function AuthPageMobile() {
                   placeholder="Username"
                   value={loginData.username}
                   onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-                  className="w-full pl-12 pr-4 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
+                  className="w-full pl-12 pr-16 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
                 />
-                {lastUsername && lastUsername === loginData.username && (
-                  <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                {loginData.username && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      // Clear the input field
+                      setLoginData({ ...loginData, username: "" });
+                      setLastUsername("");
+                      
+                      // Clear stored username from preferences
+                      try {
+                        const { Preferences } = await import('@capacitor/preferences');
+                        await Preferences.remove({ key: 'bean-stalker-last-username' });
+                      } catch (error) {
+                        console.error('Failed to clear stored username:', error);
+                      }
+                    }}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                    data-testid="button-clear-username"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                )}
+                {lastUsername && lastUsername === loginData.username && !loginData.username.includes('') && (
+                  <div className="absolute right-12 top-1/2 transform -translate-y-1/2">
                     <span className="text-xs text-green-400 bg-green-400/20 px-2 py-1 rounded">Last used</span>
                   </div>
                 )}
