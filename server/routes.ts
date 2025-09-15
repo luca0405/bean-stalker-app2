@@ -45,6 +45,45 @@ function formatZodError(error: z.ZodError): string {
   return error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
 }
 
+// Exponential backoff retry wrapper for Square API calls
+async function retrySquareRequest(
+  url: string, 
+  method: string, 
+  data?: any, 
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<any> {
+  const { makeSquareRequest } = await import('./square-catalog-sync');
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await makeSquareRequest(url, method, data);
+    } catch (error: any) {
+      // Only retry on rate limit errors (429) or network errors
+      const shouldRetry = (
+        error.message?.includes('429') || 
+        error.message?.includes('RATE_LIMITED') ||
+        error.message?.includes('ECONNRESET') ||
+        error.message?.includes('timeout')
+      ) && attempt < maxRetries;
+      
+      if (!shouldRetry) {
+        throw error; // Re-throw if not retryable or max attempts reached
+      }
+      
+      // Calculate delay with exponential backoff and jitter
+      const exponentialDelay = baseDelay * Math.pow(2, attempt);
+      const jitter = Math.random() * 0.3 * exponentialDelay; // 30% jitter
+      const totalDelay = exponentialDelay + jitter;
+      
+      console.log(`⏳ Rate limited, retrying in ${Math.round(totalDelay)}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, totalDelay));
+    }
+  }
+}
+
 // Authentication middleware to check if user is logged in
 const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
   if (!req.isAuthenticated()) {
@@ -204,6 +243,263 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching menu item options:", error);
       res.status(500).json({ message: "Failed to fetch menu item options" });
+    }
+  });
+
+  // Helper function to build modifier list response from database links
+  async function buildModifierListResponse(databaseLinks: any[], storage: any): Promise<any[]> {
+    const result = [];
+    
+    for (const link of databaseLinks) {
+      const modifierList = await storage.getSquareModifierLists().then((lists: any[]) => 
+        lists.find(list => list.id === link.modifierListId)
+      );
+      
+      if (!modifierList || !modifierList.enabled) continue;
+      
+      const modifiers = await storage.getSquareModifiers().then((mods: any[]) =>
+        mods.filter(mod => mod.modifierListId === link.modifierListId && mod.enabled)
+      );
+      
+      result.push({
+        id: modifierList.id,
+        squareId: modifierList.squareId,
+        name: modifierList.name,
+        selectionType: modifierList.selectionType,
+        minSelections: modifierList.minSelections || 0,
+        maxSelections: modifierList.maxSelections,
+        displayOrder: modifierList.displayOrder,
+        modifiers: modifiers.map(mod => ({
+          id: mod.id,
+          squareId: mod.squareId,
+          name: mod.name,
+          priceMoney: mod.priceMoney || 0,
+          priceAdjustment: (mod.priceMoney || 0) / 100,
+          displayOrder: mod.displayOrder
+        })).sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999) || a.name.localeCompare(b.name))
+      });
+    }
+    
+    return result.sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999) || a.name.localeCompare(b.name));
+  }
+
+  // Helper function to extract and store modifiers from Square response
+  async function extractAndStoreModifiers(modifierListResponse: any, modifierList: any, storage: any): Promise<any[]> {
+    const retrievedModifiers = [];
+    
+    // Extract modifiers from modifier_list_data.modifiers and related_objects
+    const modifierLists = (modifierListResponse.objects || []).filter((obj: any) => obj.type === 'MODIFIER_LIST');
+    const relatedModifiers = (modifierListResponse.related_objects || []).filter((obj: any) => obj.type === 'MODIFIER');
+    
+    // Extract inline modifiers from modifier list data
+    let inlineModifiers: any[] = [];
+    for (const responseModifierList of modifierLists) {
+      if (responseModifierList.modifier_list_data?.modifiers) {
+        inlineModifiers.push(...responseModifierList.modifier_list_data.modifiers.map((mod: any) => ({
+          id: mod.id,
+          type: 'MODIFIER',
+          modifier_data: {
+            ...mod.modifier_data,
+            modifier_list_id: responseModifierList.id
+          }
+        })));
+      }
+    }
+    
+    // Combine inline and related modifiers
+    const allModifiers = [...inlineModifiers, ...relatedModifiers];
+    
+    // Store all found modifiers and prepare response
+    for (const modifier of allModifiers) {
+      try {
+        const modifierData = modifier.modifier_data;
+        if (!modifierData) continue;
+        
+        // Create modifier in database
+        const storedModifier = await storage.createSquareModifier({
+          squareId: modifier.id,
+          modifierListId: modifierList.id,
+          squareModifierListId: modifierList.squareId,
+          name: modifierData.name || 'Unnamed Modifier',
+          priceMoney: modifierData.price_money?.amount || 0,
+          enabled: !modifier.is_deleted,
+          displayOrder: modifierData.ordinal || 0
+        });
+        
+        retrievedModifiers.push(storedModifier);
+        
+      } catch (error) {
+        console.error(`❌ Failed to store modifier ${modifier.id}:`, error);
+      }
+    }
+    
+    return retrievedModifiers;
+  }
+
+  // Get Square modifiers for a specific menu item (public) - Square-first approach
+  app.get("/api/menu/:menuItemId/modifiers", async (req, res) => {
+    try {
+      const { menuItemId } = req.params;
+      
+      // Check if it's a Square ID (contains letters) or database ID (numbers only)
+      const isSquareId = /[A-Z]/.test(menuItemId);
+      
+      if (!isSquareId) {
+        // Database items don't have Square modifiers
+        res.json([]);
+        return;
+      }
+
+      console.log(`🔍 SQUARE-FIRST: Fetching authoritative modifier associations for ${menuItemId}`);
+      
+      // STEP 1: Get authoritative modifier associations from Square
+      const { getSquareItemModifierAssociations } = await import('./square-catalog-sync');
+      const squareAssociations = await getSquareItemModifierAssociations(menuItemId);
+      
+      if (!squareAssociations.success) {
+        console.log(`⚠️  Square lookup failed for ${menuItemId}, falling back to database: ${squareAssociations.error}`);
+        
+        // Fallback to database when Square fails
+        const allModifierLists = await storage.getMenuItemModifierLists();
+        const databaseLinks = allModifierLists.filter(link => link.squareItemId === menuItemId);
+        console.log(`🗄️  Database fallback: found ${databaseLinks.length} associations for ${menuItemId}`);
+        
+        if (databaseLinks.length === 0) {
+          res.json([]);
+          return;
+        }
+        
+        // Use database associations as fallback
+        const result = await buildModifierListResponse(databaseLinks, storage);
+        res.json(result);
+        return;
+      }
+      
+      // STEP 2: Square is authoritative - use its modifier list associations
+      console.log(`✅ Square says ${menuItemId} should have ${squareAssociations.modifierListIds.length} modifier lists: ${squareAssociations.modifierListIds.join(', ')}`);
+      
+      if (squareAssociations.modifierListIds.length === 0) {
+        console.log(`📋 Square item ${menuItemId} has no modifier lists`);
+        res.json([]);
+        return;
+      }
+      
+      // STEP 3: Get all database modifier lists to check availability
+      const allDatabaseModifierLists = await storage.getSquareModifierLists();
+      const modifierListLookup = new Map(allDatabaseModifierLists.map(list => [list.squareId, list]));
+      
+      // STEP 4: Build response using Square's authoritative associations
+      const result = [];
+      const missingLists: string[] = [];
+      
+      for (const squareModifierListId of squareAssociations.modifierListIds) {
+        const modifierList = modifierListLookup.get(squareModifierListId);
+        
+        if (!modifierList) {
+          missingLists.push(squareModifierListId);
+          console.log(`⚠️  Missing modifier list in database: ${squareModifierListId}`);
+          continue;
+        }
+        
+        if (!modifierList.enabled) {
+          console.log(`⚠️  Skipping disabled modifier list: ${modifierList.name} (${squareModifierListId})`);
+          continue;
+        }
+        
+        // Get modifiers for this list
+        const modifiers = await storage.getSquareModifiers().then(mods =>
+          mods.filter(mod => mod.modifierListId === modifierList.id && mod.enabled)
+        );
+        
+        // ON-DEMAND HYDRATION: If modifiers are empty, fetch from Square
+        if (modifiers.length === 0) {
+          console.log(`🔧 On-demand hydration: fetching child modifiers for empty list "${modifierList.name}"`);
+          
+          try {
+            const modifierListResponse = await retrySquareRequest('/catalog/batch-retrieve', 'POST', {
+              object_ids: [squareModifierListId],
+              include_related_objects: true
+            });
+            
+            // Extract and store modifiers
+            const retrievedModifiers = await extractAndStoreModifiers(modifierListResponse, modifierList, storage);
+            
+            // Add to modifiers array
+            modifiers.push(...retrievedModifiers);
+            console.log(`✅ Hydrated ${retrievedModifiers.length} modifiers for "${modifierList.name}"`);
+            
+          } catch (hydrateError) {
+            console.error(`❌ Failed to hydrate modifiers for ${modifierList.name}:`, hydrateError);
+            // Continue with empty modifiers rather than failing
+          }
+        }
+        
+        result.push({
+          id: modifierList.id,
+          squareId: modifierList.squareId,
+          name: modifierList.name,
+          selectionType: modifierList.selectionType,
+          minSelections: modifierList.minSelections || 0,
+          maxSelections: modifierList.maxSelections,
+          displayOrder: modifierList.displayOrder,
+          modifiers: modifiers.map(mod => ({
+            id: mod.id,
+            squareId: mod.squareId,
+            name: mod.name,
+            priceMoney: mod.priceMoney || 0,
+            priceAdjustment: (mod.priceMoney || 0) / 100, // Convert cents to dollars
+            displayOrder: mod.displayOrder
+          })).sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999) || a.name.localeCompare(b.name))
+        });
+      }
+      
+      // STEP 5: DEFENSIVE RECONCILIATION - Always verify database matches Square
+      const allDatabaseLinks = await storage.getMenuItemModifierLists();
+      const currentDatabaseLinks = allDatabaseLinks.filter(link => link.squareItemId === menuItemId);
+      const currentDatabaseIds = new Set(currentDatabaseLinks.map(link => {
+        // Find the Square ID for this database modifier list
+        const modifierList = allDatabaseModifierLists.find(ml => ml.id === link.modifierListId);
+        return modifierList?.squareId;
+      }).filter(Boolean));
+      
+      const squareIds = new Set(squareAssociations.modifierListIds);
+      
+      // Compare database vs Square associations
+      const onlyInDatabase = Array.from(currentDatabaseIds).filter(id => !squareIds.has(id));
+      const onlyInSquare = Array.from(squareIds).filter(id => !currentDatabaseIds.has(id));
+      const inBoth = Array.from(squareIds).filter(id => currentDatabaseIds.has(id));
+      
+      if (onlyInDatabase.length > 0 || onlyInSquare.length > 0) {
+        console.log(`🔄 DEFENSIVE RECONCILIATION DETECTED INCONSISTENCIES for ${menuItemId}:`);
+        console.log(`📊 Database has ${currentDatabaseLinks.length} associations, Square has ${squareAssociations.modifierListIds.length}`);
+        console.log(`🔍 In both: ${inBoth.length} (${inBoth.join(', ')})`);
+        if (onlyInDatabase.length > 0) {
+          console.log(`❌ Only in database (LEGACY): ${onlyInDatabase.length} (${onlyInDatabase.join(', ')})`);
+        }
+        if (onlyInSquare.length > 0) {
+          console.log(`✅ Only in Square (AUTHORITATIVE): ${onlyInSquare.length} (${onlyInSquare.join(', ')})`);
+        }
+        console.log(`🎯 SOLUTION: Using Square as authoritative source - ${result.length} modifier lists returned`);
+      } else if (currentDatabaseLinks.length === squareAssociations.modifierListIds.length && inBoth.length === squareIds.size) {
+        console.log(`✅ DEFENSIVE RECONCILIATION: Database matches Square perfectly for ${menuItemId} (${inBoth.length} modifier lists)`);
+      } else {
+        console.log(`⚠️  DEFENSIVE RECONCILIATION: Unexpected state for ${menuItemId} - using Square as source of truth`);
+      }
+      
+      // STEP 6: Log reconciliation results
+      if (missingLists.length > 0) {
+        console.log(`⚠️  ${missingLists.length} modifier lists missing from database, will need sync: ${missingLists.join(', ')}`);
+      }
+      
+      // STEP 7: Sort by Square's display order and return
+      result.sort((a, b) => (a.displayOrder || 999) - (b.displayOrder || 999) || a.name.localeCompare(b.name));
+      
+      console.log(`✅ SQUARE-FIRST: Returning ${result.length} authoritative modifier lists for ${menuItemId}`);
+      res.json(result);
+      
+    } catch (error) {
+      console.error("Error fetching menu item modifiers:", error);
+      res.status(500).json({ message: "Failed to fetch menu item modifiers" });
     }
   });
 
@@ -4650,6 +4946,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Complete sync endpoint - sync categories, items, and modifiers from Square
+  app.post('/api/sync/all', async (req, res) => {
+    try {
+      console.log('🔄 Complete sync from Square triggered - categories, items, and modifiers...');
+      
+      const result = {
+        success: false,
+        categoriesCreated: 0,
+        itemsCreated: 0,
+        listsCreated: 0,
+        modifiersCreated: 0,
+        linksCreated: 0,
+        errors: [] as string[]
+      };
+
+      // Import sync functions
+      const { getSquareCategories, getSquareMenuItems, syncAllSquareModifiers } = await import('./square-catalog-sync');
+      
+      // 1. Fetch categories from Square (data is fetched on-demand)
+      try {
+        console.log('🔄 Checking Square categories availability...');
+        const categories = await getSquareCategories();
+        result.categoriesCreated = categories?.length || 0;
+        console.log(`✅ ${result.categoriesCreated} categories available from Square`);
+      } catch (error) {
+        const errorMsg = `Category fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        console.error('❌ ' + errorMsg);
+        result.errors.push(errorMsg);
+      }
+
+      // 2. Fetch items from Square using working category-based approach (data is fetched on-demand)
+      let categories: any[] = [];
+      try {
+        console.log('🔄 Checking Square menu items availability...');
+        
+        // Get categories first (reuse from step 1 or fetch again)
+        const { getSquareItemsByCategory } = await import('./square-catalog-sync');
+        categories = await getSquareCategories();
+        
+        // Use the same working approach as /api/menu route - category-based aggregation with deduplication
+        const allItems: any[] = [];
+        const seenItems = new Set<string>(); // Track items by Square ID to avoid duplicates
+        
+        console.log(`📱 Aggregating items from ${categories.length} Bean Stalker categories...`);
+        
+        for (const category of categories) {
+          try {
+            const categoryItems = await getSquareItemsByCategory(category.id, category.name);
+            
+            // Add only unique items (deduplication by Square ID)
+            categoryItems.forEach(item => {
+              if (!seenItems.has(item.squareId)) {
+                seenItems.add(item.squareId);
+                allItems.push(item);
+              }
+            });
+            
+            console.log(`📱 Added ${categoryItems.length} items from category '${category.name}'`);
+          } catch (error) {
+            console.error(`❌ Failed to fetch items from category '${category.name}':`, error);
+            const errorMsg = `Failed to fetch items from category '${category.name}': ${error instanceof Error ? error.message : 'Unknown error'}`;
+            result.errors.push(errorMsg);
+          }
+        }
+        
+        result.itemsCreated = allItems.length;
+        console.log(`📱 Retrieved ${result.itemsCreated} total items from ${categories.length} Bean Stalker categories`);
+        console.log(`✅ ${result.itemsCreated} items available from Square`);
+      } catch (error) {
+        const errorMsg = `Item fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        console.error('❌ ' + errorMsg);
+        result.errors.push(errorMsg);
+      }
+
+      // 3. Sync modifiers from Square
+      try {
+        console.log('🔄 Syncing modifiers from Square...');
+        const modifierResult = await syncAllSquareModifiers();
+        result.listsCreated = modifierResult.listsCreated || 0;
+        result.modifiersCreated = modifierResult.modifiersCreated || 0;
+        result.linksCreated = modifierResult.linksCreated || 0;
+        if (modifierResult.errors) {
+          result.errors.push(...modifierResult.errors);
+        }
+      } catch (error) {
+        const errorMsg = `Modifier sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        console.error('❌ ' + errorMsg);
+        result.errors.push(errorMsg);
+      }
+
+      result.success = result.errors.length === 0;
+      
+      console.log(`✅ Complete sync finished - Success: ${result.success}, Categories: ${result.categoriesCreated}, Items: ${result.itemsCreated}, Modifier Lists: ${result.listsCreated}, Modifiers: ${result.modifiersCreated}, Links: ${result.linksCreated}`);
+      
+      if (!result.success && result.errors.length > 0) {
+        res.status(500).json(result);
+      } else {
+        res.json(result);
+      }
+    } catch (error) {
+      console.error('❌ Complete sync error:', error);
+      res.status(500).json({ 
+        success: false,
+        categoriesCreated: 0,
+        itemsCreated: 0,
+        listsCreated: 0,
+        modifiersCreated: 0,
+        linksCreated: 0,
+        errors: [error instanceof Error ? error.message : 'Unknown error']
+      });
+    }
+  });
+
+  // Square Modifier Sync - sync Square modifiers and link to menu items (Admin only)
+  app.post('/api/square/modifiers/sync', async (req, res) => {
+    try {
+      console.log('🔧 Manual Square modifier sync triggered via API by admin user');
+      const { readSquareModifiersFromItems } = await import('./square-catalog-sync');
+      const result = await readSquareModifiersFromItems();
+      
+      // Set status based on success
+      if (!result.success && result.errors.length > 0) {
+        res.status(500).json(result);
+      } else {
+        res.json(result);
+      }
+    } catch (error) {
+      console.error('❌ Square modifier sync error:', error);
+      res.status(500).json({ 
+        success: false,
+        listsCreated: 0,
+        modifiersCreated: 0,
+        linksCreated: 0,
+        errors: [error instanceof Error ? error.message : 'Unknown error']
+      });
+    }
+  });
+
   // Square Kitchen Display sync endpoint
   app.post("/api/square/kitchen/sync", async (req, res) => {
     try {
@@ -5415,6 +5849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
 
   // Serve static images with CORS headers for mobile app compatibility
   app.get('/images/*', (req, res) => {

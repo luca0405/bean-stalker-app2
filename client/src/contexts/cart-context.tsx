@@ -5,8 +5,8 @@ import { useNativeNotification } from "@/services/native-notification-service";
 interface CartContextType {
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
-  removeFromCart: (menuItemId: string, size?: string, option?: string, options?: CartItemOption[]) => void;
-  updateCartItemQuantity: (menuItemId: string, quantity: number, size?: string, option?: string, options?: CartItemOption[]) => void;
+  removeFromCart: (menuItemId: string, size?: string, option?: string, options?: CartItemOption[], variationId?: string) => void;
+  updateCartItemQuantity: (menuItemId: string, quantity: number, size?: string, option?: string, options?: CartItemOption[], variationId?: string) => void;
   clearCart: () => void;
   calculateSubtotal: () => number;
   calculateTax: () => number;
@@ -93,9 +93,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addToCart = (newItem: CartItem) => {
     setCart((prevCart) => {
-      // Check if the item exists with the same ID, size, and options (if applicable)
+      // Check if the item exists with the same ID, variation, and options (if applicable)
       const existingItemIndex = prevCart.findIndex(
         (item) => item.menuItemId === newItem.menuItemId && 
+                 // Check variation ID for proper Square variation matching
+                 ((!item.variationId && !newItem.variationId) || item.variationId === newItem.variationId) &&
+                 // Keep legacy size check for backward compatibility
                  ((!item.size && !newItem.size) || item.size === newItem.size) &&
                  // Check legacy option field
                  ((!item.option && !newItem.option) || item.option === newItem.option) &&
@@ -138,35 +141,37 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const removeFromCart = (menuItemId: string, size?: string, option?: string, options?: CartItemOption[]) => {
+  const removeFromCart = (menuItemId: string, size?: string, option?: string, options?: CartItemOption[], variationId?: string) => {
     setCart((prevCart) => {
       let updatedCart;
       let removedItem;
       
-      if (size || option || (options && options.length > 0)) {
-        // If size, option, or options array is provided, remove only matching items
+      if (size || option || (options && options.length > 0) || variationId) {
+        // If size, option, options array, or variationId is provided, remove only matching items
         updatedCart = prevCart.filter(item => {
           const sizeMatches = size ? item.size === size : true;
           const optionMatches = option ? item.option === option : true;
+          const variationMatches = variationId ? item.variationId === variationId : true;
           
           // Check options array match
           const optionsMatch = options && options.length > 0 
             ? areOptionsEqual(item.options || [], options)
             : true;
             
-          return !(item.menuItemId === menuItemId && sizeMatches && optionMatches && optionsMatch);
+          return !(item.menuItemId === menuItemId && sizeMatches && optionMatches && optionsMatch && variationMatches);
         });
         
         removedItem = prevCart.find(item => {
           const sizeMatches = size ? item.size === size : true;
           const optionMatches = option ? item.option === option : true;
+          const variationMatches = variationId ? item.variationId === variationId : true;
           
           // Check options array match
           const optionsMatch = options && options.length > 0 
             ? areOptionsEqual(item.options || [], options)
             : true;
             
-          return item.menuItemId === menuItemId && sizeMatches && optionMatches && optionsMatch;
+          return item.menuItemId === menuItemId && sizeMatches && optionMatches && optionsMatch && variationMatches;
         });
       } else {
         // If no size, option, or options array provided, remove all items with matching menuItemId
@@ -192,28 +197,29 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const updateCartItemQuantity = (menuItemId: string, quantity: number, size?: string, option?: string, options?: CartItemOption[]) => {
+  const updateCartItemQuantity = (menuItemId: string, quantity: number, size?: string, option?: string, options?: CartItemOption[], variationId?: string) => {
     if (quantity <= 0) {
-      removeFromCart(menuItemId, size, option, options);
+      removeFromCart(menuItemId, size, option, options, variationId);
       return;
     }
 
     setCart((prevCart) =>
       prevCart.map((item) => {
-        // If size, option, or options array is provided, only update matching items
+        // If size, option, options array, or variationId is provided, only update matching items
         const sizeMatches = size ? item.size === size : true;
         const optionMatches = option ? item.option === option : true;
+        const variationMatches = variationId ? item.variationId === variationId : true;
         
         // Check options array match
         const optionsMatch = options && options.length > 0 
           ? areOptionsEqual(item.options || [], options)
           : true;
         
-        if ((size || option || (options && options.length > 0)) && item.menuItemId === menuItemId) {
-          if (sizeMatches && optionMatches && optionsMatch) {
+        if ((size || option || (options && options.length > 0) || variationId) && item.menuItemId === menuItemId) {
+          if (sizeMatches && optionMatches && optionsMatch && variationMatches) {
             return { ...item, quantity };
           }
-        } else if (!size && !option && (!options || options.length === 0) && item.menuItemId === menuItemId) {
+        } else if (!size && !option && (!options || options.length === 0) && !variationId && item.menuItemId === menuItemId) {
           // If no size, option, or options array provided, update all items with matching ID
           return { ...item, quantity };
         }

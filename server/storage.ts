@@ -9,6 +9,9 @@ import {
   favorites,
   menuItemOptions,
   pendingCreditTransfers,
+  squareModifierLists,
+  squareModifiers,
+  menuItemModifierLists,
   type User, 
   type InsertUser, 
   type MenuItem, 
@@ -26,7 +29,13 @@ import {
   type MenuItemOption,
   type InsertMenuItemOption,
   type PendingCreditTransfer,
-  type InsertPendingCreditTransfer
+  type InsertPendingCreditTransfer,
+  type SquareModifierList,
+  type InsertSquareModifierList,
+  type SquareModifier,
+  type InsertSquareModifier,
+  type MenuItemModifierList,
+  type InsertMenuItemModifierList
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -128,6 +137,23 @@ export interface IStorage {
   isFavoriteBySquareId(userId: number, squareId: string): Promise<boolean>;
   getFavoriteWithOptions(userId: number, menuItemId: number): Promise<Favorite | undefined>;
   
+  // Square Modifier operations
+  createSquareModifierList(modifierList: InsertSquareModifierList): Promise<SquareModifierList>;
+  createSquareModifier(modifier: InsertSquareModifier): Promise<SquareModifier>;
+  createMenuItemModifierList(link: InsertMenuItemModifierList): Promise<MenuItemModifierList>;
+  getSquareModifierLists(): Promise<SquareModifierList[]>;
+  getSquareModifiers(): Promise<SquareModifier[]>;
+  getMenuItemModifierLists(): Promise<MenuItemModifierList[]>;
+  clearSquareModifiers(): Promise<void>;
+  
+  // New methods for complete database reconciliation
+  upsertSquareModifierList(modifierList: InsertSquareModifierList & { squareId: string }): Promise<SquareModifierList>;
+  upsertSquareModifier(modifier: InsertSquareModifier & { squareId: string }): Promise<SquareModifier>;
+  deleteMenuItemModifierLinksBySquareItemId(squareItemId: string): Promise<void>;
+  batchCreateMenuItemModifierLinks(links: InsertMenuItemModifierList[]): Promise<MenuItemModifierList[]>;
+  getSquareModifierListBySquareId(squareId: string): Promise<SquareModifierList | undefined>;
+  getSquareModifiersByListSquareId(listSquareId: string): Promise<SquareModifier[]>;
+  
   // Session store
   sessionStore: session.Store;
   
@@ -144,6 +170,9 @@ export class MemStorage implements IStorage {
   private creditTransactions: Map<number, CreditTransaction>;
   private pendingCreditTransfers: Map<number, PendingCreditTransfer>;
   private favorites: Map<string, Favorite>; // Store favorites with a composite key: `${userId}-${menuItemId}`
+  private squareModifierLists: Map<number, SquareModifierList>;
+  private squareModifiers: Map<number, SquareModifier>;
+  private menuItemModifierLists: Map<number, MenuItemModifierList>;
   sessionStore: session.Store;
   currentUserId: number;
   currentMenuItemId: number;
@@ -152,6 +181,9 @@ export class MemStorage implements IStorage {
   currentTransactionId: number;
   currentPendingTransferId: number;
   currentMenuItemOptionId: number; // Added counter for option IDs
+  currentSquareModifierListId: number;
+  currentSquareModifierId: number;
+  currentMenuItemModifierListId: number;
 
   constructor() {
     this.users = new Map();
@@ -162,6 +194,9 @@ export class MemStorage implements IStorage {
     this.creditTransactions = new Map();
     this.pendingCreditTransfers = new Map();
     this.favorites = new Map();
+    this.squareModifierLists = new Map();
+    this.squareModifiers = new Map();
+    this.menuItemModifierLists = new Map();
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000, // 24 hours
     });
@@ -172,6 +207,9 @@ export class MemStorage implements IStorage {
     this.currentTransactionId = 1;
     this.currentPendingTransferId = 1;
     this.currentMenuItemOptionId = 1;
+    this.currentSquareModifierListId = 1;
+    this.currentSquareModifierId = 1;
+    this.currentMenuItemModifierListId = 1;
     
     // Initialize categories first, then menu items
     this.initializeCategories();
@@ -902,9 +940,197 @@ export class MemStorage implements IStorage {
       hasSizes: null,
       mediumPrice: null,
       largePrice: null,
-      hasOptions: false  // Initialize with no options
+      hasOptions: false,  // Initialize with no options
+      squareId: null,     // Add missing Square ID field
+      squareCategoryId: null  // Add missing Square category ID field
     };
     this.menuItems.set(id, menuItem);
+  }
+
+  // Square Modifier operations implementation
+  async createSquareModifierList(modifierList: InsertSquareModifierList): Promise<SquareModifierList> {
+    const id = this.currentSquareModifierListId++;
+    const newModifierList: SquareModifierList = {
+      ...modifierList,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.squareModifierLists.set(id, newModifierList);
+    return newModifierList;
+  }
+
+  async createSquareModifier(modifier: InsertSquareModifier): Promise<SquareModifier> {
+    const id = this.currentSquareModifierId++;
+    const newModifier: SquareModifier = {
+      ...modifier,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.squareModifiers.set(id, newModifier);
+    return newModifier;
+  }
+
+  async createMenuItemModifierList(link: InsertMenuItemModifierList): Promise<MenuItemModifierList> {
+    // Check for duplicate links by Square IDs
+    const exists = Array.from(this.menuItemModifierLists.values()).find(
+      existing => existing.squareItemId === link.squareItemId && 
+                  existing.squareModifierListId === link.squareModifierListId
+    );
+    
+    if (exists) {
+      return exists; // Return existing link instead of creating duplicate
+    }
+    
+    const id = this.currentMenuItemModifierListId++;
+    const newLink: MenuItemModifierList = {
+      ...link,
+      id,
+      createdAt: new Date()
+    };
+    this.menuItemModifierLists.set(id, newLink);
+    console.log(`✅ Created link: item ${link.squareItemId} → modifier list ${link.squareModifierListId}`);
+    return newLink;
+  }
+
+  async getSquareModifierLists(): Promise<SquareModifierList[]> {
+    return Array.from(this.squareModifierLists.values())
+      .sort((a, b) => {
+        // Sort by displayOrder first, then by name
+        if (a.displayOrder !== b.displayOrder) {
+          return (a.displayOrder || 999) - (b.displayOrder || 999);
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }
+
+  async getSquareModifiers(): Promise<SquareModifier[]> {
+    return Array.from(this.squareModifiers.values())
+      .sort((a, b) => {
+        // Sort by displayOrder first, then by name
+        if (a.displayOrder !== b.displayOrder) {
+          return (a.displayOrder || 999) - (b.displayOrder || 999);
+        }
+        return a.name.localeCompare(b.name);
+      });
+  }
+
+  async getMenuItemModifierLists(): Promise<MenuItemModifierList[]> {
+    return Array.from(this.menuItemModifierLists.values());
+  }
+
+  async clearSquareModifiers(): Promise<void> {
+    this.squareModifierLists.clear();
+    this.squareModifiers.clear();
+    this.menuItemModifierLists.clear();
+    // Reset counters to ensure consistency
+    this.currentSquareModifierListId = 1;
+    this.currentSquareModifierId = 1;
+    this.currentMenuItemModifierListId = 1;
+  }
+
+  // New methods for complete database reconciliation
+  async upsertSquareModifierList(modifierList: InsertSquareModifierList & { squareId: string }): Promise<SquareModifierList> {
+    // Find existing by squareId
+    const existingId = Array.from(this.squareModifierLists.entries())
+      .find(([_, list]) => list.squareId === modifierList.squareId)?.[0];
+    
+    if (existingId) {
+      // Update existing
+      const existing = this.squareModifierLists.get(existingId)!;
+      const updated: SquareModifierList = {
+        ...existing,
+        ...modifierList,
+        id: existingId,
+        updatedAt: new Date(),
+      };
+      this.squareModifierLists.set(existingId, updated);
+      return updated;
+    } else {
+      // Create new
+      const id = this.currentSquareModifierListId++;
+      const newModifierList: SquareModifierList = {
+        ...modifierList,
+        id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.squareModifierLists.set(id, newModifierList);
+      return newModifierList;
+    }
+  }
+
+  async upsertSquareModifier(modifier: InsertSquareModifier & { squareId: string }): Promise<SquareModifier> {
+    // Find existing by squareId
+    const existingId = Array.from(this.squareModifiers.entries())
+      .find(([_, mod]) => mod.squareId === modifier.squareId)?.[0];
+    
+    if (existingId) {
+      // Update existing
+      const existing = this.squareModifiers.get(existingId)!;
+      const updated: SquareModifier = {
+        ...existing,
+        ...modifier,
+        id: existingId,
+        updatedAt: new Date(),
+      };
+      this.squareModifiers.set(existingId, updated);
+      return updated;
+    } else {
+      // Create new
+      const id = this.currentSquareModifierId++;
+      const newModifier: SquareModifier = {
+        ...modifier,
+        id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      this.squareModifiers.set(id, newModifier);
+      return newModifier;
+    }
+  }
+
+  async deleteMenuItemModifierLinksBySquareItemId(squareItemId: string): Promise<void> {
+    const toDelete = Array.from(this.menuItemModifierLists.entries())
+      .filter(([_, link]) => link.squareItemId === squareItemId)
+      .map(([id, _]) => id);
+    
+    toDelete.forEach(id => this.menuItemModifierLists.delete(id));
+  }
+
+  async batchCreateMenuItemModifierLinks(links: InsertMenuItemModifierList[]): Promise<MenuItemModifierList[]> {
+    const results: MenuItemModifierList[] = [];
+    
+    for (const link of links) {
+      const id = this.currentMenuItemModifierListId++;
+      const newLink: MenuItemModifierList = {
+        ...link,
+        id,
+        createdAt: new Date(),
+      };
+      this.menuItemModifierLists.set(id, newLink);
+      results.push(newLink);
+    }
+    
+    return results;
+  }
+
+  async getSquareModifierListBySquareId(squareId: string): Promise<SquareModifierList | undefined> {
+    return Array.from(this.squareModifierLists.values())
+      .find(list => list.squareId === squareId);
+  }
+
+  async getSquareModifiersByListSquareId(listSquareId: string): Promise<SquareModifier[]> {
+    return Array.from(this.squareModifiers.values())
+      .filter(modifier => modifier.squareModifierListId === listSquareId)
+      .sort((a, b) => {
+        // Sort by displayOrder first, then by name
+        if (a.displayOrder !== b.displayOrder) {
+          return (a.displayOrder || 999) - (b.displayOrder || 999);
+        }
+        return a.name.localeCompare(b.name);
+      });
   }
 }
 
@@ -2089,6 +2315,234 @@ export class DatabaseStorage implements IStorage {
       // so we don't need to delete by recipient since it's not linked by user ID
     } catch (error) {
       console.error("Error deleting user transactions:", error);
+      throw error;
+    }
+  }
+
+  // Square Modifier operations
+  async createSquareModifierList(modifierList: InsertSquareModifierList): Promise<SquareModifierList> {
+    try {
+      const result = await this.db
+        .insert(squareModifierLists)
+        .values(modifierList)
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating square modifier list:", error);
+      throw error;
+    }
+  }
+
+  async createSquareModifier(modifier: InsertSquareModifier): Promise<SquareModifier> {
+    try {
+      const result = await this.db
+        .insert(squareModifiers)
+        .values(modifier)
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating square modifier:", error);
+      throw error;
+    }
+  }
+
+  async createMenuItemModifierList(link: InsertMenuItemModifierList): Promise<MenuItemModifierList> {
+    try {
+      // Resolve Square IDs to internal database IDs
+      let resolvedLink = { ...link };
+      
+      // REQUIRED: Resolve modifier list ID from Square ID
+      if (!link.modifierListId && link.squareModifierListId) {
+        const modifierListResult = await this.db
+          .select({ id: squareModifierLists.id })
+          .from(squareModifierLists)
+          .where(eq(squareModifierLists.squareId, link.squareModifierListId))
+          .limit(1);
+        
+        if (modifierListResult.length > 0) {
+          resolvedLink.modifierListId = modifierListResult[0].id;
+        } else {
+          // Debug: show missing Square ID and sample of existing ones
+          const existingLists = await this.db
+            .select({ squareId: squareModifierLists.squareId })
+            .from(squareModifierLists)
+            .limit(5);
+          console.warn(`❌ Modifier list not found for Square ID: ${link.squareModifierListId}`);
+          console.warn(`📋 Sample existing Square IDs:`, existingLists.map(l => l.squareId));
+          // Skip this link instead of failing the entire sync
+          throw new Error(`SKIP_LINK: Modifier list not found for Square ID: ${link.squareModifierListId}`);
+        }
+      }
+      
+      // OPTIONAL: Resolve menu item ID from Square ID  
+      if (!link.menuItemId && link.squareItemId) {
+        const menuItemResult = await this.db
+          .select({ id: menuItems.id })
+          .from(menuItems)
+          .where(eq(menuItems.squareId, link.squareItemId))
+          .limit(1);
+        
+        if (menuItemResult.length > 0) {
+          resolvedLink.menuItemId = menuItemResult[0].id;
+        }
+        // Don't throw error if menu item not found since it's optional
+      }
+
+      const result = await this.db
+        .insert(menuItemModifierLists)
+        .values(resolvedLink)
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating menu item modifier list:", error);
+      throw error;
+    }
+  }
+
+  async getSquareModifierLists(): Promise<SquareModifierList[]> {
+    try {
+      return await this.db
+        .select()
+        .from(squareModifierLists)
+        .orderBy(squareModifierLists.displayOrder, squareModifierLists.name);
+    } catch (error) {
+      console.error("Error getting square modifier lists:", error);
+      throw error;
+    }
+  }
+
+  async getSquareModifiers(): Promise<SquareModifier[]> {
+    try {
+      return await this.db
+        .select()
+        .from(squareModifiers)
+        .orderBy(squareModifiers.displayOrder, squareModifiers.name);
+    } catch (error) {
+      console.error("Error getting square modifiers:", error);
+      throw error;
+    }
+  }
+
+  async getMenuItemModifierLists(): Promise<MenuItemModifierList[]> {
+    try {
+      return await this.db
+        .select()
+        .from(menuItemModifierLists);
+    } catch (error) {
+      console.error("Error getting menu item modifier lists:", error);
+      throw error;
+    }
+  }
+
+  async clearSquareModifiers(): Promise<void> {
+    try {
+      await this.db.delete(menuItemModifierLists);
+      await this.db.delete(squareModifiers);
+      await this.db.delete(squareModifierLists);
+    } catch (error) {
+      console.error("Error clearing square modifiers:", error);
+      throw error;
+    }
+  }
+
+  // New methods for complete database reconciliation
+  async upsertSquareModifierList(modifierList: InsertSquareModifierList & { squareId: string }): Promise<SquareModifierList> {
+    try {
+      const result = await this.db
+        .insert(squareModifierLists)
+        .values(modifierList)
+        .onConflictDoUpdate({
+          target: squareModifierLists.squareId,
+          set: {
+            name: modifierList.name,
+            selectionType: modifierList.selectionType,
+            minSelections: modifierList.minSelections,
+            maxSelections: modifierList.maxSelections,
+            enabled: modifierList.enabled,
+            displayOrder: modifierList.displayOrder,
+            updatedAt: new Date()
+          }
+        })
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error upserting square modifier list:", error);
+      throw error;
+    }
+  }
+
+  async upsertSquareModifier(modifier: InsertSquareModifier & { squareId: string }): Promise<SquareModifier> {
+    try {
+      const result = await this.db
+        .insert(squareModifiers)
+        .values(modifier)
+        .onConflictDoUpdate({
+          target: squareModifiers.squareId,
+          set: {
+            modifierListId: modifier.modifierListId,
+            squareModifierListId: modifier.squareModifierListId,
+            name: modifier.name,
+            priceMoney: modifier.priceMoney,
+            enabled: modifier.enabled,
+            displayOrder: modifier.displayOrder,
+            updatedAt: new Date()
+          }
+        })
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error upserting square modifier:", error);
+      throw error;
+    }
+  }
+
+  async deleteMenuItemModifierLinksBySquareItemId(squareItemId: string): Promise<void> {
+    try {
+      await this.db
+        .delete(menuItemModifierLists)
+        .where(eq(menuItemModifierLists.squareItemId, squareItemId));
+    } catch (error) {
+      console.error("Error deleting menu item modifier links by square item id:", error);
+      throw error;
+    }
+  }
+
+  async batchCreateMenuItemModifierLinks(links: InsertMenuItemModifierList[]): Promise<MenuItemModifierList[]> {
+    try {
+      const result = await this.db
+        .insert(menuItemModifierLists)
+        .values(links)
+        .returning();
+      return result;
+    } catch (error) {
+      console.error("Error batch creating menu item modifier links:", error);
+      throw error;
+    }
+  }
+
+  async getSquareModifierListBySquareId(squareId: string): Promise<SquareModifierList | undefined> {
+    try {
+      const result = await this.db
+        .select()
+        .from(squareModifierLists)
+        .where(eq(squareModifierLists.squareId, squareId))
+        .limit(1);
+      return result[0];
+    } catch (error) {
+      console.error("Error getting square modifier list by square id:", error);
+      throw error;
+    }
+  }
+
+  async getSquareModifiersByListSquareId(listSquareId: string): Promise<SquareModifier[]> {
+    try {
+      return await this.db
+        .select()
+        .from(squareModifiers)
+        .where(eq(squareModifiers.squareModifierListId, listSquareId))
+        .orderBy(squareModifiers.displayOrder, squareModifiers.name);
+    } catch (error) {
+      console.error("Error getting square modifiers by list square id:", error);
       throw error;
     }
   }

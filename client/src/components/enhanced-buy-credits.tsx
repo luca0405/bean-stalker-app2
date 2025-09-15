@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Capacitor } from '@capacitor/core';
-import { useIAP } from '@/hooks/use-iap';
 import { useNativeNotification } from '@/services/native-notification-service';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
@@ -13,7 +11,6 @@ import { APP_CONFIG } from '../config/environment';
 import { formatCurrency } from '@/lib/utils';
 import { CreditCard, ShoppingBag, Star, Gift, Smartphone } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { SquarePaymentForm } from './square-payment-form';
 
 interface CreditPackage {
   id: string;
@@ -31,11 +28,8 @@ const CREDIT_PACKAGES: CreditPackage[] = [
 
 export function EnhancedBuyCredits() {
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { purchaseProduct, isAvailable: iapAvailable, isLoading: iapLoading } = useIAP();
   const { notify } = useNativeNotification();
-  const isNative = Capacitor.isNativePlatform();
 
   const queryClient = useQueryClient();
   
@@ -81,6 +75,10 @@ export function EnhancedBuyCredits() {
         description: errorMessage,
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      setIsProcessing(false);
+      setSelectedPackage(null);
     }
   });
 
@@ -110,18 +108,6 @@ export function EnhancedBuyCredits() {
     }
   };
 
-  const handlePaymentSuccess = () => {
-    // Delay closing the form to let user see success message
-    setTimeout(() => {
-      setShowPaymentForm(false);
-      setSelectedPackage(null);
-    }, 2000); // Wait 2 seconds before closing
-  };
-
-  const handlePaymentCancel = () => {
-    setShowPaymentForm(false);
-    setSelectedPackage(null);
-  };
 
   return (
     <div className="space-y-6 max-w-md sm:max-w-lg md:max-w-2xl mx-auto">
@@ -161,7 +147,7 @@ export function EnhancedBuyCredits() {
               <span>Credit Packages</span>
             </CardTitle>
             <CardDescription>
-              Select a credit package to add to your account. All payments are processed securely through the App Store.
+              Select a credit package to add to your account. All payments are processed securely through Square.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -214,7 +200,7 @@ export function EnhancedBuyCredits() {
                       
                       <Button
                         onClick={() => handlePurchase(pkg)}
-                        disabled={isProcessing || (isNative && iapLoading)}
+                        disabled={isProcessing && selectedPackage?.id === pkg.id}
                         size="lg"
                         className={`ml-4 min-w-[80px] ${
                           pkg.popular 
@@ -247,12 +233,12 @@ export function EnhancedBuyCredits() {
           <CardContent className="p-4">
             <h3 className="font-semibold text-slate-800 mb-3 flex items-center space-x-2">
               <Smartphone className="h-5 w-5" />
-              <span>Secure App Store Payment</span>
+              <span>Secure Square Payment</span>
             </h3>
             <div className="space-y-2 text-sm text-slate-600">
               <div className="flex items-start space-x-2">
                 <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">1</span>
-                <p>All payments are processed securely through the App Store</p>
+                <p>All payments are processed securely through Square</p>
               </div>
               <div className="flex items-start space-x-2">
                 <span className="w-5 h-5 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5">2</span>
@@ -267,23 +253,6 @@ export function EnhancedBuyCredits() {
         </Card>
       </motion.div>
 
-      {/* Embedded Square Payment Form */}
-      {showPaymentForm && selectedPackage && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-        >
-          <div className="w-full max-w-md">
-            <SquarePaymentForm
-              creditPackage={selectedPackage}
-              onSuccess={handlePaymentSuccess}
-              onCancel={handlePaymentCancel}
-            />
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 }

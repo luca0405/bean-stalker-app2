@@ -1,7 +1,7 @@
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart-context";
-import { MenuItem, MenuItemOption, CartItemOption } from "@shared/schema";
+import { MenuItem, MenuItemOption, CartItemOption, MenuItemVariation } from "@shared/schema";
 
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,27 +28,42 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { notify } = useNativeNotification();
-  const [selectedSize, setSelectedSize] = useState<'small' | 'medium' | 'large'>('small');
+  const [selectedVariation, setSelectedVariation] = useState<MenuItemVariation | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  
+  // Get variations from item data (now included in menu response)
+  const variations = (item as any)?.variations || [];
   
   // Fetch options if the item has options
   const { data: flavorOptions } = useQuery<OptionWithChildren[]>({
-    queryKey: ['/api/menu', item.id, 'options'],
+    queryKey: ['/api/menu', item.id || item.squareId, 'options'],
     queryFn: async () => {
       if (!item.hasOptions) return [];
       try {
-        const res = await apiRequest('GET', `/api/menu/${item.id}/options`);
+        // Use Square ID if database ID is null (Square items)
+        const itemId = item.squareId || item.id;
+        const res = await apiRequest('GET', `/api/menu/${itemId}/options`);
+        if (!res.ok) {
+          console.log(`Options API returned ${res.status}, using empty options`);
+          return [];
+        }
         return await res.json();
       } catch (error) {
-        console.error("Error fetching options:", error);
+        console.log("Options API error (using empty options):", error);
         return [];
       }
     },
-    enabled: !!item.hasOptions // Only run if item has options
+    enabled: !!item.hasOptions,
+    retry: false,
+    staleTime: 5 * 60 * 1000
   });
   
-  // Initialize options container, but don't select anything by default
+  // Initialize variations and options
   useEffect(() => {
+    // Set default variation (first one or null if no variations)
+    const defaultVariation = variations.find((v: MenuItemVariation) => v.isDefault) || variations[0] || null;
+    setSelectedVariation(defaultVariation);
+    
     if (flavorOptions && flavorOptions.length > 0) {
       // Only initialize parent options that require a selection (dropdown menus)
       const initialOptions: Record<string, string> = {};
@@ -63,7 +78,7 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
       
       setSelectedOptions(initialOptions);
     }
-  }, [flavorOptions]);
+  }, [flavorOptions, variations]);
   
   // Get all selected options with their price adjustments
   const getSelectedOptionsWithPrices = (): CartItemOption[] => {
@@ -111,28 +126,10 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
     return selectedOptionsList.reduce((total, opt) => total + opt.priceAdjustment, 0);
   };
   
-  // Get the price based on selected size and all options
+  // Get the price based on selected variation and all options
   const getPrice = (): number => {
-    // Ensure we have a valid base price
-    const validBasePrice = typeof item.price === 'number' && !isNaN(item.price) ? item.price : 0;
-    let basePrice = validBasePrice;
-    
-    // Apply size pricing if applicable
-    if (item.hasSizes) {
-      switch (selectedSize) {
-        case 'small': 
-          basePrice = validBasePrice; 
-          break;
-        case 'medium': 
-          const mediumPrice = item.mediumPrice || validBasePrice * 1.25;
-          basePrice = typeof mediumPrice === 'number' && !isNaN(mediumPrice) ? mediumPrice : validBasePrice;
-          break;
-        case 'large': 
-          const largePrice = item.largePrice || validBasePrice * 1.5;
-          basePrice = typeof largePrice === 'number' && !isNaN(largePrice) ? largePrice : validBasePrice;
-          break;
-      }
-    }
+    // Use actual Square variation price if available, otherwise fall back to item base price
+    const basePrice = selectedVariation?.price || item.price || 0;
     
     // Add all option price adjustments
     const optionAdjustments = getTotalOptionPriceAdjustment();
@@ -152,13 +149,19 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
       price: getPrice(),
       quantity: 1,
       imageUrl: item.imageUrl || undefined,
-      size: item.hasSizes ? selectedSize : undefined,
+      // Use new variation system instead of hardcoded sizes
+      variationId: selectedVariation?.id,
+      variationName: selectedVariation?.name,
+      // Keep legacy size field for backwards compatibility
+      size: selectedVariation?.name?.toLowerCase().includes('small') ? 'small' :
+            selectedVariation?.name?.toLowerCase().includes('medium') ? 'medium' :
+            selectedVariation?.name?.toLowerCase().includes('large') ? 'large' : undefined,
       options: optionsList
     });
     
     // Show confirmation message with selected options
     let message = `Added ${item.name}`;
-    if (item.hasSizes) message += ` (${selectedSize})`;
+    if (selectedVariation) message += ` (${selectedVariation.name})`;
     
     // Add option descriptions to the confirmation message
     if (optionsList.length > 0) {
@@ -194,27 +197,32 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
           <span className="font-bold text-green-700 text-sm">
             {formatCurrency(getPrice())}
           </span>
-          {item.hasSizes && (
+          {selectedVariation && (
             <span className="text-xs text-gray-500">
-              {selectedSize.charAt(0).toUpperCase() + selectedSize.slice(1)}
+              {selectedVariation.name}
             </span>
           )}
         </div>
       </CardContent>
       <CardFooter className="flex flex-col p-3 pt-0 gap-2">
-        {item.hasSizes && (
+        {variations.length > 1 && (
           <div className="w-full">
             <Select 
-              value={selectedSize}
-              onValueChange={(value) => setSelectedSize(value as 'small' | 'medium' | 'large')}
+              value={selectedVariation?.id || ''}
+              onValueChange={(value) => {
+                const variation = variations.find((v: MenuItemVariation) => v.id === value);
+                setSelectedVariation(variation || null);
+              }}
             >
               <SelectTrigger className="text-xs h-8">
                 <SelectValue placeholder="Select Size" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="small">Small - {formatCurrency(item.price || 0)}</SelectItem>
-                <SelectItem value="medium">Medium - {formatCurrency(item.mediumPrice || (item.price || 0) * 1.25)}</SelectItem>
-                <SelectItem value="large">Large - {formatCurrency(item.largePrice || (item.price || 0) * 1.5)}</SelectItem>
+                {variations.map((variation: MenuItemVariation) => (
+                  <SelectItem key={variation.id} value={variation.id}>
+                    {variation.name} - {formatCurrency(variation.price)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

@@ -234,9 +234,42 @@ export default function HomePage() {
           const storedSize = item.selectedSize || (item.hasSizes ? "small" : undefined);
           const storedOptions = item.selectedOptions || [];
           
-          // Calculate price based on stored configuration
+          // Calculate price based on stored configuration using Square variation data
           let finalPrice = item.price || 0;
-          if (item.hasSizes && storedSize) {
+          if (item.hasSizes && storedSize && item.variations && item.variations.length > 0) {
+            // Use actual Square variation pricing instead of hardcoded multipliers
+            const matchingVariation = item.variations.find((variation: any) => {
+              const variationName = variation.name?.toLowerCase() || '';
+              const selectedSize = storedSize.toLowerCase();
+              
+              // Match variation names with selected size
+              return (
+                variationName.includes(selectedSize) ||
+                (selectedSize === 'small' && variation.isDefault) ||
+                (selectedSize === 'medium' && (variationName.includes('med') || variationName.includes('12') || variationName.includes('16'))) ||
+                (selectedSize === 'large' && (variationName.includes('large') || variationName.includes('20') || variationName.includes('24')))
+              );
+            });
+            
+            if (matchingVariation) {
+              finalPrice = matchingVariation.price;
+              console.log(`✅ Using Square variation price for ${item.name} ${storedSize}: $${finalPrice} (variation: "${matchingVariation.name}")`);
+            } else {
+              // Fallback to legacy pricing if no matching variation found
+              console.log(`⚠️  No matching Square variation found for ${item.name} ${storedSize}, using fallback pricing`);
+              switch (storedSize) {
+                case 'medium':
+                  finalPrice = item.mediumPrice || finalPrice * 1.25;
+                  break;
+                case 'large':
+                  finalPrice = item.largePrice || finalPrice * 1.5;
+                  break;
+                default:
+                  finalPrice = item.price || 0;
+              }
+            }
+          } else if (item.hasSizes) {
+            // Legacy fallback for items without Square variations
             switch (storedSize) {
               case 'medium':
                 finalPrice = item.mediumPrice || finalPrice * 1.25;
@@ -255,12 +288,12 @@ export default function HomePage() {
           finalPrice += optionAdjustment;
           
           addToCart({
-            menuItemId: item.id,
+            menuItemId: item.id.toString(), // Convert number to string for CartItem schema
             name: item.name,
             price: finalPrice,
             quantity: 1,
             imageUrl: item.imageUrl || undefined,
-            size: storedSize,
+            size: storedSize as 'small' | 'medium' | 'large' | undefined, // Type assertion for legacy field
             options: storedOptions
           });
           
@@ -708,7 +741,7 @@ export default function HomePage() {
                                     }
                                     
                                     // Show calculated price if we have saved options or size, otherwise show base price
-                                    if (item.selectedOptions?.length > 0 || item.selectedSize) {
+                                    if ((item.selectedOptions && item.selectedOptions.length > 0) || item.selectedSize) {
                                       return formatCurrency(price);
                                     }
                                     

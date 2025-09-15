@@ -138,7 +138,7 @@ export function BuyCredits() {
         });
       }
     };
-  }, [squareConfig, toast, cardPaymentRef]);
+  }, [squareConfig, notify, cardPaymentRef]);
 
   const handleSelectPackage = (pkg: typeof CREDIT_PACKAGES[0]) => {
     setSelectedPackage(pkg);

@@ -7,7 +7,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MenuItem, MenuItemOption, CartItemOption } from "@shared/schema";
+import { Checkbox } from "@/components/ui/checkbox";
+import { MenuItem, MenuItemOption, CartItemOption, MenuItemVariation } from "@shared/schema";
 import { useCart } from "@/contexts/cart-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +22,26 @@ interface ProductDetailModalProps {
   onClose: () => void;
 }
 
+interface SquareModifier {
+  id: number;
+  squareId: string;
+  name: string;
+  priceMoney: number;
+  priceAdjustment: number;
+  displayOrder?: number;
+}
+
+interface SquareModifierList {
+  id: number;
+  squareId: string;
+  name: string;
+  selectionType: 'SINGLE' | 'MULTIPLE';
+  minSelections: number;
+  maxSelections?: number;
+  displayOrder?: number;
+  modifiers: SquareModifier[];
+}
+
 interface OptionWithChildren extends MenuItemOption {
   children?: MenuItemOption[];
 }
@@ -30,8 +51,9 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { notify } = useNativeNotification();
-  const [selectedSize, setSelectedSize] = useState<'small' | 'medium' | 'large'>('small');
+  const [selectedVariation, setSelectedVariation] = useState<MenuItemVariation | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [selectedModifiers, setSelectedModifiers] = useState<Record<string, string[]>>({});
   const [quantity, setQuantity] = useState(1);
 
   // Debug logging
@@ -49,14 +71,36 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     }
   }, [isOpen, item]);
 
-  // Fetch options if the item has options - with better error handling
-  const { data: flavorOptions } = useQuery<OptionWithChildren[]>({
-    queryKey: ['/api/menu', item?.id || item?.squareId, 'options'],
+  // Fetch Square modifiers if the item has options
+  const { data: modifierLists } = useQuery<SquareModifierList[]>({
+    queryKey: ['/api/menu', item?.squareId || item?.id, 'modifiers'],
     queryFn: async () => {
       if (!item?.hasOptions) return [];
       try {
-        // Use Square ID if database ID is null (Square items)
         const itemId = item.squareId || item.id;
+        const res = await apiRequest('GET', `/api/menu/${itemId}/modifiers`);
+        if (!res.ok) {
+          console.log(`Modifiers API returned ${res.status}, using empty modifiers`);
+          return [];
+        }
+        return await res.json();
+      } catch (error) {
+        console.log("Modifiers API error (using empty modifiers):", error);
+        return [];
+      }
+    },
+    enabled: !!item?.hasOptions,
+    retry: false,
+    staleTime: 5 * 60 * 1000
+  });
+
+  // Fetch legacy options for database items
+  const { data: flavorOptions } = useQuery<OptionWithChildren[]>({
+    queryKey: ['/api/menu', item?.id || item?.squareId, 'options'],
+    queryFn: async () => {
+      if (!item?.hasOptions || item?.squareId) return []; // Skip if Square item
+      try {
+        const itemId = item.id;
         const res = await apiRequest('GET', `/api/menu/${itemId}/options`);
         if (!res.ok) {
           console.log(`Options API returned ${res.status}, using empty options`);
@@ -68,7 +112,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
         return [];
       }
     },
-    enabled: !!item?.hasOptions,
+    enabled: !!item?.hasOptions && !item?.squareId, // Only for non-Square items
     retry: false,
     staleTime: 5 * 60 * 1000
   });
@@ -97,12 +141,29 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     staleTime: 5 * 60 * 1000 // Cache for 5 minutes
   });
 
+  // Get variations from item data (now included in menu response)
+  const variations = (item as any)?.variations || [];
+  
   // Reset state when modal opens/closes or item changes
   useEffect(() => {
     if (isOpen && item) {
-      setSelectedSize('small');
+      // Set default variation (first one or null if no variations)
+      const defaultVariation = variations.find((v: MenuItemVariation) => v.isDefault) || variations[0] || null;
+      setSelectedVariation(defaultVariation);
       setQuantity(1);
       
+      // Initialize modifier selections
+      if (modifierLists && modifierLists.length > 0) {
+        const initialModifiers: Record<string, string[]> = {};
+        modifierLists.forEach(list => {
+          initialModifiers[list.squareId] = [];
+        });
+        setSelectedModifiers(initialModifiers);
+      } else {
+        setSelectedModifiers({});
+      }
+      
+      // Initialize legacy options for database items
       if (flavorOptions && flavorOptions.length > 0) {
         const initialOptions: Record<string, string> = {};
         
@@ -116,15 +177,15 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
         setSelectedOptions({});
       }
     }
-  }, [isOpen, item, flavorOptions]);
+  }, [isOpen, item, flavorOptions, modifierLists, variations]);
 
   const addFavoriteMutation = useMutation({
     mutationFn: async () => {
       if (!item) return;
-      const selectedOptionsList = getSelectedOptionsWithPrices();
+      const selectedOptionsList = getAllSelectedOptions();
       const favoriteData = {
         menuItemId: item.squareId || item.id, // Use Square ID for Square items
-        selectedSize: item.hasSizes ? selectedSize : null,
+        selectedSize: selectedVariation?.name || null, // Use variation name as size
         selectedOptions: selectedOptionsList.length > 0 ? selectedOptionsList : null
       };
       const res = await apiRequest('POST', '/api/favorites', favoriteData);
@@ -157,7 +218,32 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     }
   });
 
-  // Get all selected options with their price adjustments
+  // Get all selected modifiers with their price adjustments
+  const getSelectedModifiersWithPrices = (): CartItemOption[] => {
+    if (!modifierLists || modifierLists.length === 0) return [];
+    
+    const result: CartItemOption[] = [];
+    
+    Object.entries(selectedModifiers).forEach(([listSquareId, modifierIds]) => {
+      const modifierList = modifierLists.find(list => list.squareId === listSquareId);
+      if (!modifierList) return;
+      
+      modifierIds.forEach(modifierId => {
+        const modifier = modifierList.modifiers.find(mod => mod.squareId === modifierId);
+        if (modifier) {
+          result.push({
+            name: modifierList.name,
+            value: modifier.name,
+            priceAdjustment: modifier.priceAdjustment
+          });
+        }
+      });
+    });
+    
+    return result;
+  };
+
+  // Get all selected options with their price adjustments (legacy)
   const getSelectedOptionsWithPrices = (): CartItemOption[] => {
     if (!flavorOptions || flavorOptions.length === 0) return [];
     
@@ -197,6 +283,46 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     return result;
   };
 
+  // Get combined options (modifiers + legacy options)
+  const getAllSelectedOptions = (): CartItemOption[] => {
+    const modifierOptions = getSelectedModifiersWithPrices();
+    const legacyOptions = getSelectedOptionsWithPrices();
+    return [...modifierOptions, ...legacyOptions];
+  };
+
+  // Handle modifier selection change
+  const handleModifierChange = (listSquareId: string, modifierSquareId: string, isSelected: boolean) => {
+    setSelectedModifiers(prev => {
+      const currentSelections = prev[listSquareId] || [];
+      
+      if (isSelected) {
+        // Add the modifier if not already selected
+        if (!currentSelections.includes(modifierSquareId)) {
+          return {
+            ...prev,
+            [listSquareId]: [...currentSelections, modifierSquareId]
+          };
+        }
+      } else {
+        // Remove the modifier
+        return {
+          ...prev,
+          [listSquareId]: currentSelections.filter(id => id !== modifierSquareId)
+        };
+      }
+      
+      return prev;
+    });
+  };
+
+  // Handle single selection modifier change (radio button style)
+  const handleSingleModifierChange = (listSquareId: string, modifierSquareId: string) => {
+    setSelectedModifiers(prev => ({
+      ...prev,
+      [listSquareId]: [modifierSquareId]
+    }));
+  };
+
   const toggleFavorite = () => {
     if (!user) {
       notify({
@@ -217,22 +343,15 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
 
 
   const getTotalOptionPriceAdjustment = (): number => {
-    const selectedOptionsList = getSelectedOptionsWithPrices();
+    const selectedOptionsList = getAllSelectedOptions();
     return selectedOptionsList.reduce((total, opt) => total + opt.priceAdjustment, 0);
   };
 
   const getPrice = (): number => {
     if (!item) return 0;
     
-    let basePrice = item.price;
-    
-    if (item.hasSizes) {
-      switch (selectedSize) {
-        case 'small': basePrice = item.price; break;
-        case 'medium': basePrice = item.mediumPrice || item.price * 1.25; break;
-        case 'large': basePrice = item.largePrice || item.price * 1.5; break;
-      }
-    }
+    // Use actual Square variation price if available, otherwise fall back to item base price
+    let basePrice = selectedVariation?.price || item.price;
     
     const optionAdjustments = getTotalOptionPriceAdjustment();
     return basePrice + optionAdjustments;
@@ -241,7 +360,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
   const handleAddToCart = () => {
     if (!item) return;
     
-    const optionsList = getSelectedOptionsWithPrices();
+    const optionsList = getAllSelectedOptions();
     
     for (let i = 0; i < quantity; i++) {
       addToCart({
@@ -250,13 +369,19 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
         price: getPrice(),
         quantity: 1,
         imageUrl: item.imageUrl || undefined,
-        size: item.hasSizes ? selectedSize : undefined,
+        // Use new variation system instead of hardcoded sizes
+        variationId: selectedVariation?.id,
+        variationName: selectedVariation?.name,
+        // Keep legacy size field for backwards compatibility
+        size: selectedVariation?.name?.toLowerCase().includes('small') ? 'small' :
+              selectedVariation?.name?.toLowerCase().includes('medium') ? 'medium' :
+              selectedVariation?.name?.toLowerCase().includes('large') ? 'large' : undefined,
         options: optionsList
       });
     }
     
     let message = `Added ${quantity}x ${item.name}`;
-    if (item.hasSizes) message += ` (${selectedSize})`;
+    if (selectedVariation) message += ` (${selectedVariation.name})`;
     
     if (optionsList.length > 0) {
       const optionText = optionsList.map(opt => `${opt.value}`).join(', ');
@@ -387,47 +512,126 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                 </div>
               </div>
 
-              {/* Size Selection */}
-              {item.hasSizes && (
+              {/* Variation Selection - Use actual Square variations */}
+              {variations.length > 1 && (
                 <Card>
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base">Choose Size</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <RadioGroup value={selectedSize} onValueChange={(value) => setSelectedSize(value as 'small' | 'medium' | 'large')}>
-                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                        <RadioGroupItem value="small" id="small" />
-                        <Label htmlFor="small" className="flex-1">
-                          <div className="flex justify-between">
-                            <span>Small</span>
-                            <span className="font-semibold">${item.price.toFixed(2)}</span>
-                          </div>
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                        <RadioGroupItem value="medium" id="medium" />
-                        <Label htmlFor="medium" className="flex-1">
-                          <div className="flex justify-between">
-                            <span>Medium</span>
-                            <span className="font-semibold">${(item.mediumPrice || item.price * 1.25).toFixed(2)}</span>
-                          </div>
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2 p-3 border rounded-lg">
-                        <RadioGroupItem value="large" id="large" />
-                        <Label htmlFor="large" className="flex-1">
-                          <div className="flex justify-between">
-                            <span>Large</span>
-                            <span className="font-semibold">${(item.largePrice || item.price * 1.5).toFixed(2)}</span>
-                          </div>
-                        </Label>
-                      </div>
+                    <RadioGroup value={selectedVariation?.id || ''} onValueChange={(value) => {
+                      const variation = variations.find((v: MenuItemVariation) => v.id === value);
+                      setSelectedVariation(variation || null);
+                    }}>
+                      {variations.map((variation: MenuItemVariation) => (
+                        <div key={variation.id} className="flex items-center space-x-2 p-3 border rounded-lg">
+                          <RadioGroupItem value={variation.id} id={variation.id} />
+                          <Label htmlFor={variation.id} className="flex-1">
+                            <div className="flex justify-between">
+                              <span>{variation.name}</span>
+                              <span className="font-semibold">${variation.price.toFixed(2)}</span>
+                            </div>
+                          </Label>
+                        </div>
+                      ))}
                     </RadioGroup>
                   </CardContent>
                 </Card>
               )}
 
-              {/* Options Selection */}
+              {/* Square Modifiers Selection */}
+              {item.hasOptions && modifierLists && modifierLists.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Customize Your Order</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-4">
+                    {modifierLists.map(modifierList => (
+                      <div key={modifierList.squareId} className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium text-gray-700">
+                            {modifierList.name}
+                          </Label>
+                          {modifierList.minSelections > 0 && (
+                            <span className="text-xs text-gray-500">
+                              {modifierList.selectionType === 'SINGLE' ? 'Required' : `Min: ${modifierList.minSelections}`}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {modifierList.selectionType === 'SINGLE' ? (
+                          // Radio button style for single selection
+                          <RadioGroup
+                            value={selectedModifiers[modifierList.squareId]?.[0] || ""}
+                            onValueChange={(value) => handleSingleModifierChange(modifierList.squareId, value)}
+                          >
+                            {modifierList.modifiers.map(modifier => (
+                              <div key={modifier.squareId} className="flex items-center space-x-2">
+                                <RadioGroupItem 
+                                  value={modifier.squareId} 
+                                  id={`modifier-${modifier.squareId}`}
+                                  data-testid={`radio-${modifierList.name.toLowerCase()}-${modifier.name.toLowerCase()}`}
+                                />
+                                <Label 
+                                  htmlFor={`modifier-${modifier.squareId}`}
+                                  className="flex-1 text-sm text-gray-700 cursor-pointer"
+                                >
+                                  {modifier.name}
+                                  {modifier.priceAdjustment > 0 && (
+                                    <span className="text-green-600 ml-1">
+                                      (+${modifier.priceAdjustment.toFixed(2)})
+                                    </span>
+                                  )}
+                                </Label>
+                              </div>
+                            ))}
+                          </RadioGroup>
+                        ) : (
+                          // Checkbox style for multiple selection
+                          <div className="space-y-2">
+                            {modifierList.modifiers.map(modifier => (
+                              <div key={modifier.squareId} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`modifier-${modifier.squareId}`}
+                                  checked={selectedModifiers[modifierList.squareId]?.includes(modifier.squareId) || false}
+                                  onCheckedChange={(checked) => 
+                                    handleModifierChange(modifierList.squareId, modifier.squareId, checked as boolean)
+                                  }
+                                  data-testid={`checkbox-${modifierList.name.toLowerCase()}-${modifier.name.toLowerCase()}`}
+                                />
+                                <Label 
+                                  htmlFor={`modifier-${modifier.squareId}`}
+                                  className="flex-1 text-sm text-gray-700 cursor-pointer"
+                                >
+                                  {modifier.name}
+                                  {modifier.priceAdjustment > 0 && (
+                                    <span className="text-green-600 ml-1">
+                                      (+${modifier.priceAdjustment.toFixed(2)})
+                                    </span>
+                                  )}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Empty state for items marked as customizable but with no modifier data */}
+              {item.hasOptions && (!modifierLists || modifierLists.length === 0) && (!flavorOptions || flavorOptions.length === 0) && (
+                <Card>
+                  <CardContent className="pt-4">
+                    <p className="text-sm text-gray-600 text-center">
+                      This item is marked as customizable, but no customization options are currently available.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Legacy Options Selection (for database items) */}
               {item.hasOptions && flavorOptions && flavorOptions.length > 0 && (
                 <Card>
                   <CardHeader className="pb-3">
