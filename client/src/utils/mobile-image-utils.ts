@@ -30,13 +30,13 @@ export function getMobileCompatibleImageUrl(imageUrl: string | null, itemCategor
     return encodedUrl;
   }
 
-  // Native mobile app - use server URL with fallback handling in component
-  // In development, use local server; in production, use production domain
-  const baseUrl = import.meta.env.DEV ? 'http://localhost:5000' : 'https://member.beanstalker.com.au';
+  // Native mobile app - ALWAYS use production server for distributed apps
+  // The production server is where all the actual data and images are stored
+  const baseUrl = 'https://member.beanstalker.com.au';
   const finalUrl = `${baseUrl}${encodeURI(imageUrl)}`;
   
   // Debug logging for image URL generation
-  console.log(`🔍 Native Image URL: ${imageUrl} -> ${finalUrl}`);
+  console.log(`🔍 Native Image URL: ${imageUrl} -> ${finalUrl} (production server)`);
   
   return finalUrl;
 }
