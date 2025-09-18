@@ -182,7 +182,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<boolean> {
 
 export async function sendPasswordResetEmail(email: string, resetToken: string): Promise<boolean> {
   // Use the current domain name if deployed, or localhost for development
-  const baseUrl = 'https://beanstalker.replit.app';
+  const baseUrl = 'https://member.beanstalker.com.au';
   const resetUrl = `${baseUrl}/auth?resetToken=${resetToken}`;
   
   const emailText = 
@@ -218,7 +218,7 @@ export async function sendAppUpdateNotification(userEmails: string[], version: s
     return false;
   }
 
-  const appUrl = 'https://beanstalker.replit.app';
+  const appUrl = 'https://member.beanstalker.com.au';
   
   const emailText = 
     `Great news! The Bean Stalker coffee app has been updated to version ${version}.\n\n` +

@@ -9,7 +9,7 @@ import { Redirect } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useNativeNotification } from "@/services/native-notification-service";
-import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard, X } from "lucide-react";
+import { User, Lock, Eye, EyeOff, Fingerprint, CreditCard, X, Mail, ArrowLeft } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { deviceService } from "@/services/device-service";
@@ -40,6 +40,19 @@ export default function AuthPageMobile() {
   const [lastUsername, setLastUsername] = useState("");
   const [isSettingUpPayment, setIsSettingUpPayment] = useState(false);
   
+  // Forgot password state management
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [isRequestingReset, setIsRequestingReset] = useState(false);
+  const [resetRequestSent, setResetRequestSent] = useState(false);
+  
+  // Password reset with token state management
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [resetToken, setResetToken] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  
   const [registerData, setRegisterData] = useState({
     username: "",
     fullName: "",
@@ -69,11 +82,12 @@ export default function AuthPageMobile() {
       }
     };
 
-    // Check for URL parameters (new account from payment)
+    // Check for URL parameters (new account from payment or password reset)
     const checkUrlParams = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const username = urlParams.get('username');
       const newAccount = urlParams.get('newAccount');
+      const resetToken = urlParams.get('resetToken');
       
       if (username && newAccount === 'true') {
         setLoginData(prev => ({ ...prev, username }));
@@ -81,6 +95,20 @@ export default function AuthPageMobile() {
         notify({
           title: "Account Created Successfully!",
           description: `Welcome ${username}! Your premium membership is active. Please log in with your password.`,
+        });
+        
+        // Clean URL after processing
+        window.history.replaceState({}, '', window.location.pathname);
+      } else if (resetToken) {
+        // User clicked password reset link
+        setResetToken(resetToken);
+        setShowPasswordReset(true);
+        setShowForgotPassword(false);
+        setIsLogin(false);
+        
+        notify({
+          title: "Password Reset",
+          description: "Please enter your new password below.",
         });
         
         // Clean URL after processing
@@ -313,6 +341,136 @@ export default function AuthPageMobile() {
     }
   };
 
+  // Handle forgot password request
+  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!forgotPasswordEmail) {
+      notify({
+        title: "Email Required",
+        description: "Please enter your email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(forgotPasswordEmail)) {
+      notify({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRequestingReset(true);
+    try {
+      const response = await apiRequest('POST', '/api/password-reset/request', {
+        email: forgotPasswordEmail
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setResetRequestSent(true);
+        notify({
+          title: "Reset Link Sent",
+          description: "If your email is registered, you will receive a password reset link shortly.",
+        });
+      } else {
+        throw new Error(data.message || 'Failed to send reset email');
+      }
+    } catch (error: any) {
+      notify({
+        title: "Reset Request Failed",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRequestingReset(false);
+    }
+  };
+
+  // Handle password reset with token
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newPassword || !confirmNewPassword) {
+      notify({
+        title: "Password Required",
+        description: "Please fill in both password fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      notify({
+        title: "Passwords Don't Match",
+        description: "Please ensure both password fields are identical",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      notify({
+        title: "Password Too Short",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      const response = await apiRequest('POST', '/api/password-reset/reset', {
+        token: resetToken,
+        newPassword: newPassword
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        notify({
+          title: "Password Reset Successful",
+          description: "Your password has been reset. You can now log in with your new password.",
+        });
+        
+        // Reset all states and show login form
+        setShowPasswordReset(false);
+        setShowForgotPassword(false);
+        setIsLogin(true);
+        setResetToken("");
+        setNewPassword("");
+        setConfirmNewPassword("");
+      } else {
+        throw new Error(data.message || 'Failed to reset password');
+      }
+    } catch (error: any) {
+      notify({
+        title: "Password Reset Failed",
+        description: error.message || "Please try again or request a new reset link",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
+  // Reset forgot password flow
+  const resetForgotPasswordFlow = () => {
+    setShowForgotPassword(false);
+    setShowPasswordReset(false);
+    setForgotPasswordEmail("");
+    setResetRequestSent(false);
+    setResetToken("");
+    setNewPassword("");
+    setConfirmNewPassword("");
+  };
+
   return (
     <div className="relative overflow-auto min-h-screen" style={{ 
       backgroundColor: '#1a3b29',
@@ -341,10 +499,114 @@ export default function AuthPageMobile() {
         <div className="px-12 text-center">
           <div className="max-w-sm mx-auto">
             <h2 className="text-3xl font-bold text-white text-center mb-8">
-              {isLogin ? "Welcome back!" : "Become a Member"}
+              {showForgotPassword ? "Reset Password" : showPasswordReset ? "New Password" : isLogin ? "Welcome back!" : "Become a Member"}
             </h2>
             
-            {isLogin ? (
+            {showForgotPassword ? (
+              /* Forgot Password Form */
+              <form onSubmit={handleForgotPasswordRequest} className="space-y-4">
+                {!resetRequestSent ? (
+                  <>
+                    <div className="text-center mb-6">
+                      <p className="text-white/90 text-sm leading-relaxed">
+                        Enter your email address and we'll send you a link to reset your password.
+                      </p>
+                    </div>
+                    
+                    {/* Email Input */}
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <Input
+                        type="email"
+                        placeholder="Email address"
+                        value={forgotPasswordEmail}
+                        onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                        className="w-full pl-12 pr-4 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
+                        data-testid="input-forgot-password-email"
+                      />
+                    </div>
+
+                    {/* Send Reset Link Button */}
+                    <Button
+                      type="submit"
+                      className="w-full py-5 text-white font-semibold rounded-full text-lg shadow-lg hover:opacity-90"
+                      style={{ backgroundColor: '#bb8c69' }}
+                      disabled={isRequestingReset}
+                      data-testid="button-send-reset-link"
+                    >
+                      {isRequestingReset ? "Sending..." : "Send Reset Link"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-center mb-6">
+                      <div className="w-16 h-16 mx-auto mb-4 bg-green-500/20 rounded-full flex items-center justify-center">
+                        <Mail className="h-8 w-8 text-green-400" />
+                      </div>
+                      <p className="text-white/90 text-sm leading-relaxed">
+                        We've sent a password reset link to <strong>{forgotPasswordEmail}</strong>.
+                      </p>
+                      <p className="text-white/70 text-sm mt-2">
+                        Check your email and click the link to reset your password.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </form>
+            ) : showPasswordReset ? (
+              /* Password Reset Form */
+              <form onSubmit={handlePasswordReset} className="space-y-4">
+                <div className="text-center mb-6">
+                  <p className="text-white/90 text-sm leading-relaxed">
+                    Enter your new password below.
+                  </p>
+                </div>
+                
+                {/* New Password Input */}
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="New password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full pl-12 pr-12 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
+                    data-testid="input-new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-300 hover:text-white"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+
+                {/* Confirm New Password Input */}
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Confirm new password"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="w-full pl-12 pr-4 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
+                    data-testid="input-confirm-new-password"
+                  />
+                </div>
+
+                {/* Reset Password Button */}
+                <Button
+                  type="submit"
+                  className="w-full py-5 text-white font-semibold rounded-full text-lg shadow-lg hover:opacity-90"
+                  style={{ backgroundColor: '#bb8c69' }}
+                  disabled={isResettingPassword}
+                  data-testid="button-reset-password"
+                >
+                  {isResettingPassword ? "Resetting..." : "Reset Password"}
+                </Button>
+              </form>
+            ) : isLogin ? (
               <form onSubmit={handleLogin} className="space-y-4">
               {/* Username Input - Always visible for flexible login */}
               <div className="relative">
@@ -353,33 +615,40 @@ export default function AuthPageMobile() {
                   type="text"
                   placeholder="Username"
                   value={loginData.username}
-                  onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
+                  onChange={(e) => setLoginData(prev => ({ ...prev, username: e.target.value }))}
                   className="w-full pl-12 pr-16 py-5 bg-transparent border-2 border-white/40 rounded-full text-white placeholder:text-gray-300 focus:border-white/60 focus:ring-0 focus:outline-none focus:shadow-none text-base"
                 />
                 {loginData.username && (
                   <button
                     type="button"
-                    onClick={async () => {
-                      // Clear the input field
-                      setLoginData({ ...loginData, username: "" });
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      (document.activeElement as HTMLElement)?.blur?.();
+                      
+                      // Clear states immediately and synchronously
+                      setLoginData(prev => ({ ...prev, username: "" }));
                       setLastUsername("");
                       
-                      // Clear stored username from preferences
-                      try {
-                        const { Preferences } = await import('@capacitor/preferences');
-                        await Preferences.remove({ key: 'bean-stalker-last-username' });
-                      } catch (error) {
-                        console.error('Failed to clear stored username:', error);
-                      }
+                      // Clear stored username from preferences (async but non-blocking)
+                      setTimeout(async () => {
+                        try {
+                          const { Preferences } = await import('@capacitor/preferences');
+                          await Preferences.remove({ key: 'bean-stalker-last-username' });
+                        } catch (error) {
+                          console.error('Failed to clear stored username:', error);
+                        }
+                      }, 0);
                     }}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white z-10 p-1 pointer-events-auto"
                     data-testid="button-clear-username"
+                    aria-label="Clear username"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 )}
-                {lastUsername && lastUsername === loginData.username && !loginData.username.includes('') && (
-                  <div className="absolute right-12 top-1/2 transform -translate-y-1/2">
+                {lastUsername && lastUsername === loginData.username && loginData.username.trim() !== '' && (
+                  <div className="absolute right-12 top-1/2 transform -translate-y-1/2 pointer-events-none">
                     <span className="text-xs text-green-400 bg-green-400/20 px-2 py-1 rounded">Last used</span>
                   </div>
                 )}
@@ -484,30 +753,23 @@ export default function AuthPageMobile() {
                 </div>
 
                 {/* Account Creation Notice - Payment Required */}
-                <div className="p-4 rounded-lg border border-white/40 bg-white/10">
-                  <div className="flex items-center space-x-2 text-sm font-medium text-white mb-2">
-                    <CreditCard className="h-4 w-4 text-green-400" />
+                <div className="p-5 rounded-2xl border border-white/30 bg-white/5 backdrop-blur-sm">
+                  <div className="flex items-center space-x-3 text-sm font-semibold text-white mb-3">
+                    <CreditCard className="h-5 w-5 text-green-400 flex-shrink-0" />
                     <span>Account Creation - AUD$69 Required</span>
                   </div>
-                  <p className="text-xs text-gray-300">
+                  <p className="text-sm text-gray-200 leading-relaxed mb-4">
                     All accounts require payment verification. You'll receive AUD$69 in app credits to start ordering.
                   </p>
                   
-                  {/* Optional Premium Benefits */}
-                  <div className="flex items-start space-x-3 mt-3">
-                    <Checkbox
-                      checked={registerData.joinPremium}
-                      onCheckedChange={(checked) => setRegisterData({ ...registerData, joinPremium: Boolean(checked) })}
-                      className="border-gray-400 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 mt-1"
-                    />
-                    <div className="flex-1">
-                      <label className="text-xs font-medium text-white cursor-pointer">
-                        Include Premium Benefits
-                      </label>
-                      <p className="text-xs text-gray-300 mt-1">
-                        Priority ordering, exclusive offers, and notifications.
-                      </p>
-                    </div>
+                  {/* Premium Benefits */}
+                  <div className="p-3 rounded-xl bg-white/10 border border-white/20 text-left">
+                    <h4 className="text-sm font-medium text-white leading-snug mb-1">
+                      Include Premium Benefits
+                    </h4>
+                    <p className="text-sm text-gray-200 leading-relaxed">
+                      Priority ordering, exclusive offers, and notifications.
+                    </p>
                   </div>
                 </div>
 
@@ -524,42 +786,67 @@ export default function AuthPageMobile() {
 
             {/* Links section - exact spacing and styling */}
             <div className="text-center mt-6 space-y-2">
-              {isLogin && (
-                <button className="text-white/90 hover:text-white text-sm">
+              {isLogin && !showForgotPassword && !showPasswordReset && (
+                <button 
+                  onClick={() => {
+                    setShowForgotPassword(true);
+                    setIsLogin(false);
+                  }}
+                  className="text-white/90 hover:text-white text-sm"
+                  data-testid="button-forgot-password"
+                >
                   Forgot password?
                 </button>
               )}
-              <div className="text-white/90 text-sm">
-                {isLogin ? (
-                  <>
-                    {/* Hide "Become a Member" if device already has a bound account */}
-                    New user?{" "}
-                    <button 
-                      onClick={() => setIsLogin(!isLogin)}
-                      className="text-white hover:underline font-medium"
-                    >
-                      Become a Member
-                    </button>
+              
+              {(showForgotPassword || showPasswordReset) && (
+                <button 
+                  onClick={() => {
+                    resetForgotPasswordFlow();
+                    setIsLogin(true);
+                  }}
+                  className="text-white/90 hover:text-white text-sm flex items-center justify-center gap-2"
+                  data-testid="button-back-to-login"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Login
+                </button>
+              )}
+              {!showForgotPassword && !showPasswordReset && (
+                <div className="text-white/90 text-sm">
+                  {isLogin ? (
+                    <>
+                      {/* Hide "Become a Member" if device already has a bound account */}
+                      New user?{" "}
+                      <button 
+                        onClick={() => setIsLogin(!isLogin)}
+                        className="text-white hover:underline font-medium"
+                        data-testid="button-become-member"
+                      >
+                        Become a Member
+                      </button>
 
-                  </>
-                ) : (
-                  <>
-                    Already have an account?{" "}
-                    <button 
-                      onClick={() => setIsLogin(!isLogin)}
-                      className="text-white hover:underline font-medium"
-                    >
-                      Sign In
-                    </button>
-                  </>
-                )}
-              </div>
+                    </>
+                  ) : (
+                    <>
+                      Already have an account?{" "}
+                      <button 
+                        onClick={() => setIsLogin(!isLogin)}
+                        className="text-white hover:underline font-medium"
+                        data-testid="button-sign-in"
+                      >
+                        Sign In
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
               
 
             </div>
 
             {/* Divider and Biometric - only for login AND if user has previously set up biometrics */}
-            {isLogin && biometricState.hasStoredCredentials && (
+            {isLogin && !showForgotPassword && !showPasswordReset && biometricState.hasStoredCredentials && (
               <>
                 <div className="flex items-center my-6">
                   <div className="flex-1 h-px bg-white/40" />
