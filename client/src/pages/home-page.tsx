@@ -14,6 +14,7 @@ import { useState, useEffect, useRef } from "react";
 import { EnhancedBuyCredits } from "@/components/enhanced-buy-credits";
 import { motion } from "framer-motion";
 import { Checkbox } from "@/components/ui/checkbox";
+import { getMobileCompatibleImageUrl } from "@/utils/mobile-image-utils";
 
 
 import { useNativeNotification } from "@/services/native-notification-service";
@@ -702,6 +703,35 @@ export default function HomePage() {
                                 onCheckedChange={() => handleFavoriteToggle(item.id)}
                                 className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                               />
+                              {/* Product Image Thumbnail */}
+                              <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 relative">
+                                {item.imageUrl ? (
+                                  <img
+                                    src={getMobileCompatibleImageUrl(item.imageUrl, item.category)}
+                                    alt={item.name}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      console.log(`Failed to load favorite image: ${item.imageUrl} for ${item.name}`);
+                                      
+                                      // Hide the broken image and show text fallback
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      const imgElement = e.target as HTMLImageElement;
+                                      if (imgElement.parentElement) {
+                                        const fallback = imgElement.parentElement.querySelector('.image-fallback');
+                                        if (fallback) {
+                                          (fallback as HTMLElement).style.display = 'flex';
+                                        }
+                                      }
+                                    }}
+                                    onLoad={() => {
+                                      console.log(`Successfully loaded favorite image: ${item.imageUrl} for ${item.name}`);
+                                    }}
+                                  />
+                                ) : null}
+                                <div className="absolute inset-0 bg-gray-50 flex items-center justify-center text-gray-500 image-fallback" style={{ display: item.imageUrl ? 'none' : 'flex' }}>
+                                  <span className="text-xs font-medium text-center px-1">No Image Available</span>
+                                </div>
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium text-slate-900 truncate">{item.name}</p>
                                 <p className="text-xs text-slate-600 truncate">{item.description}</p>
@@ -749,15 +779,6 @@ export default function HomePage() {
                                   })()}
                                 </p>
                               </div>
-                              {item.imageUrl && (
-                                <div className="w-12 h-12 bg-slate-200 rounded-lg flex-shrink-0 overflow-hidden">
-                                  <img 
-                                    src={item.imageUrl} 
-                                    alt={item.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                              )}
                             </div>
                           ))}
                         </div>
