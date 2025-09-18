@@ -15,7 +15,7 @@ export const APP_CONFIG = {
   // App metadata
   app: {
     name: 'Bean Stalker',
-    version: '1.0.0',
+    version: '1.3.0',
     bundleId: 'com.beanstalker.member',
   },
   

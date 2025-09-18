@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useEffect } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { formatCurrency } from "@/lib/utils";
+import { getMobileCompatibleImageUrl } from "@/utils/mobile-image-utils";
 
 interface MenuItemCardProps {
   item: MenuItem;
@@ -180,9 +181,15 @@ export function MenuItemCard({ item }: MenuItemCardProps) {
       <div className="h-32 sm:h-36 w-full bg-muted relative overflow-hidden">
         {item.imageUrl ? (
           <img 
-            src={item.imageUrl} 
+            src={getMobileCompatibleImageUrl(item.imageUrl, item.category)} 
             alt={item.name}
             className="w-full h-full object-cover object-center hover:scale-105 transition-transform duration-200"
+            onError={(e) => {
+              console.error(`❌ Image failed: "${item.name}" - ${e.currentTarget.src}`);
+            }}
+            onLoad={() => {
+              console.log(`✅ Image loaded: "${item.name}"`);
+            }}
           />
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-green-700">

@@ -21,7 +21,8 @@ export function CartItemCard({ item }: CartItemCardProps) {
       item.quantity + 1, 
       item.size, 
       item.option, 
-      item.options
+      item.options,
+      item.variationId
     );
   };
   
@@ -32,7 +33,8 @@ export function CartItemCard({ item }: CartItemCardProps) {
         item.quantity - 1, 
         item.size, 
         item.option, 
-        item.options
+        item.options,
+        item.variationId
       );
     } else {
       handleRemove();
@@ -46,7 +48,8 @@ export function CartItemCard({ item }: CartItemCardProps) {
         item.menuItemId, 
         item.size, 
         item.option, 
-        item.options
+        item.options,
+        item.variationId
       );
     }, 300);
   };
@@ -101,9 +104,14 @@ export function CartItemCard({ item }: CartItemCardProps) {
                 {item.name}
               </h3>
               
-              {/* Size and Options */}
+              {/* Variation and Size */}
               <div className="flex flex-col gap-1 mt-1">
-                {item.size && (
+                {item.variationName && (
+                  <div className="text-xs text-green-600 font-medium">
+                    {item.variationName}
+                  </div>
+                )}
+                {item.size && !item.variationName && (
                   <div className="text-xs text-green-600 font-medium">
                     {item.size === 'small' ? 'Small' : item.size === 'medium' ? 'Medium' : 'Large'}
                   </div>

@@ -21,8 +21,24 @@ export function getMobileCompatibleImageUrl(imageUrl: string | null, itemCategor
     return imageUrl;
   }
 
+  // For web browser, use relative URLs (same origin)
+  // For native app, use full server URL
+  if (typeof window !== 'undefined' && !window.location.protocol.startsWith('capacitor')) {
+    // Web browser - use relative URL with proper encoding
+    const encodedUrl = encodeURI(imageUrl);
+    console.log(`🔍 Web Image URL: ${imageUrl} -> ${encodedUrl}`);
+    return encodedUrl;
+  }
+
   // Native mobile app - use server URL with fallback handling in component
-  return `https://member.beanstalker.com.au${imageUrl}`;
+  // In development, use local server; in production, use production domain
+  const baseUrl = import.meta.env.DEV ? 'http://localhost:5000' : 'https://member.beanstalker.com.au';
+  const finalUrl = `${baseUrl}${encodeURI(imageUrl)}`;
+  
+  // Debug logging for image URL generation
+  console.log(`🔍 Native Image URL: ${imageUrl} -> ${finalUrl}`);
+  
+  return finalUrl;
 }
 
 // Native mobile app - preload images with fallback

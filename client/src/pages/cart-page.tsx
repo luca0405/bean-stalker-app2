@@ -111,14 +111,14 @@ export default function CartPage() {
 
   const handleQuantityChange = (item: any, newQuantity: number) => {
     if (newQuantity <= 0) {
-      removeFromCart(item.menuItemId, item.size, undefined, item.options);
+      removeFromCart(item.menuItemId, item.size, undefined, item.options, item.variationId);
     } else {
-      updateCartItemQuantity(item.menuItemId, newQuantity, item.size, undefined, item.options);
+      updateCartItemQuantity(item.menuItemId, newQuantity, item.size, undefined, item.options, item.variationId);
     }
   };
 
   const handleRemoveItem = (item: any) => {
-    removeFromCart(item.menuItemId, item.size, item.option, item.options);
+    removeFromCart(item.menuItemId, item.size, item.option, item.options, item.variationId);
   };
 
   if (cart.length === 0) {
@@ -193,7 +193,7 @@ export default function CartPage() {
               <div className="space-y-4">
                 {cart.map((item, index) => (
                   <motion.div
-                    key={`${item.menuItemId}-${item.size}-${JSON.stringify(item.options)}`}
+                    key={`${item.menuItemId}-${item.variationId || item.variationName || item.size}-${JSON.stringify(item.options)}`}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
@@ -220,9 +220,14 @@ export default function CartPage() {
                           <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-gray-900 text-sm mb-1">{item.name}</h3>
                             
-                            {/* Size and Options */}
+                            {/* Variation and Options */}
                             <div className="space-y-1">
-                              {item.size && (
+                              {item.variationName && (
+                                <p className="text-xs text-gray-600">
+                                  {item.variationName}
+                                </p>
+                              )}
+                              {item.size && !item.variationName && (
                                 <p className="text-xs text-gray-600">
                                   Size: {item.size.charAt(0).toUpperCase() + item.size.slice(1)}
                                 </p>

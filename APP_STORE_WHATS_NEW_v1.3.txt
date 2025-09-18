@@ -1,0 +1,1 @@
+Cart improvements: fixed variation display (Latte/Cappuccino) and improved item targeting; resolved React key collisions affecting cart updates; performance and stability fixes.

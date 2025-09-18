@@ -1,0 +1,23 @@
+**What's New in Version 1.2**
+
+🔧 **Enhanced Menu Synchronization**
+• Fixed modifier options displaying correctly for all menu items
+• Improved accuracy of customization choices (size, flavor, extras)
+• Resolved duplicate modifier issues for specialty drinks
+
+⚡ **Performance Improvements**
+• Faster menu loading and smoother ordering experience
+• Enhanced Square POS integration for real-time menu updates
+• Optimized modifier selection interface
+
+✨ **User Experience Enhancements**
+• More reliable product customization options
+• Streamlined ordering process with accurate modifier displays
+• Better consistency between app menu and in-store options
+
+🛠 **Technical Fixes**
+• Resolved Square catalog sync inconsistencies
+• Improved modifier association accuracy
+• Enhanced location-specific menu filtering
+
+This update ensures your Bean Stalker ordering experience is more accurate and reliable than ever!

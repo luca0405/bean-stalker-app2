@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, jsonb, varchar, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, doublePrecision, jsonb, varchar, primaryKey, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -26,6 +26,7 @@ export const menuCategories = pgTable("menu_categories", {
   displayName: text("display_name").notNull(),
   description: text("description"),
   displayOrder: integer("display_order").default(999),
+  squareCategoryId: text("square_category_id"), // Square category ID
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -44,20 +45,6 @@ export const menuItems = pgTable("menu_items", {
   squareCategoryId: text("square_category_id"), // Square category ID
 });
 
-// New table to store Square variation data (replaces hardcoded 3-size system)
-export const menuItemVariations = pgTable("menu_item_variations", {
-  id: serial("id").primaryKey(),
-  menuItemId: integer("menu_item_id").references(() => menuItems.id),
-  squareItemId: text("square_item_id"), // Square item ID for Square-only items
-  squareVariationId: text("square_variation_id").notNull(), // Square variation ID
-  name: text("name").notNull(), // Variation name from Square (e.g., "Small", "Large", "16oz")
-  price: doublePrecision("price").notNull(), // Price in dollars
-  squarePrice: integer("square_price").notNull(), // Original Square price in cents
-  isDefault: boolean("is_default").default(false), // Whether this is the default variation
-  displayOrder: integer("display_order").default(999),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
 
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
@@ -87,11 +74,6 @@ export const insertMenuCategorySchema = createInsertSchema(menuCategories).omit(
 
 export const insertMenuItemSchema = createInsertSchema(menuItems);
 
-export const insertMenuItemVariationSchema = createInsertSchema(menuItemVariations).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
@@ -119,8 +101,6 @@ export type MenuItem = typeof menuItems.$inferSelect & {
 };
 export type InsertMenuItem = z.infer<typeof insertMenuItemSchema>;
 
-export type MenuItemVariationRow = typeof menuItemVariations.$inferSelect;
-export type InsertMenuItemVariation = z.infer<typeof insertMenuItemVariationSchema>;
 
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
@@ -185,7 +165,7 @@ export type InsertPendingCreditTransfer = z.infer<typeof insertPendingCreditTran
 export type CartItemOption = {
   name: string; // e.g., "Flavor" or "Milk Alternative"
   value: string; // e.g., "Chocolate" or "Almond"
-  priceAdjustment: number;
+  priceAdjustmentCents: number; // Price adjustment in cents
 };
 
 // Square variation data structure
@@ -369,7 +349,7 @@ export const menuItemOptions = pgTable("menu_item_options", {
   name: text("name").notNull(), // e.g., "Chocolate", "Vanilla", "Milk Alternatives"
   optionType: text("option_type").default("flavor"), // e.g., "flavor", "milk", "size"
   displayOrder: integer("display_order").default(999),
-  priceAdjustment: doublePrecision("price_adjustment").default(0), // Additional cost for this option, if any
+  priceAdjustmentCents: integer("price_adjustment_cents").default(0), // Additional cost in cents
   isParent: boolean("is_parent").default(false), // True if this is a parent option (like "Milk Alternatives")
   parentId: integer("parent_id"), // References parent option if this is a sub-option
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -386,7 +366,7 @@ export type InsertMenuItemOption = z.infer<typeof insertMenuItemOptionSchema>;
 // Square Modifier Lists (e.g., "Size", "Milk Type", "Add-ons")
 export const squareModifierLists = pgTable("square_modifier_lists", {
   id: serial("id").primaryKey(),
-  squareId: text("square_id").notNull().unique(), // Square modifier list ID
+  squareId: text("square_id").notNull().unique(), // Square modifier list ID - UNIQUE constraint prevents duplicates
   name: text("name").notNull(), // e.g., "Size", "Milk Alternatives"
   selectionType: text("selection_type").notNull(), // 'SINGLE', 'MULTIPLE'
   minSelections: integer("min_selections").default(0),
@@ -400,11 +380,11 @@ export const squareModifierLists = pgTable("square_modifier_lists", {
 // Square Modifier Options (individual modifiers within a list)
 export const squareModifiers = pgTable("square_modifiers", {
   id: serial("id").primaryKey(),
-  squareId: text("square_id").notNull().unique(), // Square modifier ID
+  squareId: text("square_id").notNull().unique(), // Square modifier ID - UNIQUE constraint prevents duplicates
   modifierListId: integer("modifier_list_id").notNull().references(() => squareModifierLists.id),
   squareModifierListId: text("square_modifier_list_id").notNull(), // Square modifier list ID for reference
   name: text("name").notNull(), // e.g., "Small", "Almond Milk", "Extra Shot"
-  priceMoney: integer("price_money").default(0), // Price in cents
+  priceMoney: integer("price_money").default(0), // Price in cents - ALWAYS INTEGER
   enabled: boolean("enabled").default(true),
   displayOrder: integer("display_order").default(999),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -420,7 +400,10 @@ export const menuItemModifierLists = pgTable("menu_item_modifier_lists", {
   squareModifierListId: text("square_modifier_list_id").notNull(), // Required - Square modifier list ID
   enabled: boolean("enabled").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  // UNIQUE constraint on squareItemId + squareModifierListId to prevent duplicates
+  unq_item_modifier: uniqueIndex("unq_item_modifier_list").on(table.squareItemId, table.squareModifierListId),
+}));
 
 export const insertSquareModifierListSchema = createInsertSchema(squareModifierLists).omit({
   id: true,
@@ -447,6 +430,36 @@ export type InsertSquareModifier = z.infer<typeof insertSquareModifierSchema>;
 
 export type MenuItemModifierList = typeof menuItemModifierLists.$inferSelect;
 export type InsertMenuItemModifierList = z.infer<typeof insertMenuItemModifierListSchema>;
+
+// Image Upload Validation Schema
+export const imageUploadSchema = z.object({
+  imageUrl: z.string()
+    .refine((url) => {
+      // Allow empty string to remove image
+      if (url === '') return true;
+      // Allow only uploads from our uploads directory or approved CDN URLs
+      return url.startsWith('/uploads/') || url.startsWith('https://cdn.') || url.startsWith('https://images.');
+    }, {
+      message: "Image URL must be from /uploads/ directory or approved CDN"
+    })
+    .refine((url) => {
+      // Validate file extension for security
+      if (url === '') return true;
+      const validExtensions = ['.png', '.jpg', '.jpeg', '.webp'];
+      return validExtensions.some(ext => url.toLowerCase().endsWith(ext));
+    }, {
+      message: "Image must be png, jpg, jpeg, or webp format"
+    })
+    .refine((url) => {
+      // Prevent path traversal attacks
+      if (url === '') return true;
+      return !url.includes('../') && !url.includes('..\\');
+    }, {
+      message: "Invalid file path detected"
+    })
+});
+
+export type ImageUpload = z.infer<typeof imageUploadSchema>;
 
 // Define relations
 export const menuItemsRelations = relations(menuItems, ({ many }) => ({

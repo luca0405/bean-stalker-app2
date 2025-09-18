@@ -40,7 +40,7 @@ import {
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import connectPg from "connect-pg-simple";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -73,11 +73,12 @@ export interface IStorage {
   // Menu operations
   getMenuItems(): Promise<MenuItem[]>;
   getMenuItemsByCategory(category: string): Promise<MenuItem[]>;
-  getMenuCategories(): Promise<string[]>;
+  getMenuCategories(): Promise<MenuCategory[]>;
   createMenuItem(menuItem: InsertMenuItem): Promise<MenuItem>;
   updateMenuItem(id: number, menuItem: Partial<InsertMenuItem>): Promise<MenuItem>;
   deleteMenuItem(id: number): Promise<void>;
   getMenuItem(id: number): Promise<MenuItem | undefined>;
+  getMenuItemBySquareId(squareId: string): Promise<MenuItem | undefined>;
   
   // Menu Item Options operations (for flavors)
   getMenuItemOptions(menuItemId: number): Promise<MenuItemOption[]>;
@@ -85,12 +86,23 @@ export interface IStorage {
   updateMenuItemOption(id: number, option: Partial<InsertMenuItemOption>): Promise<MenuItemOption>;
   deleteMenuItemOption(id: number): Promise<void>;
   
+  
   // Menu Category operations
   getAllCategories(): Promise<MenuCategory[]>;
   getCategoryByName(name: string): Promise<MenuCategory | undefined>;
+  getCategoryBySquareId(squareId: string): Promise<MenuCategory | undefined>;
   createCategory(category: InsertMenuCategory): Promise<MenuCategory>;
   updateCategory(id: number, category: Partial<InsertMenuCategory>): Promise<MenuCategory>;
   deleteCategory(id: number): Promise<void>;
+  
+  // Database migration operations
+  migrateTo7Categories(): Promise<{ 
+    categoriesCreated: number; 
+    itemsUpdated: number; 
+    unmappedItems: MenuItem[]; 
+    oldCategoriesRemoved: number; 
+  }>;
+  clearMenuItems(): Promise<void>;
   
   // Order operations
   createOrder(order: InsertOrder): Promise<Order>;
@@ -146,13 +158,21 @@ export interface IStorage {
   getMenuItemModifierLists(): Promise<MenuItemModifierList[]>;
   clearSquareModifiers(): Promise<void>;
   
-  // New methods for complete database reconciliation
+  // New methods for complete database reconciliation with UPSERT operations
   upsertSquareModifierList(modifierList: InsertSquareModifierList & { squareId: string }): Promise<SquareModifierList>;
   upsertSquareModifier(modifier: InsertSquareModifier & { squareId: string }): Promise<SquareModifier>;
   deleteMenuItemModifierLinksBySquareItemId(squareItemId: string): Promise<void>;
   batchCreateMenuItemModifierLinks(links: InsertMenuItemModifierList[]): Promise<MenuItemModifierList[]>;
   getSquareModifierListBySquareId(squareId: string): Promise<SquareModifierList | undefined>;
   getSquareModifiersByListSquareId(listSquareId: string): Promise<SquareModifier[]>;
+  
+  // IDEMPOTENT upsert operations to prevent duplicates
+  upsertMenuItemBySquareId(menuItem: Partial<InsertMenuItem> & { squareId: string }): Promise<MenuItem>;
+  upsertMenuCategoryBySquareId(category: Partial<InsertMenuCategory> & { squareCategoryId: string }): Promise<MenuCategory>;
+  
+  // Menu item flag updates
+  updateMenuItemFlags(menuItemId: number, hasOptions: boolean, hasSizes: boolean): Promise<MenuItem>;
+  updateMenuItemFlagsBySquareId(squareId: string, hasOptions: boolean, hasSizes: boolean): Promise<MenuItem | undefined>;
   
   // Session store
   sessionStore: session.Store;
@@ -478,12 +498,10 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async getMenuCategories(): Promise<string[]> {
-    // Get categories from the categories map instead of extracting from menu items
+  async getMenuCategories(): Promise<MenuCategory[]> {
+    // Get categories from the categories map
     const allCategories = await this.getAllCategories();
-    
-    // Map to get just the category names (which is used as the internal key in menuItems)
-    return allCategories.map(category => category.name);
+    return allCategories;
   }
   
   async createMenuItem(menuItem: InsertMenuItem): Promise<MenuItem> {
@@ -519,6 +537,10 @@ export class MemStorage implements IStorage {
   
   async getMenuItem(id: number): Promise<MenuItem | undefined> {
     return this.menuItems.get(id);
+  }
+
+  async getMenuItemBySquareId(squareId: string): Promise<MenuItem | undefined> {
+    return Array.from(this.menuItems.values()).find(item => item.squareId === squareId);
   }
 
   async createOrder(insertOrder: InsertOrder): Promise<Order> {
@@ -828,6 +850,12 @@ export class MemStorage implements IStorage {
     );
   }
 
+  async getCategoryBySquareId(squareId: string): Promise<MenuCategory | undefined> {
+    return Array.from(this.menuCategories.values()).find(
+      (category) => category.squareCategoryId === squareId
+    );
+  }
+
   async createCategory(category: InsertMenuCategory): Promise<MenuCategory> {
     const id = this.currentCategoryId++;
     const newCategory: MenuCategory = {
@@ -1131,6 +1159,47 @@ export class MemStorage implements IStorage {
         }
         return a.name.localeCompare(b.name);
       });
+  }
+  
+  async updateMenuItemFlags(menuItemId: number, hasOptions: boolean, hasSizes: boolean): Promise<MenuItem> {
+    const item = this.menuItems.get(menuItemId);
+    if (!item) {
+      throw new Error(`Menu item with ID ${menuItemId} not found`);
+    }
+    
+    const updatedItem = {
+      ...item,
+      hasOptions,
+      hasSizes
+    };
+    
+    this.menuItems.set(menuItemId, updatedItem);
+    return updatedItem;
+  }
+  
+  async updateMenuItemFlagsBySquareId(squareId: string, hasOptions: boolean, hasSizes: boolean): Promise<MenuItem | undefined> {
+    const item = Array.from(this.menuItems.values()).find(item => item.squareId === squareId);
+    if (!item) {
+      return undefined;
+    }
+    
+    return this.updateMenuItemFlags(item.id, hasOptions, hasSizes);
+  }
+
+  async migrateTo7Categories(): Promise<{ categoriesCreated: number; itemsUpdated: number; unmappedItems: MenuItem[]; oldCategoriesRemoved: number; }> {
+    // For MemStorage, just return empty result since data resets on restart
+    return { categoriesCreated: 0, itemsUpdated: 0, unmappedItems: [], oldCategoriesRemoved: 0 };
+  }
+
+  async clearMenuItems(): Promise<void> {
+    try {
+      console.log('🗑️ Clearing all menu items from memory storage...');
+      this.menuItems.clear();
+      console.log('✅ Menu items cleared successfully');
+    } catch (error) {
+      console.error('❌ Failed to clear menu items:', error);
+      throw error;
+    }
   }
 }
 
@@ -1509,12 +1578,10 @@ export class DatabaseStorage implements IStorage {
     return this.db.select().from(menuItems).where(eq(menuItems.category, category));
   }
 
-  async getMenuCategories(): Promise<string[]> {
-    // Get categories from the categories table instead of extracting from menu items
+  async getMenuCategories(): Promise<MenuCategory[]> {
+    // Get categories from the categories table
     const allCategories = await this.getAllCategories();
-    
-    // Map to get just the category names (which is used as the internal key in menuItems)
-    return allCategories.map(category => category.name);
+    return allCategories;
   }
   
   async createMenuItem(menuItem: InsertMenuItem): Promise<MenuItem> {
@@ -1566,6 +1633,16 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(menuItems)
       .where(eq(menuItems.id, id));
+      
+    return result[0];
+  }
+
+  async getMenuItemBySquareId(squareId: string): Promise<MenuItem | undefined> {
+    const result = await this.db
+      .select()
+      .from(menuItems)
+      .where(eq(menuItems.squareId, squareId))
+      .limit(1);
       
     return result[0];
   }
@@ -1710,7 +1787,7 @@ export class DatabaseStorage implements IStorage {
 
   async getUserFavoritesWithDetails(userId: number): Promise<(MenuItem & { favoriteId: number; selectedSize?: string; selectedOptions?: any[]; customName?: string })[]> {
     try {
-      // Join favorites with menu items and include the stored configuration
+      // Join favorites with menu items using either menuItemId (for database items) or squareId (for Square items)
       const results = await this.db
         .select({
           id: menuItems.id,
@@ -1723,13 +1800,17 @@ export class DatabaseStorage implements IStorage {
           mediumPrice: menuItems.mediumPrice,
           largePrice: menuItems.largePrice,
           hasOptions: menuItems.hasOptions,
+          squareId: menuItems.squareId,
           favoriteId: favorites.id,
           selectedSize: favorites.selectedSize,
           selectedOptions: favorites.selectedOptions,
           customName: favorites.customName
         })
         .from(favorites)
-        .innerJoin(menuItems, eq(favorites.menuItemId, menuItems.id))
+        .innerJoin(menuItems, or(
+          eq(favorites.menuItemId, menuItems.id), // Database items
+          eq(favorites.squareId, menuItems.squareId) // Square items
+        ))
         .where(eq(favorites.userId, userId));
       
       // selectedOptions is already parsed by Drizzle (jsonb type), no need to JSON.parse
@@ -1851,6 +1932,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
+  
   // Menu Category methods
   async getAllCategories(): Promise<MenuCategory[]> {
     try {
@@ -1871,6 +1953,20 @@ export class DatabaseStorage implements IStorage {
       return result[0];
     } catch (error) {
       console.error("Error getting category by name:", error);
+      throw error;
+    }
+  }
+  
+  async getCategoryBySquareId(squareId: string): Promise<MenuCategory | undefined> {
+    try {
+      const result = await this.db
+        .select()
+        .from(menuCategories)
+        .where(eq(menuCategories.squareCategoryId, squareId));
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error getting category by Square ID:", error);
       throw error;
     }
   }
@@ -2335,9 +2431,30 @@ export class DatabaseStorage implements IStorage {
 
   async createSquareModifier(modifier: InsertSquareModifier): Promise<SquareModifier> {
     try {
+      // GUARDRAIL: Resolve Square string ID to database integer ID if needed
+      let resolvedModifierListId = modifier.modifierListId;
+      
+      if (typeof modifier.modifierListId === 'string') {
+        console.warn(`🔧 CREATE GUARDRAIL: Resolving Square modifier list ID "${modifier.modifierListId}" to database integer ID`);
+        const parentList = await this.getSquareModifierListBySquareId(modifier.modifierListId);
+        if (!parentList) {
+          throw new Error(`Could not find modifier list with Square ID: ${modifier.modifierListId}`);
+        }
+        resolvedModifierListId = parentList.id;
+        console.log(`🔧 CREATE GUARDRAIL: Resolved to database ID ${resolvedModifierListId}`);
+      }
+
+      const resolvedModifier = {
+        ...modifier,
+        modifierListId: resolvedModifierListId,
+        squareModifierListId: modifier.squareModifierListId || modifier.modifierListId  // Ensure we have the Square string ID
+      };
+
+      console.log(`🔧 CREATE STORAGE: Creating modifier ${modifier.squareId} with listId=${resolvedModifierListId} (${typeof resolvedModifierListId}), squareListId=${resolvedModifier.squareModifierListId}`);
+
       const result = await this.db
         .insert(squareModifiers)
-        .values(modifier)
+        .values(resolvedModifier)
         .returning();
       return result[0];
     } catch (error) {
@@ -2473,18 +2590,39 @@ export class DatabaseStorage implements IStorage {
 
   async upsertSquareModifier(modifier: InsertSquareModifier & { squareId: string }): Promise<SquareModifier> {
     try {
+      // GUARDRAIL: Resolve Square string ID to database integer ID if needed
+      let resolvedModifierListId = modifier.modifierListId;
+      
+      if (typeof modifier.modifierListId === 'string') {
+        console.warn(`🔧 GUARDRAIL: Resolving Square modifier list ID "${modifier.modifierListId}" to database integer ID`);
+        const parentList = await this.getSquareModifierListBySquareId(modifier.modifierListId);
+        if (!parentList) {
+          throw new Error(`Could not find modifier list with Square ID: ${modifier.modifierListId}`);
+        }
+        resolvedModifierListId = parentList.id;
+        console.log(`🔧 GUARDRAIL: Resolved to database ID ${resolvedModifierListId}`);
+      }
+
+      const resolvedModifier = {
+        ...modifier,
+        modifierListId: resolvedModifierListId,
+        squareModifierListId: modifier.squareModifierListId || modifier.modifierListId  // Ensure we have the Square string ID
+      };
+
+      console.log(`🔧 STORAGE: Upserting modifier ${modifier.squareId} with listId=${resolvedModifierListId} (${typeof resolvedModifierListId}), squareListId=${resolvedModifier.squareModifierListId}`);
+
       const result = await this.db
         .insert(squareModifiers)
-        .values(modifier)
+        .values(resolvedModifier)
         .onConflictDoUpdate({
           target: squareModifiers.squareId,
           set: {
-            modifierListId: modifier.modifierListId,
-            squareModifierListId: modifier.squareModifierListId,
-            name: modifier.name,
-            priceMoney: modifier.priceMoney,
-            enabled: modifier.enabled,
-            displayOrder: modifier.displayOrder,
+            modifierListId: resolvedModifierListId,
+            squareModifierListId: resolvedModifier.squareModifierListId,
+            name: resolvedModifier.name,
+            priceMoney: resolvedModifier.priceMoney,
+            enabled: resolvedModifier.enabled,
+            displayOrder: resolvedModifier.displayOrder,
             updatedAt: new Date()
           }
         })
@@ -2543,6 +2681,242 @@ export class DatabaseStorage implements IStorage {
         .orderBy(squareModifiers.displayOrder, squareModifiers.name);
     } catch (error) {
       console.error("Error getting square modifiers by list square id:", error);
+      throw error;
+    }
+  }
+  
+  async updateMenuItemFlags(menuItemId: number, hasOptions: boolean, hasSizes: boolean): Promise<MenuItem> {
+    try {
+      const result = await this.db
+        .update(menuItems)
+        .set({ 
+          hasOptions,
+          hasSizes
+        })
+        .where(eq(menuItems.id, menuItemId))
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error(`Menu item with ID ${menuItemId} not found`);
+      }
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error updating menu item flags:", error);
+      throw error;
+    }
+  }
+  
+  async updateMenuItemFlagsBySquareId(squareId: string, hasOptions: boolean, hasSizes: boolean): Promise<MenuItem | undefined> {
+    try {
+      const result = await this.db
+        .update(menuItems)
+        .set({ 
+          hasOptions,
+          hasSizes
+        })
+        .where(eq(menuItems.squareId, squareId))
+        .returning();
+      
+      return result.length > 0 ? result[0] : undefined;
+    } catch (error) {
+      console.error("Error updating menu item flags by square id:", error);
+      throw error;
+    }
+  }
+
+  async migrateTo7Categories(): Promise<{ 
+    categoriesCreated: number; 
+    itemsUpdated: number; 
+    unmappedItems: MenuItem[]; 
+    oldCategoriesRemoved: number; 
+  }> {
+    try {
+      console.log('🔄 Starting migration to 7-category system...');
+      
+      // Define the 7 canonical categories
+      const CANONICAL_CATEGORIES = [
+        { name: 'coffee', displayName: 'Coffee', description: 'Hot coffee drinks', displayOrder: 1 },
+        { name: 'coffee-beans', displayName: 'Coffee Beans', description: 'Coffee beans and grounds', displayOrder: 2 },
+        { name: 'food', displayName: 'Food', description: 'Food items and snacks', displayOrder: 3 },
+        { name: 'hot-drinks', displayName: 'Hot Drinks', description: 'Hot non-coffee drinks', displayOrder: 4 },
+        { name: 'cold-drinks', displayName: 'Cold Drinks', description: 'Cold drinks and smoothies', displayOrder: 5 },
+        { name: 'retail', displayName: 'Retail', description: 'Retail items and merchandise', displayOrder: 6 },
+        { name: 'accessories', displayName: 'Accessories', description: 'Coffee equipment and accessories', displayOrder: 7 }
+      ];
+
+      // Legacy to new category mapping
+      const LEGACY_MAPPING: { [key: string]: string } = {
+        // Existing categories that map directly
+        'coffee': 'coffee',
+        'coffee-beans': 'coffee-beans', 
+        'food': 'food',
+        'hot-drinks': 'hot-drinks',
+        'cold-drinks': 'cold-drinks',
+        'retail': 'retail',
+        'accessories': 'accessories',
+        
+        // Legacy categories that need mapping
+        'iced-drinks': 'cold-drinks',
+        'smoothies': 'cold-drinks',
+        'paninis': 'food',
+        'lunch': 'food',
+        'pastries': 'food',
+        'juices': 'cold-drinks',
+        'other': null, // Will be handled manually
+      };
+
+      let categoriesCreated = 0;
+      let itemsUpdated = 0;
+      const unmappedItems: MenuItem[] = [];
+      let oldCategoriesRemoved = 0;
+
+      // Step 1: Create the 7 canonical categories (upsert to avoid duplicates)
+      console.log('📂 Creating canonical categories...');
+      for (const category of CANONICAL_CATEGORIES) {
+        try {
+          const existing = await this.getCategoryByName(category.name);
+          if (!existing) {
+            await this.createCategory(category);
+            categoriesCreated++;
+            console.log(`✅ Created category: ${category.displayName}`);
+          } else {
+            // Update existing category to ensure correct display name and order
+            await this.updateCategory(existing.id, {
+              displayName: category.displayName,
+              description: category.description,
+              displayOrder: category.displayOrder
+            });
+            console.log(`🔄 Updated category: ${category.displayName}`);
+          }
+        } catch (error) {
+          console.log(`📂 Category ${category.displayName} already exists or updated`);
+        }
+      }
+
+      // Step 2: Get all menu items and update their categories
+      console.log('🍽️ Updating menu item categories...');
+      const allItems = await this.getMenuItems();
+      
+      for (const item of allItems) {
+        const newCategory = LEGACY_MAPPING[item.category];
+        
+        if (newCategory) {
+          if (newCategory !== item.category) {
+            await this.updateMenuItem(item.id, { category: newCategory });
+            itemsUpdated++;
+            console.log(`🔄 Updated "${item.name}": ${item.category} → ${newCategory}`);
+          }
+        } else {
+          // Item has unmappable category - collect for manual review
+          unmappedItems.push(item);
+          console.log(`❓ Unmapped item "${item.name}" with category "${item.category}"`);
+        }
+      }
+
+      // Step 3: Remove old categories (only those not in canonical list)
+      console.log('🗑️ Removing old categories...');
+      const allCategories = await this.getAllCategories();
+      const canonicalNames = CANONICAL_CATEGORIES.map(c => c.name);
+      
+      for (const category of allCategories) {
+        if (!canonicalNames.includes(category.name)) {
+          await this.deleteCategory(category.id);
+          oldCategoriesRemoved++;
+          console.log(`🗑️ Removed old category: ${category.displayName}`);
+        }
+      }
+
+      const result = {
+        categoriesCreated,
+        itemsUpdated,
+        unmappedItems,
+        oldCategoriesRemoved
+      };
+
+      console.log('✅ Migration completed:', result);
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Migration failed:', error);
+      throw error;
+    }
+  }
+
+  async clearMenuItems(): Promise<void> {
+    try {
+      console.log('🗑️ Clearing all menu items from database...');
+      await this.db.delete(menuItems);
+      console.log('✅ Menu items table cleared successfully');
+    } catch (error) {
+      console.error('❌ Failed to clear menu items:', error);
+      throw error;
+    }
+  }
+
+  // IDEMPOTENT upsert operations to prevent duplicates
+  async upsertMenuItemBySquareId(menuItem: Partial<InsertMenuItem> & { squareId: string }): Promise<MenuItem> {
+    try {
+      console.log(`🔄 Upserting menu item by Square ID: ${menuItem.squareId}`);
+      
+      const result = await this.db
+        .insert(menuItems)
+        .values(menuItem as InsertMenuItem)
+        .onConflictDoUpdate({
+          target: menuItems.squareId,
+          set: {
+            name: menuItem.name,
+            description: menuItem.description,
+            price: menuItem.price,
+            category: menuItem.category,
+            imageUrl: menuItem.imageUrl,
+            hasSizes: menuItem.hasSizes,
+            mediumPrice: menuItem.mediumPrice,
+            largePrice: menuItem.largePrice,
+            hasOptions: menuItem.hasOptions,
+            squareCategoryId: menuItem.squareCategoryId,
+          }
+        })
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error(`Failed to upsert menu item with Square ID: ${menuItem.squareId}`);
+      }
+      
+      console.log(`✅ Upserted menu item: ${result[0].name} (${menuItem.squareId})`);
+      return result[0];
+    } catch (error) {
+      console.error(`❌ Failed to upsert menu item with Square ID ${menuItem.squareId}:`, error);
+      throw error;
+    }
+  }
+
+  async upsertMenuCategoryBySquareId(category: Partial<InsertMenuCategory> & { squareCategoryId: string }): Promise<MenuCategory> {
+    try {
+      console.log(`🔄 Upserting menu category by Square ID: ${category.squareCategoryId}`);
+      
+      const result = await this.db
+        .insert(menuCategories)
+        .values(category as InsertMenuCategory)
+        .onConflictDoUpdate({
+          target: menuCategories.squareCategoryId,
+          set: {
+            name: category.name,
+            displayName: category.displayName,
+            description: category.description,
+            displayOrder: category.displayOrder,
+          }
+        })
+        .returning();
+      
+      if (result.length === 0) {
+        throw new Error(`Failed to upsert category with Square ID: ${category.squareCategoryId}`);
+      }
+      
+      console.log(`✅ Upserted category: ${result[0].displayName} (${category.squareCategoryId})`);
+      return result[0];
+    } catch (error) {
+      console.error(`❌ Failed to upsert category with Square ID ${category.squareCategoryId}:`, error);
       throw error;
     }
   }

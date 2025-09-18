@@ -108,9 +108,9 @@ export function GroupedOptionSelector({ options, onChange, initialSelections = {
                       <RadioGroupItem value={option.name} id={`option-${option.id}`} />
                       <Label htmlFor={`option-${option.id}`} className="flex-1 cursor-pointer">
                         {option.name}
-                        {typeof option.priceAdjustment === 'number' && option.priceAdjustment > 0 && (
+                        {typeof option.priceAdjustmentCents === 'number' && option.priceAdjustmentCents > 0 && (
                           <span className="text-xs text-muted-foreground ml-1">
-                            +{formatCurrency(option.priceAdjustment)}
+                            +{formatCurrency(option.priceAdjustmentCents / 100)}
                           </span>
                         )}
                       </Label>

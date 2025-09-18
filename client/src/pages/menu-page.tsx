@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { AppHeader } from "@/components/app-header";
 import { CategoryFilter } from "@/components/category-filter";
 import { GrabMenuCard } from "@/components/grab-menu-card";
@@ -9,7 +9,6 @@ import { formatCategoryName } from "@/lib/utils";
 import { useNativeNotification } from "@/services/native-notification-service";
 import { Button } from "@/components/ui/button";
 import { MenuItem } from "@shared/schema";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export default function MenuPage() {
   const { menuItems, categories, isLoading, isRefreshing, refreshMenu } = useMenu();
@@ -17,32 +16,6 @@ export default function MenuPage() {
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { notify } = useNativeNotification();
-  const queryClient = useQueryClient();
-
-  // Clear all category queries when switching to prevent contamination
-  useEffect(() => {
-    // Remove all cached category data when switching
-    queryClient.removeQueries({ 
-      queryKey: ["/api/menu/"], 
-      exact: false 
-    });
-  }, [selectedCategory, queryClient]);
-
-  // Fetch category-specific items using the proper Square API
-  const {
-    data: categorySpecificItems = [],
-    isLoading: categoryLoading,
-    error: categoryError,
-    isFetching: categoryFetching
-  } = useQuery<MenuItem[], Error>({
-    queryKey: [`/api/menu/${selectedCategory}`, selectedCategory], // Add selectedCategory as second key for better isolation
-    staleTime: 0, // No caching to prevent cross-contamination
-    gcTime: 0, // Don't keep in cache
-    refetchOnMount: true, // Always refetch when component mounts
-    refetchOnWindowFocus: false, // Don't refetch on window focus
-    retry: 3, // Retry failed requests up to 3 times
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-  });
 
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
@@ -56,16 +29,15 @@ export default function MenuPage() {
   
 
   
+  // Filter menu items by selected category locally (no API calls)
   const filteredItems = useMemo(() => {
-    // Only return category-specific items if we're not currently fetching and have data for the current category
-    // This prevents showing stale data from previous categories
-    if (categoryFetching || categoryLoading) {
-      return []; // Show empty while loading to prevent stale data
+    if (!menuItems || menuItems.length === 0) {
+      return [];
     }
     
-    // Items are properly filtered by Square category
-    return categorySpecificItems;
-  }, [categorySpecificItems, categoryFetching, categoryLoading]);
+    // Filter items by the selected category
+    return menuItems.filter(item => item.category === selectedCategory);
+  }, [menuItems, selectedCategory]);
   
 
 
@@ -134,29 +106,16 @@ export default function MenuPage() {
               </h2>
               <p className="text-gray-600 text-sm">{filteredItems.length} items available</p>
             </div>
-            {/* Show loading state for category-specific data */}
-            {(categoryLoading || categoryFetching) && (
+            
+            {/* Show loading state from menu context */}
+            {isLoading && (
               <div className="flex justify-center items-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-green-800" />
               </div>
             )}
             
-            {/* Show error state with retry option */}
-            {categoryError && !categoryLoading && !categoryFetching && (
-              <div className="flex flex-col items-center justify-center py-12">
-                <p className="text-red-600 mb-4">Failed to load menu items</p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => queryClient.invalidateQueries({ queryKey: [`/api/menu/${selectedCategory}`] })}
-                  className="border-red-200 text-red-700 hover:bg-red-50"
-                >
-                  Try Again
-                </Button>
-              </div>
-            )}
-            
             {/* Responsive grid for selected category */}
-            {!categoryLoading && !categoryFetching && !categoryError && (
+            {!isLoading && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-8 gap-3 sm:gap-4">
                 {filteredItems.map((item) => (
                   <GrabMenuCard 

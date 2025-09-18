@@ -30,7 +30,7 @@ function areOptionsEqual(options1?: CartItemOption[], options2?: CartItemOption[
     const opt2 = sortedOptions2[index];
     return opt1.name === opt2.name && 
            opt1.value === opt2.value && 
-           opt1.priceAdjustment === opt2.priceAdjustment;
+           opt1.priceAdjustmentCents === opt2.priceAdjustmentCents;
   });
 }
 

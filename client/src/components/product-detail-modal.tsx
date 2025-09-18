@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Portal } from "@/components/portal";
 import { X, Heart, Minus, Plus, ArrowLeft } from "lucide-react";
@@ -26,8 +26,7 @@ interface SquareModifier {
   id: number;
   squareId: string;
   name: string;
-  priceMoney: number;
-  priceAdjustment: number;
+  priceMoney: number; // Price in cents
   displayOrder?: number;
 }
 
@@ -71,11 +70,11 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     }
   }, [isOpen, item]);
 
-  // Fetch Square modifiers if the item has options
+  // Fetch Square modifiers for ALL Square items (ignore hasOptions flag)
   const { data: modifierLists } = useQuery<SquareModifierList[]>({
     queryKey: ['/api/menu', item?.squareId || item?.id, 'modifiers'],
     queryFn: async () => {
-      if (!item?.hasOptions) return [];
+      if (!item?.squareId) return []; // Only fetch for Square items
       try {
         const itemId = item.squareId || item.id;
         const res = await apiRequest('GET', `/api/menu/${itemId}/modifiers`);
@@ -89,18 +88,18 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
         return [];
       }
     },
-    enabled: !!item?.hasOptions,
+    enabled: !!item?.squareId, // Fetch for ALL Square items
     retry: false,
     staleTime: 5 * 60 * 1000
   });
 
-  // Fetch legacy options for database items
+  // Fetch variations/options for all items (including Square items)
   const { data: flavorOptions } = useQuery<OptionWithChildren[]>({
     queryKey: ['/api/menu', item?.id || item?.squareId, 'options'],
     queryFn: async () => {
-      if (!item?.hasOptions || item?.squareId) return []; // Skip if Square item
+      if (!item) return []; // Always fetch if item exists
       try {
-        const itemId = item.id;
+        const itemId = item.squareId || item.id; // Use Square ID for Square items
         const res = await apiRequest('GET', `/api/menu/${itemId}/options`);
         if (!res.ok) {
           console.log(`Options API returned ${res.status}, using empty options`);
@@ -112,7 +111,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
         return [];
       }
     },
-    enabled: !!item?.hasOptions && !item?.squareId, // Only for non-Square items
+    enabled: !!item, // Fetch for ALL items
     retry: false,
     staleTime: 5 * 60 * 1000
   });
@@ -141,14 +140,22 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     staleTime: 5 * 60 * 1000 // Cache for 5 minutes
   });
 
-  // Get variations from item data (now included in menu response)
-  const variations = (item as any)?.variations || [];
+  // Convert size options to variations format with ABSOLUTE pricing
+  const variations = useMemo(() => {
+    return flavorOptions?.filter(opt => (opt as any).category === 'size').map(opt => ({
+      id: opt.id.toString(),
+      name: opt.name,
+      price: (opt as any).price || (opt as any).priceModifier || (opt.priceAdjustmentCents || 0) / 100 + (item?.price || 0), // Convert cents to dollars and add base price
+      squarePrice: 0, // Not used for display
+      isDefault: (opt as any).isDefault || false // Use Square's isDefault
+    })) || [];
+  }, [flavorOptions, item?.price]);
   
   // Reset state when modal opens/closes or item changes
   useEffect(() => {
     if (isOpen && item) {
       // Set default variation (first one or null if no variations)
-      const defaultVariation = variations.find((v: MenuItemVariation) => v.isDefault) || variations[0] || null;
+      const defaultVariation = variations.find(v => v.isDefault) || variations[0] || null;
       setSelectedVariation(defaultVariation);
       setQuantity(1);
       
@@ -163,12 +170,13 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
         setSelectedModifiers({});
       }
       
-      // Initialize legacy options for database items
-      if (flavorOptions && flavorOptions.length > 0) {
+      // Initialize legacy options for non-Square database items only
+      if (flavorOptions && flavorOptions.length > 0 && !item.squareId) {
         const initialOptions: Record<string, string> = {};
         
-        // Add a "Flavor" key for standalone flavor options, but don't select any by default
-        if (flavorOptions.filter(opt => !opt.isParent && !opt.parentId).length > 0) {
+        // Add a "Flavor" key for standalone flavor options (excluding size options)
+        const nonSizeOptions = flavorOptions.filter(opt => opt.optionType !== 'size' && !opt.isParent && !opt.parentId);
+        if (nonSizeOptions.length > 0) {
           initialOptions["Flavor"] = "";
         }
         
@@ -177,7 +185,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
         setSelectedOptions({});
       }
     }
-  }, [isOpen, item, flavorOptions, modifierLists, variations]);
+  }, [isOpen, item, flavorOptions, modifierLists]);
 
   const addFavoriteMutation = useMutation({
     mutationFn: async () => {
@@ -234,7 +242,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
           result.push({
             name: modifierList.name,
             value: modifier.name,
-            priceAdjustment: modifier.priceAdjustment
+            priceAdjustmentCents: modifier.priceMoney
           });
         }
       });
@@ -260,7 +268,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
             result.push({
               name: "Flavor",
               value: option.name,
-              priceAdjustment: option.priceAdjustment || 0
+              priceAdjustmentCents: option.priceAdjustmentCents || 0
             });
           }
         } else {
@@ -272,7 +280,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
               result.push({
                 name: key, // Parent name as category
                 value: value, // Child name as value
-                priceAdjustment: childOption.priceAdjustment || 0
+                priceAdjustmentCents: childOption.priceAdjustmentCents || 0
               });
             }
           }
@@ -323,6 +331,34 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
     }));
   };
 
+  // Validation logic for Add to Cart
+  const canAddToCart = (): boolean => {
+    if (!modifierLists || modifierLists.length === 0) return true;
+    
+    return modifierLists.every(list => {
+      const selectedCount = selectedModifiers[list.squareId]?.length || 0;
+      const minRequired = list.minSelections > 0 ? list.minSelections : 0;
+      const maxAllowed = (list.maxSelections && list.maxSelections > 0) ? list.maxSelections : Infinity;
+      
+      return selectedCount >= minRequired && selectedCount <= maxAllowed;
+    });
+  };
+
+  const getValidationMessage = (): string => {
+    if (!modifierLists || modifierLists.length === 0) return "Add to Cart";
+    
+    for (const list of modifierLists) {
+      const selectedCount = selectedModifiers[list.squareId]?.length || 0;
+      const minRequired = list.minSelections > 0 ? list.minSelections : 0;
+      
+      if (selectedCount < minRequired) {
+        return `Select ${minRequired - selectedCount} more from ${list.name}`;
+      }
+    }
+    
+    return "Add to Cart";
+  };
+
   const toggleFavorite = () => {
     if (!user) {
       notify({
@@ -344,17 +380,30 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
 
   const getTotalOptionPriceAdjustment = (): number => {
     const selectedOptionsList = getAllSelectedOptions();
-    return selectedOptionsList.reduce((total, opt) => total + opt.priceAdjustment, 0);
+    return selectedOptionsList.reduce((total, opt) => total + (opt.priceAdjustmentCents || 0) / 100, 0);
   };
 
   const getPrice = (): number => {
     if (!item) return 0;
     
-    // Use actual Square variation price if available, otherwise fall back to item base price
-    let basePrice = selectedVariation?.price || item.price;
+    // For Square items: Use absolute variation price, or fall back to item.price
+    // For database items: Use item.price + adjustments
+    let basePrice: number;
+    if (item.squareId && selectedVariation) {
+      // Square item with variation - use absolute price
+      basePrice = selectedVariation.price;
+    } else {
+      // Database item or Square item without variation
+      basePrice = item.price || 0;
+    }
     
-    const optionAdjustments = getTotalOptionPriceAdjustment();
-    return basePrice + optionAdjustments;
+    // Add modifier price adjustments (these are still relative)
+    const modifierAdjustments = getSelectedModifiersWithPrices().reduce((total, opt) => total + (opt.priceAdjustmentCents || 0) / 100, 0);
+    
+    // Add legacy option adjustments (for database items)
+    const legacyAdjustments = item.squareId ? 0 : getSelectedOptionsWithPrices().reduce((total, opt) => total + (opt.priceAdjustmentCents || 0) / 100, 0);
+    
+    return basePrice + modifierAdjustments + legacyAdjustments;
   };
 
   const handleAddToCart = () => {
@@ -504,7 +553,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                   <span className="text-3xl font-bold text-green-600">
                     ${getPrice().toFixed(2)}
                   </span>
-                  {(item.hasSizes || item.hasOptions) && (
+                  {(variations.length > 0 || (modifierLists && modifierLists.length > 0)) && (
                     <span className="text-sm text-gray-500 bg-green-50 px-3 py-1 rounded-full border border-green-200">
                       Customizable
                     </span>
@@ -513,23 +562,43 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
               </div>
 
               {/* Variation Selection - Use actual Square variations */}
-              {variations.length > 1 && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Choose Size</CardTitle>
+              {variations.length > 0 && (
+                <Card className="border-gray-100 shadow-sm">
+                  <CardHeader className="pb-4 bg-gray-50/50">
+                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center">
+                      <span className="h-5 w-5 bg-green-600 rounded-full mr-3 flex items-center justify-center">
+                        <span className="h-2 w-2 bg-white rounded-full"></span>
+                      </span>
+                      Choose Your Size
+                    </CardTitle>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Select your preferred size - pricing varies by selection
+                    </p>
                   </CardHeader>
-                  <CardContent className="pt-0">
-                    <RadioGroup value={selectedVariation?.id || ''} onValueChange={(value) => {
-                      const variation = variations.find((v: MenuItemVariation) => v.id === value);
-                      setSelectedVariation(variation || null);
-                    }}>
+                  <CardContent className="pt-6">
+                    <RadioGroup 
+                      value={selectedVariation?.id || ''} 
+                      onValueChange={(value) => {
+                        const variation = variations.find((v: MenuItemVariation) => v.id === value);
+                        setSelectedVariation(variation || null);
+                      }}
+                      className="space-y-3"
+                    >
                       {variations.map((variation: MenuItemVariation) => (
-                        <div key={variation.id} className="flex items-center space-x-2 p-3 border rounded-lg">
-                          <RadioGroupItem value={variation.id} id={variation.id} />
-                          <Label htmlFor={variation.id} className="flex-1">
-                            <div className="flex justify-between">
-                              <span>{variation.name}</span>
-                              <span className="font-semibold">${variation.price.toFixed(2)}</span>
+                        <div key={variation.id} className="flex items-center space-x-3 p-4 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50/30 transition-all duration-200 group">
+                          <RadioGroupItem 
+                            value={variation.id} 
+                            id={variation.id}
+                            className="border-gray-300 text-green-600"
+                          />
+                          <Label htmlFor={variation.id} className="flex-1 cursor-pointer">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-900 group-hover:text-green-900 transition-colors">
+                                {variation.name}
+                              </span>
+                              <span className="text-lg font-bold text-green-600 bg-green-50 px-3 py-1 rounded-md">
+                                ${variation.price.toFixed(2)}
+                              </span>
                             </div>
                           </Label>
                         </div>
@@ -539,24 +608,36 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                 </Card>
               )}
 
-              {/* Square Modifiers Selection */}
-              {item.hasOptions && modifierLists && modifierLists.length > 0 && (
-                <Card>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Customize Your Order</CardTitle>
+              {/* Square Modifiers Selection - Show for all Square items with modifiers */}
+              {modifierLists && modifierLists.length > 0 && (
+                <Card className="border-gray-100 shadow-sm">
+                  <CardHeader className="pb-4 bg-gray-50/50">
+                    <CardTitle className="text-lg font-semibold text-gray-900 flex items-center">
+                      <span className="h-5 w-5 bg-green-600 rounded-full mr-3 flex items-center justify-center">
+                        <span className="h-2 w-2 bg-white rounded-full"></span>
+                      </span>
+                      Customize Your Order
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="pt-0 space-y-4">
-                    {modifierLists.map(modifierList => (
-                      <div key={modifierList.squareId} className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm font-medium text-gray-700">
-                            {modifierList.name}
-                          </Label>
-                          {modifierList.minSelections > 0 && (
-                            <span className="text-xs text-gray-500">
-                              {modifierList.selectionType === 'SINGLE' ? 'Required' : `Min: ${modifierList.minSelections}`}
-                            </span>
-                          )}
+                  <CardContent className="pt-6 space-y-8">
+                    {modifierLists.map((modifierList, index) => (
+                      <div key={modifierList.squareId} className={`${index > 0 ? 'border-t border-gray-100 pt-6' : ''}`}>
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-base font-medium text-gray-900 tracking-tight">
+                              {modifierList.name.replace(/^BS\s+/, '')}
+                            </h3>
+                            {modifierList.minSelections > 0 && (
+                              <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">
+                                {modifierList.selectionType === 'SINGLE' ? 'Required' : `Min: ${modifierList.minSelections}`}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500">
+                            {modifierList.selectionType === 'SINGLE' 
+                              ? 'Choose one option' 
+                              : `Select ${modifierList.maxSelections ? `up to ${modifierList.maxSelections}` : 'multiple'} options`}
+                          </p>
                         </div>
                         
                         {modifierList.selectionType === 'SINGLE' ? (
@@ -564,51 +645,62 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                           <RadioGroup
                             value={selectedModifiers[modifierList.squareId]?.[0] || ""}
                             onValueChange={(value) => handleSingleModifierChange(modifierList.squareId, value)}
+                            className="space-y-3"
                           >
                             {modifierList.modifiers.map(modifier => (
-                              <div key={modifier.squareId} className="flex items-center space-x-2">
+                              <div key={modifier.squareId} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50/30 transition-all duration-200 group">
                                 <RadioGroupItem 
                                   value={modifier.squareId} 
                                   id={`modifier-${modifier.squareId}`}
+                                  className="border-gray-300 text-green-600"
                                   data-testid={`radio-${modifierList.name.toLowerCase()}-${modifier.name.toLowerCase()}`}
                                 />
                                 <Label 
                                   htmlFor={`modifier-${modifier.squareId}`}
-                                  className="flex-1 text-sm text-gray-700 cursor-pointer"
+                                  className="flex-1 cursor-pointer"
                                 >
-                                  {modifier.name}
-                                  {modifier.priceAdjustment > 0 && (
-                                    <span className="text-green-600 ml-1">
-                                      (+${modifier.priceAdjustment.toFixed(2)})
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-gray-900 group-hover:text-green-900 transition-colors">
+                                      {modifier.name}
                                     </span>
-                                  )}
+                                    {modifier.priceMoney > 0 && (
+                                      <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-md">
+                                        +${(modifier.priceMoney / 100).toFixed(2)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </Label>
                               </div>
                             ))}
                           </RadioGroup>
                         ) : (
                           // Checkbox style for multiple selection
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             {modifierList.modifiers.map(modifier => (
-                              <div key={modifier.squareId} className="flex items-center space-x-2">
+                              <div key={modifier.squareId} className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 hover:border-green-300 hover:bg-green-50/30 transition-all duration-200 group">
                                 <Checkbox
                                   id={`modifier-${modifier.squareId}`}
                                   checked={selectedModifiers[modifierList.squareId]?.includes(modifier.squareId) || false}
                                   onCheckedChange={(checked) => 
                                     handleModifierChange(modifierList.squareId, modifier.squareId, checked as boolean)
                                   }
+                                  className="border-gray-300 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
                                   data-testid={`checkbox-${modifierList.name.toLowerCase()}-${modifier.name.toLowerCase()}`}
                                 />
                                 <Label 
                                   htmlFor={`modifier-${modifier.squareId}`}
-                                  className="flex-1 text-sm text-gray-700 cursor-pointer"
+                                  className="flex-1 cursor-pointer"
                                 >
-                                  {modifier.name}
-                                  {modifier.priceAdjustment > 0 && (
-                                    <span className="text-green-600 ml-1">
-                                      (+${modifier.priceAdjustment.toFixed(2)})
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-gray-900 group-hover:text-green-900 transition-colors">
+                                      {modifier.name}
                                     </span>
-                                  )}
+                                    {modifier.priceMoney > 0 && (
+                                      <span className="text-sm font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-md">
+                                        +${(modifier.priceMoney / 100).toFixed(2)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </Label>
                               </div>
                             ))}
@@ -631,11 +723,11 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                 </Card>
               )}
 
-              {/* Legacy Options Selection (for database items) */}
-              {item.hasOptions && flavorOptions && flavorOptions.length > 0 && (
+              {/* Legacy Options Selection DISABLED for Square items */}
+              {!item.squareId && item.hasOptions && flavorOptions && flavorOptions.length > 0 && (
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Customize Your Order</CardTitle>
+                    <CardTitle className="text-base">Options</CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0 space-y-4">
                     {/* Parent options with children */}
@@ -658,8 +750,8 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                           {parentOption.children?.map((childOption) => (
                             <option key={childOption.id} value={childOption.name}>
                               {childOption.name}
-                              {typeof childOption.priceAdjustment === 'number' && childOption.priceAdjustment > 0 && 
-                                ` +$${childOption.priceAdjustment.toFixed(2)}`}
+                              {typeof childOption.priceAdjustmentCents === 'number' && childOption.priceAdjustmentCents > 0 && 
+                                ` +$${(childOption.priceAdjustmentCents / 100).toFixed(2)}`}
                             </option>
                           ))}
                         </select>
@@ -688,8 +780,8 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                             .map((option) => (
                               <option key={option.id} value={option.name}>
                                 {option.name}
-                                {typeof option.priceAdjustment === 'number' && option.priceAdjustment > 0 && 
-                                  ` +$${option.priceAdjustment.toFixed(2)}`}
+                                {typeof option.priceAdjustmentCents === 'number' && option.priceAdjustmentCents > 0 && 
+                                  ` +$${(option.priceAdjustmentCents / 100).toFixed(2)}`}
                               </option>
                             ))
                           }
@@ -752,12 +844,13 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                 </Button>
               )}
               
-              {/* Add to Cart Button */}
+              {/* Add to Cart Button with validation */}
               <Button 
                 onClick={handleAddToCart} 
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 h-auto rounded-xl shadow-lg"
+                disabled={!canAddToCart()}
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 h-auto rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Add to Cart • ${(getPrice() * quantity).toFixed(2)}
+                {canAddToCart() ? `Add to Cart • $${(getPrice() * quantity).toFixed(2)}` : getValidationMessage()}
               </Button>
                   </div>
                 </div> {/* Close scroll-container */}

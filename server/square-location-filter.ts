@@ -16,7 +16,7 @@ const getSquareApiBase = () => {
     : 'https://connect.squareupsandbox.com/v2';
 };
 
-const SQUARE_VERSION = '2023-12-13';
+const SQUARE_VERSION = '2025-08-20';
 
 async function makeSquareRequest(endpoint: string, method: string = 'GET', body?: any) {
   const accessToken = getSquareAccessToken();

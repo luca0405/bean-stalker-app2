@@ -10,8 +10,9 @@ import { useLocation } from "wouter";
 import { useNativeNotification } from "@/services/native-notification-service";
 import { AdminPushNotificationToggle } from "@/components/push-notification-toggle";
 import { QRScanner, type QRCodeResult } from "@/utils/qr-scanner";
+import { ImageUpload } from "@/components/image-upload";
 import { 
-  QrCode, Camera, AlertCircle, X, CreditCard, Info, Loader2, UserIcon, Mail
+  QrCode, Camera, AlertCircle, X, CreditCard, Info, Loader2, UserIcon, Mail, RefreshCw, ImageIcon
 } from "lucide-react";
 import { 
   Alert, AlertDescription, AlertTitle 
@@ -99,6 +100,20 @@ export default function AdminPage() {
   const [updateNotificationDialog, setUpdateNotificationDialog] = useState(false);
   const [updateVersion, setUpdateVersion] = useState("");
   const [includeAdmins, setIncludeAdmins] = useState(false);
+  
+  // Square sync state
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncResults, setSyncResults] = useState<{ 
+    itemsCreated: number; 
+    itemsUpdated: number; 
+    categoriesCreated: number; 
+    categoriesUpdated: number;
+  } | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  
+  // Image upload state
+  const [imageUploadDialog, setImageUploadDialog] = useState(false);
+  const [selectedMenuItemForImage, setSelectedMenuItemForImage] = useState<MenuItem | null>(null);
   
   // QR scanner handlers
   const handleStartScan = async () => {
@@ -542,8 +557,64 @@ export default function AdminPage() {
     name: "",
     displayName: "",
     description: "",
-    displayOrder: 0
+    displayOrder: 0,
+    squareCategoryId: ""
   });
+
+  // Square category fetch state
+  const [fetchingSquareCategory, setFetchingSquareCategory] = useState(false);
+  const [squareCategoryPreview, setSquareCategoryPreview] = useState<{
+    name: string;
+    description?: string;
+  } | null>(null);
+
+  // Fetch Square category details mutation
+  const fetchSquareCategoryMutation = useMutation({
+    mutationFn: async (squareCategoryId: string) => {
+      const res = await apiRequest("GET", `/api/admin/square/category/${squareCategoryId}`);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setSquareCategoryPreview(data);
+      // Auto-fill form fields if they're empty
+      setCategoryForm(prev => ({
+        ...prev,
+        name: prev.name || data.name?.toLowerCase().replace(/\s+/g, '_') || "",
+        displayName: prev.displayName || data.name || "",
+        description: prev.description || data.description || ""
+      }));
+      setFetchingSquareCategory(false);
+      notify({
+        title: "Square Category Found",
+        description: `Found category: ${data.name}`,
+      });
+    },
+    onError: (error: Error) => {
+      setFetchingSquareCategory(false);
+      setSquareCategoryPreview(null);
+      notify({
+        title: "Category Not Found",
+        description: error.message || "Could not fetch Square category details",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle Square category fetch
+  const handleFetchSquareCategory = () => {
+    const squareId = categoryForm.squareCategoryId?.trim();
+    if (!squareId) {
+      notify({
+        title: "Missing Square Category ID",
+        description: "Please enter a Square category ID first",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setFetchingSquareCategory(true);
+    fetchSquareCategoryMutation.mutate(squareId);
+  };
 
   // Update order status mutation
   const updateOrderStatusMutation = useMutation({
@@ -795,6 +866,46 @@ export default function AdminPage() {
     }
   });
   
+  // Update menu item image mutation
+  const updateMenuItemImageMutation = useMutation({
+    mutationFn: async ({ menuItemId, imageUrl }: { menuItemId: number; imageUrl: string }) => {
+      const res = await apiRequest("PATCH", `/api/admin/menu/${menuItemId}/image`, { imageUrl });
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/menu"] });
+      setImageUploadDialog(false);
+      setSelectedMenuItemForImage(null);
+      notify({
+        title: "Image Updated",
+        description: "Menu item image has been updated successfully."
+      });
+    },
+    onError: (error: Error) => {
+      notify({
+        title: "Update Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Handle image upload for menu item
+  const handleMenuItemImageUpload = (imageUrl: string) => {
+    if (selectedMenuItemForImage) {
+      updateMenuItemImageMutation.mutate({
+        menuItemId: selectedMenuItemForImage.id,
+        imageUrl
+      });
+    }
+  };
+  
+  // Open image upload dialog
+  const openImageUploadDialog = (menuItem: MenuItem) => {
+    setSelectedMenuItemForImage(menuItem);
+    setImageUploadDialog(true);
+  };
+  
   // Create category mutation
   const createCategoryMutation = useMutation({
     mutationFn: async (category: InsertMenuCategory) => {
@@ -860,6 +971,47 @@ export default function AdminPage() {
     onError: (error: Error) => {
       notify({
         title: "Notification Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Square sync mutation
+  const squareSyncMutation = useMutation({
+    mutationFn: async () => {
+      setSyncLoading(true);
+      setSyncError(null);
+      setSyncResults(null);
+      
+      const res = await apiRequest("POST", "/api/admin/square/sync-from-square");
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setSyncLoading(false);
+      setSyncResults({
+        itemsCreated: data.itemsCreated || 0,
+        itemsUpdated: data.itemsUpdated || 0,
+        categoriesCreated: data.categoriesCreated || 0,
+        categoriesUpdated: data.categoriesUpdated || 0
+      });
+      
+      // Invalidate menu and category caches
+      queryClient.invalidateQueries({ queryKey: ["/api/menu"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/menu/categories"] });
+      
+      notify({
+        title: "Square Sync Completed",
+        description: `Successfully synced ${data.itemsCreated + data.itemsUpdated} items and ${data.categoriesCreated + data.categoriesUpdated} categories from Square.`,
+      });
+    },
+    onError: (error: Error) => {
+      setSyncLoading(false);
+      setSyncError(error.message);
+      
+      notify({
+        title: "Square Sync Failed",
         description: error.message,
         variant: "destructive",
       });
@@ -1138,10 +1290,13 @@ export default function AdminPage() {
       name: "",
       displayName: "",
       description: "",
-      displayOrder: 0
+      displayOrder: 0,
+      squareCategoryId: ""
     });
     setIsEditingCategory(false);
     setSelectedCategory(null);
+    setSquareCategoryPreview(null);
+    setFetchingSquareCategory(false);
   }
   
   const openCategoryDialog = (category?: MenuCategory) => {
@@ -1776,11 +1931,12 @@ export default function AdminPage() {
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="menu">Menu</TabsTrigger>
             <TabsTrigger value="qrscanner">QR Scanner</TabsTrigger>
+            <TabsTrigger value="squaresync">Square Sync</TabsTrigger>
           </TabsList>
           
           {/* Quick Access Buttons */}
@@ -2053,6 +2209,7 @@ export default function AdminPage() {
                           <TableHead>Name</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead>Price</TableHead>
+                          <TableHead>Image</TableHead>
                           <TableHead className="w-[150px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -2062,17 +2219,6 @@ export default function AdminPage() {
                             <TableCell className="font-medium">#{item.id}</TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
-                                {item.imageUrl ? (
-                                  <img 
-                                    src={item.imageUrl} 
-                                    alt={item.name} 
-                                    className="w-10 h-10 object-cover rounded-md"
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 bg-gray-200 rounded-md flex items-center justify-center">
-                                    <CoffeeIcon className="h-5 w-5 text-gray-500" />
-                                  </div>
-                                )}
                                 <span>{item.name}</span>
                               </div>
                             </TableCell>
@@ -2087,6 +2233,31 @@ export default function AdminPage() {
                               ) : (
                                 formatCurrency(item.price)
                               )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                {item.imageUrl ? (
+                                  <img 
+                                    src={item.imageUrl} 
+                                    alt={item.name} 
+                                    className="w-10 h-10 object-cover rounded-md"
+                                    data-testid={`img-preview-${item.id}`}
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 bg-muted rounded-md flex items-center justify-center">
+                                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                  </div>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openImageUploadDialog(item)}
+                                  data-testid={`button-upload-image-${item.id}`}
+                                >
+                                  <ImageIcon className="h-4 w-4 mr-1" />
+                                  {item.imageUrl ? 'Change' : 'Upload'}
+                                </Button>
+                              </div>
                             </TableCell>
                             <TableCell className="flex space-x-1">
                               <Button
@@ -2303,6 +2474,96 @@ export default function AdminPage() {
                     </Card>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Square Sync Tab */}
+          <TabsContent value="squaresync">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <RefreshCw className="h-5 w-5 text-primary" />
+                  Square Sync
+                </CardTitle>
+                <CardDescription>
+                  Sync menu items and categories from Square POS to the local database
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-4">
+                  <div className="flex">
+                    <Info className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        Square Sync Information
+                      </h3>
+                      <div className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                        <p>
+                          This feature synchronizes your Square POS catalog with the local database. 
+                          It will create new items and update existing ones based on your Square catalog.
+                        </p>
+                        <ul className="mt-2 list-disc list-inside space-y-1">
+                          <li>New categories from Square will be created automatically</li>
+                          <li>Existing items will be updated with current Square pricing and details</li>
+                          <li>Items not in Square will remain unchanged in the local database</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button 
+                    onClick={() => squareSyncMutation.mutate()}
+                    disabled={syncLoading}
+                    className="flex items-center gap-2"
+                    data-testid="button-sync-from-square"
+                  >
+                    {syncLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4" />
+                    )}
+                    {syncLoading ? "Syncing..." : "Sync from Square"}
+                  </Button>
+                </div>
+
+                {syncError && (
+                  <Alert variant="destructive" data-testid="alert-sync-error">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Sync Failed</AlertTitle>
+                    <AlertDescription>{syncError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {syncResults && (
+                  <Alert data-testid="alert-sync-success">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Sync Completed Successfully</AlertTitle>
+                    <AlertDescription>
+                      <div className="mt-2 space-y-1">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="font-medium" data-testid="text-items-created">Items Created:</span> {syncResults.itemsCreated}
+                          </div>
+                          <div>
+                            <span className="font-medium" data-testid="text-items-updated">Items Updated:</span> {syncResults.itemsUpdated}
+                          </div>
+                          <div>
+                            <span className="font-medium" data-testid="text-categories-created">Categories Created:</span> {syncResults.categoriesCreated}
+                          </div>
+                          <div>
+                            <span className="font-medium" data-testid="text-categories-updated">Categories Updated:</span> {syncResults.categoriesUpdated}
+                          </div>
+                        </div>
+                        <div className="mt-3 text-sm font-medium" data-testid="text-total-synced">
+                          Total Items Synced: {syncResults.itemsCreated + syncResults.itemsUpdated}
+                        </div>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -3169,6 +3430,58 @@ export default function AdminPage() {
           </DialogHeader>
           
           <div className="space-y-4 py-4">
+            {/* Square Category ID */}
+            <div className="space-y-2">
+              <Label htmlFor="square-category-id">Square Category ID</Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="square-category-id"
+                  value={categoryForm.squareCategoryId || ""}
+                  onChange={(e) => {
+                    handleCategoryFormChange("squareCategoryId", e.target.value);
+                    setSquareCategoryPreview(null); // Clear preview when ID changes
+                  }}
+                  placeholder="e.g., F5GZL5EIQQY5G4RX235HMI6L"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleFetchSquareCategory}
+                  disabled={fetchingSquareCategory || !categoryForm.squareCategoryId?.trim()}
+                >
+                  {fetchingSquareCategory ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Fetch"
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter a Square category ID and click "Fetch" to auto-fill the form
+              </p>
+            </div>
+
+            {/* Square Category Preview */}
+            {squareCategoryPreview && (
+              <div className="space-y-2">
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-green-800">Square Category Found</span>
+                  </div>
+                  <p className="text-sm text-green-700">
+                    <strong>Name:</strong> {squareCategoryPreview.name}
+                  </p>
+                  {squareCategoryPreview.description && (
+                    <p className="text-sm text-green-700 mt-1">
+                      <strong>Description:</strong> {squareCategoryPreview.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="name">Category Key *</Label>
               <Input
@@ -3399,6 +3712,48 @@ export default function AdminPage() {
                   Send Notification
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Upload Dialog */}
+      <Dialog open={imageUploadDialog} onOpenChange={setImageUploadDialog}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5" />
+              Upload Menu Item Image
+            </DialogTitle>
+            <DialogDescription>
+              {selectedMenuItemForImage 
+                ? `Upload or change the image for "${selectedMenuItemForImage.name}"`
+                : "Upload a new image for this menu item"
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <ImageUpload
+              onImageUploaded={handleMenuItemImageUpload}
+              currentImageUrl={selectedMenuItemForImage?.imageUrl}
+              maxSizeInMB={5}
+              disabled={updateMenuItemImageMutation.isPending}
+              data-testid="image-upload-component"
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setImageUploadDialog(false);
+                setSelectedMenuItemForImage(null);
+              }}
+              disabled={updateMenuItemImageMutation.isPending}
+              data-testid="button-cancel-upload"
+            >
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>

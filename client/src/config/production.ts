@@ -3,7 +3,7 @@ export const PRODUCTION_CONFIG = {
   // App metadata for production
   app: {
     displayName: 'Bean Stalker',
-    version: '1.0.0',
+    version: '1.3.0',
     environment: 'production',
     bundleId: 'com.beanstalker.member',
   },
