@@ -9,6 +9,7 @@ import { Link, useLocation } from "wouter";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useNativeNotification } from "@/services/native-notification-service";
+import { getMobileCompatibleImageUrl } from "@/utils/mobile-image-utils";
 
 
 export default function CartPage() {
@@ -205,7 +206,7 @@ export default function CartPage() {
                           <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                             {item.imageUrl ? (
                               <img 
-                                src={item.imageUrl} 
+                                src={getMobileCompatibleImageUrl(item.imageUrl)} 
                                 alt={item.name}
                                 className="w-full h-full object-cover"
                               />

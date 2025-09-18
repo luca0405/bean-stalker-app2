@@ -6,6 +6,7 @@ import { CartItem, CartItemOption } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { getMobileCompatibleImageUrl } from "@/utils/mobile-image-utils";
 
 interface CartItemCardProps {
   item: CartItem;
@@ -85,7 +86,7 @@ export function CartItemCard({ item }: CartItemCardProps) {
         >
           {item.imageUrl ? (
             <img 
-              src={item.imageUrl} 
+              src={getMobileCompatibleImageUrl(item.imageUrl)} 
               alt={item.name} 
               className="h-full w-full object-cover" 
             />
