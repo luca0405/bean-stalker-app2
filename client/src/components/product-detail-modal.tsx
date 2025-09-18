@@ -485,7 +485,7 @@ export function ProductDetailModal({ item, isOpen, onClose }: ProductDetailModal
                 <div className="scroll-container momentum-scroll">
 
                   {/* Content */}
-                  <div className="p-6 space-y-6 pb-24">
+                  <div className="p-3 space-y-6 pb-24">
               {/* Product Image and Info */}
               <div className="relative z-0 mb-6">
                 <div className="aspect-video w-full bg-gray-100 rounded-2xl overflow-hidden mb-6">
